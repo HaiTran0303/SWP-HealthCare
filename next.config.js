@@ -33,7 +33,9 @@ const nextConfig = {
   images: {
     domains: [
       "d3fdwgxfvcmuj8.cloudfront.net",
-      // thêm các domain khác nếu
+      "d4vjsyqlv6u6j.cloudfront.net",
+      "gender-healthcare.org",
+      // thêm các domain khác nếu cần
     ],
   },
 };
