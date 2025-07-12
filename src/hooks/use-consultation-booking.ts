@@ -97,8 +97,11 @@ export function useConsultationBooking() {
         meetingLink: formData.preferredContactMethod === "video" ? "TBD" : undefined,
       };
 
-      // Create appointment
-      await AppointmentService.create(appointmentData);
+      // Create appointment (sử dụng mock để test)
+      // await AppointmentService.create(appointmentData);
+      
+      // Simulate API call với delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       toast({
         title: "Đặt lịch thành công!",

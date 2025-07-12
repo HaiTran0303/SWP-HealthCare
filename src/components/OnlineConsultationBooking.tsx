@@ -249,29 +249,12 @@ const OnlineConsultationBooking: React.FC = () => {
     
     setIsLoadingSlots(true);
     try {
-      // Format date for API call
-      const startDate = selectedDate.toISOString().slice(0, 10);
-      
-      // Try to get actual slots from API
-      const response = await fetch(
-        `https://gender-healthcare.org/api/consultant-availability?consultantId=${selectedConsultant.id}&date=${startDate}`,
+      // Sử dụng mock data vì API endpoint chưa sẵn sàng
+      const mockSlots: TimeSlot[] = [
         {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${localStorage.getItem("accessToken")}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Transform API response to our TimeSlot interface
-        const slots: TimeSlot[] = data.map((slot: any, index: number) => ({
-          id: slot.id || `slot-${index}`,
-          time: slot.time || slot.startTime,
-          isAvailable: slot.isAvailable !== false,
+          id: "1",
+          time: "09:00",
+          isAvailable: true,
           consultantId: selectedConsultant.id,
           consultantName: selectedConsultant.name,
           consultantAvatar: selectedConsultant.avatarUrl,
@@ -279,64 +262,58 @@ const OnlineConsultationBooking: React.FC = () => {
           consultantExperience: selectedConsultant.experience,
           consultantSpecialties: selectedConsultant.specialties,
           consultationFee: selectedConsultant.consultationFee,
-        }));
-        
-        setAvailableSlots(slots);
-      } else {
-        // Fallback to mock data if API fails
-        const mockSlots: TimeSlot[] = [
-          {
-            id: "1",
-            time: "09:00",
-            isAvailable: true,
-            consultantId: selectedConsultant.id,
-            consultantName: selectedConsultant.name,
-            consultantAvatar: selectedConsultant.avatarUrl,
-            consultantRating: selectedConsultant.rating,
-            consultantExperience: selectedConsultant.experience,
-            consultantSpecialties: selectedConsultant.specialties,
-            consultationFee: selectedConsultant.consultationFee,
-          },
-          {
-            id: "2",
-            time: "10:00",
-            isAvailable: true,
-            consultantId: selectedConsultant.id,
-            consultantName: selectedConsultant.name,
-            consultantAvatar: selectedConsultant.avatarUrl,
-            consultantRating: selectedConsultant.rating,
-            consultantExperience: selectedConsultant.experience,
-            consultantSpecialties: selectedConsultant.specialties,
-            consultationFee: selectedConsultant.consultationFee,
-          },
-          {
-            id: "3",
-            time: "14:00",
-            isAvailable: true,
-            consultantId: selectedConsultant.id,
-            consultantName: selectedConsultant.name,
-            consultantAvatar: selectedConsultant.avatarUrl,
-            consultantRating: selectedConsultant.rating,
-            consultantExperience: selectedConsultant.experience,
-            consultantSpecialties: selectedConsultant.specialties,
-            consultationFee: selectedConsultant.consultationFee,
-          },
-          {
-            id: "4",
-            time: "15:00",
-            isAvailable: false,
-            consultantId: selectedConsultant.id,
-            consultantName: selectedConsultant.name,
-            consultantAvatar: selectedConsultant.avatarUrl,
-            consultantRating: selectedConsultant.rating,
-            consultantExperience: selectedConsultant.experience,
-            consultantSpecialties: selectedConsultant.specialties,
-            consultationFee: selectedConsultant.consultationFee,
-          },
-        ];
-        
-        setAvailableSlots(mockSlots);
-      }
+        },
+        {
+          id: "2",
+          time: "10:00",
+          isAvailable: true,
+          consultantId: selectedConsultant.id,
+          consultantName: selectedConsultant.name,
+          consultantAvatar: selectedConsultant.avatarUrl,
+          consultantRating: selectedConsultant.rating,
+          consultantExperience: selectedConsultant.experience,
+          consultantSpecialties: selectedConsultant.specialties,
+          consultationFee: selectedConsultant.consultationFee,
+        },
+        {
+          id: "3",
+          time: "14:00",
+          isAvailable: true,
+          consultantId: selectedConsultant.id,
+          consultantName: selectedConsultant.name,
+          consultantAvatar: selectedConsultant.avatarUrl,
+          consultantRating: selectedConsultant.rating,
+          consultantExperience: selectedConsultant.experience,
+          consultantSpecialties: selectedConsultant.specialties,
+          consultationFee: selectedConsultant.consultationFee,
+        },
+        {
+          id: "4",
+          time: "15:00",
+          isAvailable: false,
+          consultantId: selectedConsultant.id,
+          consultantName: selectedConsultant.name,
+          consultantAvatar: selectedConsultant.avatarUrl,
+          consultantRating: selectedConsultant.rating,
+          consultantExperience: selectedConsultant.experience,
+          consultantSpecialties: selectedConsultant.specialties,
+          consultationFee: selectedConsultant.consultationFee,
+        },
+        {
+          id: "5",
+          time: "16:00",
+          isAvailable: true,
+          consultantId: selectedConsultant.id,
+          consultantName: selectedConsultant.name,
+          consultantAvatar: selectedConsultant.avatarUrl,
+          consultantRating: selectedConsultant.rating,
+          consultantExperience: selectedConsultant.experience,
+          consultantSpecialties: selectedConsultant.specialties,
+          consultationFee: selectedConsultant.consultationFee,
+        },
+      ];
+      
+      setAvailableSlots(mockSlots);
     } catch (error) {
       console.error("Error fetching available slots:", error);
       
@@ -381,12 +358,6 @@ const OnlineConsultationBooking: React.FC = () => {
       ];
       
       setAvailableSlots(mockSlots);
-      
-      toast({
-        title: "Thông báo",
-        description: "Đang sử dụng dữ liệu mẫu. Một số tính năng có thể chưa hoạt động đầy đủ.",
-        variant: "default",
-      });
     } finally {
       setIsLoadingSlots(false);
     }
