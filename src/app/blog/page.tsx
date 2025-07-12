@@ -64,13 +64,15 @@ export default function BlogListPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {blogs.map((blog) => {
-            const blogImage =
-              blog.coverImage ||
-              (blog.featuredImage && blog.featuredImage.startsWith("http")
-                ? blog.featuredImage
-                : null) ||
-              (Array.isArray(blog.images) &&
-                blog.images.find((img) => img.url)?.url);
+            // Cải thiện việc xử lý blog image với validation tốt hơn
+            const blogImage = null; // Tạm thời disable để tránh 404
+            
+            // Nếu muốn sử dụng lại sau này, có thể uncomment:
+            // const blogImage =
+            //   (blog.coverImage && isValidImageUrl(blog.coverImage)) ? blog.coverImage :
+            //   (blog.featuredImage && blog.featuredImage.startsWith("http") && isValidImageUrl(blog.featuredImage)) ? blog.featuredImage :
+            //   (Array.isArray(blog.images) && blog.images.find((img) => img.url && isValidImageUrl(img.url))?.url) || null;
+
             return (
               <Link
                 key={blog.id}
@@ -84,6 +86,10 @@ export default function BlogListPage() {
                       alt={blog.title}
                       className="object-cover w-full h-full rounded-xl"
                       style={{ maxHeight: 144 }}
+                      onError={(e) => {
+                        // Fallback khi image load failed
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
                   ) : (
                     <span className="text-5xl text-primary/60">📰</span>

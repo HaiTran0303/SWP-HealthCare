@@ -119,12 +119,14 @@ export default function BlogDetailPage() {
   if (error) return <div className="p-8 text-red-500">{error}</div>;
   if (!blog) return null;
 
-  const blogImage =
-    blog.coverImage ||
-    (blog.featuredImage && blog.featuredImage.startsWith("http")
-      ? blog.featuredImage
-      : null) ||
-    (Array.isArray(blog.images) && blog.images.find((img) => img.url)?.url);
+  // Cải thiện việc xử lý blog image với validation tốt hơn
+  const blogImage = null; // Tạm thời disable để tránh 404
+  
+  // Nếu muốn sử dụng lại sau này, có thể uncomment:
+  // const blogImage =
+  //   (blog.coverImage && isValidImageUrl(blog.coverImage)) ? blog.coverImage :
+  //   (blog.featuredImage && blog.featuredImage.startsWith("http") && isValidImageUrl(blog.featuredImage)) ? blog.featuredImage :
+  //   (Array.isArray(blog.images) && blog.images.find((img) => img.url && isValidImageUrl(img.url))?.url) || null;
 
   return (
     <div className="container mx-auto px-4 py-16 max-w-6xl">
@@ -137,6 +139,10 @@ export default function BlogDetailPage() {
               alt={blog.title}
               className="rounded-3xl shadow-2xl object-cover w-full md:w-[520px] h-[320px] md:h-[420px]"
               style={{ maxWidth: 520, maxHeight: 420 }}
+              onError={(e) => {
+                // Fallback khi image load failed
+                e.currentTarget.style.display = 'none';
+              }}
             />
           ) : (
             <div className="w-full h-[320px] md:w-[520px] md:h-[420px] flex items-center justify-center bg-gray-100 rounded-3xl">

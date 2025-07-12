@@ -265,9 +265,7 @@ const UserAppointmentManagement: React.FC = () => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
-  console.log("[UserAppointmentManagement] Component rendered");
-  console.log("[UserAppointmentManagement] user:", user);
-  console.log("[UserAppointmentManagement] appointments:", appointments.length);
+
 
   const getStatusIcon = (status: AppointmentStatus) => {
     switch (status) {
@@ -308,11 +306,7 @@ const UserAppointmentManagement: React.FC = () => {
   }, []);
 
   const fetchAppointments = async () => {
-    console.log("[UserAppointmentManagement] fetchAppointments called, user:", user);
-    if (!user) {
-      console.log("[UserAppointmentManagement] No user, returning");
-      return;
-    }
+    if (!user) return;
     
     setIsLoading(true);
     try {
@@ -384,16 +378,7 @@ const UserAppointmentManagement: React.FC = () => {
       // setAppointments(response.data || response);
     } catch (error) {
       console.error("Error fetching appointments:", error);
-      
-      // Fallback data when error occurs
-      const fallbackAppointments: AppointmentDetails[] = [];
-      setAppointments(fallbackAppointments);
-      
-      toast({
-        title: "Thông báo",
-        description: "Đang sử dụng dữ liệu mẫu. Một số tính năng có thể chưa hoạt động đầy đủ.",
-        variant: "default",
-      });
+      setAppointments([]);
     } finally {
       setIsLoading(false);
     }

@@ -26,8 +26,6 @@ function AppointmentErrorBoundary({ children }: { children: React.ReactNode }) {
 }
 
 export default function MyAppointmentsPage() {
-  console.log("[MyAppointmentsPage] Rendering appointments page");
-  
   return (
     <Suspense fallback={<div className="flex justify-center items-center h-64">Đang tải...</div>}>
       <AppointmentErrorBoundary>

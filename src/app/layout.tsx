@@ -105,6 +105,31 @@ export default function RootLayout({
               <Toaster />
               {/* Floating Chat Bubble */}
               <Link
+                href="/api-test"
+                style={{
+                  position: "fixed",
+                  bottom: 90,
+                  right: 24,
+                  zIndex: 1000,
+                  background: "#16a34a",
+                  color: "white",
+                  borderRadius: "50%",
+                  width: 40,
+                  height: 40,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  fontSize: 18,
+                  cursor: "pointer",
+                  transition: "background 0.2s",
+                }}
+                title="API Test"
+              >
+                🔧
+              </Link>
+              
+              <Link
                 href="/chat"
                 style={{
                   position: "fixed",

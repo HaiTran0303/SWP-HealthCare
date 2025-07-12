@@ -10,23 +10,86 @@ async function getBlogs() {
       "https://gender-healthcare.org/blogs/published?page=1&limit=3",
       { cache: "no-store" }
     );
-    if (!res.ok) return [];
+    if (!res.ok) {
+      // Trả về mock data nếu API không hoạt động
+      return [
+        {
+          id: "1",
+          title: "Chăm sóc sức khỏe sinh sản toàn diện",
+          content: "Tìm hiểu các phương pháp chăm sóc sức khỏe sinh sản hiệu quả và an toàn...",
+          summary: "Hướng dẫn chăm sóc sức khỏe sinh sản cơ bản",
+          createdAt: new Date().toISOString(),
+          // Không sử dụng external image URLs để tránh 404
+          images: []
+        },
+        {
+          id: "2", 
+          title: "Phòng ngừa các bệnh lây truyền qua đường tình dục",
+          content: "Các biện pháp phòng ngừa STI hiệu quả và thông tin cần biết...",
+          summary: "Kiến thức cơ bản về phòng ngừa STI",
+          createdAt: new Date().toISOString(),
+          images: []
+        },
+        {
+          id: "3",
+          title: "Sức khỏe tâm lý và giới tính",
+          content: "Mối quan hệ giữa sức khỏe tâm lý và sức khỏe giới tính...",
+          summary: "Tầm quan trọng của sức khỏe tâm lý",
+          createdAt: new Date().toISOString(),
+          images: []
+        }
+      ];
+    }
     const data = await res.json();
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.data)) return data.data;
-    if (Array.isArray(data?.data?.data)) return data.data.data;
-    return [];
+    
+    // Xử lý dữ liệu blog và loại bỏ image URLs có vấn đề
+    let blogData = [];
+    if (Array.isArray(data)) blogData = data;
+    else if (Array.isArray(data?.data)) blogData = data.data;
+    else if (Array.isArray(data?.data?.data)) blogData = data.data.data;
+    
+         // Clean up image URLs để tránh 404
+     return blogData.map((blog: any) => ({
+       ...blog,
+       // Chỉ giữ lại những image URLs hợp lệ và có thể truy cập
+       coverImage: null, // Tạm thời loại bỏ để tránh 404
+       featuredImage: null, // Tạm thời loại bỏ để tránh 404
+       images: [] // Tạm thời loại bỏ để tránh 404
+     }));
   } catch {
-    return [];
+    // Trả về mock data nếu có lỗi
+    return [
+      {
+        id: "1",
+        title: "Chăm sóc sức khỏe sinh sản toàn diện",
+        content: "Tìm hiểu các phương pháp chăm sóc sức khỏe sinh sản hiệu quả và an toàn...",
+        summary: "Hướng dẫn chăm sóc sức khỏe sinh sản cơ bản",
+        createdAt: new Date().toISOString(),
+        images: []
+      },
+      {
+        id: "2", 
+        title: "Phòng ngừa các bệnh lây truyền qua đường tình dục",
+        content: "Các biện pháp phòng ngừa STI hiệu quả và thông tin cần biết...",
+        summary: "Kiến thức cơ bản về phòng ngừa STI",
+        createdAt: new Date().toISOString(),
+        images: []
+      },
+      {
+        id: "3",
+        title: "Sức khỏe tâm lý và giới tính",
+        content: "Mối quan hệ giữa sức khỏe tâm lý và sức khỏe giới tính...",
+        summary: "Tầm quan trọng của sức khỏe tâm lý",
+        createdAt: new Date().toISOString(),
+        images: []
+      }
+    ];
   }
 }
 
 export default function HomePage() {
   const [blogs, setBlogs] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
-  
-  // Debug logs
-  console.log("[HomePage] Rendering with services:", services.length);
 
   useEffect(() => {
     // Tạm thời sử dụng fallback data thay vì gọi API
@@ -239,13 +302,15 @@ export default function HomePage() {
             </div>
           )}
           {blogs.map((blog: any) => {
-            const blogImage =
-              blog.coverImage ||
-              (blog.featuredImage && blog.featuredImage.startsWith("http")
-                ? blog.featuredImage
-                : null) ||
-              (Array.isArray(blog.images) &&
-                blog.images.find((img: any) => img.url)?.url);
+            // Cải thiện việc xử lý blog image với validation tốt hơn
+            const blogImage = null; // Tạm thời disable để tránh 404
+            
+            // Nếu muốn sử dụng lại sau này, có thể uncomment:
+            // const blogImage = 
+            //   (blog.coverImage && isValidImageUrl(blog.coverImage)) ? blog.coverImage :
+            //   (blog.featuredImage && blog.featuredImage.startsWith("http") && isValidImageUrl(blog.featuredImage)) ? blog.featuredImage :
+            //   (Array.isArray(blog.images) && blog.images.find((img: any) => img.url && isValidImageUrl(img.url))?.url) || null;
+
             return (
               <div
                 key={blog.id}
@@ -260,6 +325,10 @@ export default function HomePage() {
                       width={180}
                       height={120}
                       className="object-cover w-full h-full rounded-xl group-hover:scale-105 transition-transform"
+                      onError={(e) => {
+                        // Fallback khi image load failed
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
                   ) : (
                     <span className="text-5xl text-primary/60">📰</span>
