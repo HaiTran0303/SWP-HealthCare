@@ -18,6 +18,10 @@ import { LogOut, User, Calendar } from "lucide-react";
 export default function Header() {
   const { user, logout, isAuthenticated, isLoading } = useAuth();
 
+  console.log("[Header] user:", user);
+  console.log("[Header] isAuthenticated:", isAuthenticated);
+  console.log("[Header] isLoading:", isLoading);
+
   if (isLoading) return null;
 
   return (
@@ -70,6 +74,15 @@ export default function Header() {
                       <Link href="/profile/appointments" className="w-full">
                         <Calendar className="mr-2 h-4 w-4" />
                         Lịch tư vấn của tôi
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {/* Debug: Always show for testing */}
+                  {user && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile/appointments" className="w-full">
+                        <Calendar className="mr-2 h-4 w-4" />
+                        [DEBUG] Lịch tư vấn của tôi
                       </Link>
                     </DropdownMenuItem>
                   )}

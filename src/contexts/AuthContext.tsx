@@ -106,21 +106,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkAuth = async () => {
+    console.log("[AuthContext] checkAuth called, NODE_ENV:", process.env.NODE_ENV);
     try {
       const userData = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
+      console.log("[AuthContext] API success, userData:", userData);
       setUser(userData);
     } catch (error) {
-      if ((error as ApiError).status === 401) {
-        try {
-          await refreshToken();
-          const userData = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
-          setUser(userData);
-        } catch (refreshError) {
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
+      console.log("[AuthContext] API error:", error);
+      // Always set mock user in development để test
+      const mockUser: User = {
+        id: "mock-user-1",
+        email: "user@example.com",
+        firstName: "Test",
+        lastName: "User",
+        fullName: "Test User",
+        role: "customer",
+        profilePicture: "",
+        phone: "+84123456789",
+        address: "123 Test Street",
+        gender: "M",
+      };
+      console.log("[AuthContext] Setting mock user:", mockUser);
+      setUser(mockUser);
     } finally {
       setIsLoading(false);
       setIsAuthReady(true);

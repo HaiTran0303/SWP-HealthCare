@@ -24,20 +24,77 @@ async function getBlogs() {
 export default function HomePage() {
   const [blogs, setBlogs] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
+  
+  // Debug logs
+  console.log("[HomePage] Rendering with services:", services.length);
 
   useEffect(() => {
-    PackageServiceService.getAll().then((res: any) => {
-      const arr = Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res)
-          ? res
-          : [];
-      arr.sort(
-        (a: any, b: any) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setServices(arr.slice(0, 3));
-    });
+    // Tạm thời sử dụng fallback data thay vì gọi API
+    const fallbackServices = [
+      {
+        id: "1",
+        service: {
+          name: "Tư vấn sức khỏe sinh sản",
+          shortDescription: "Tư vấn trực tuyến về sức khỏe sinh sản với chuyên gia",
+          description: "Dịch vụ tư vấn toàn diện về sức khỏe sinh sản",
+          price: 300000,
+        },
+        package: {
+          name: "Gói cơ bản",
+          maxServicesPerMonth: 2,
+        },
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: "2",
+        service: {
+          name: "Xét nghiệm STI",
+          shortDescription: "Xét nghiệm và tư vấn về các bệnh lây truyền qua đường tình dục",
+          description: "Dịch vụ xét nghiệm STI an toàn và bảo mật",
+          price: 500000,
+        },
+        package: {
+          name: "Gói tiêu chuẩn",
+          maxServicesPerMonth: 1,
+        },
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: "3",
+        service: {
+          name: "Theo dõi chu kỳ",
+          shortDescription: "Theo dõi và phân tích chu kỳ kinh nguyệt",
+          description: "Dịch vụ theo dõi chu kỳ kinh nguyệt chuyên nghiệp",
+          price: 150000,
+        },
+        package: {
+          name: "Gói theo dõi",
+          maxServicesPerMonth: 4,
+        },
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    
+    setServices(fallbackServices);
+    
+    // Uncomment when API is ready
+    // PackageServiceService.getAll()
+    //   .then((res: any) => {
+    //     const arr = Array.isArray(res?.data)
+    //       ? res.data
+    //       : Array.isArray(res)
+    //         ? res
+    //         : [];
+    //     arr.sort(
+    //       (a: any, b: any) =>
+    //         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    //     );
+    //     setServices(arr.slice(0, 3));
+    //   })
+    //   .catch((error) => {
+    //     console.error("Error fetching package services:", error);
+    //     setServices(fallbackServices);
+    //   });
   }, []);
 
   useEffect(() => {

@@ -265,6 +265,10 @@ const UserAppointmentManagement: React.FC = () => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
+  console.log("[UserAppointmentManagement] Component rendered");
+  console.log("[UserAppointmentManagement] user:", user);
+  console.log("[UserAppointmentManagement] appointments:", appointments.length);
+
   const getStatusIcon = (status: AppointmentStatus) => {
     switch (status) {
       case "pending":
@@ -304,23 +308,91 @@ const UserAppointmentManagement: React.FC = () => {
   }, []);
 
   const fetchAppointments = async () => {
-    if (!user) return;
+    console.log("[UserAppointmentManagement] fetchAppointments called, user:", user);
+    if (!user) {
+      console.log("[UserAppointmentManagement] No user, returning");
+      return;
+    }
     
     setIsLoading(true);
     try {
-      const response: any = await AppointmentService.getAll({
-        userId: user.id,
-        sortBy: "appointmentDate",
-        sortOrder: "DESC",
-      });
+      // Tạm thời sử dụng mock data vì API chưa sẵn sàng
+      const mockAppointments: AppointmentDetails[] = [
+        {
+          id: "apt-001",
+          consultantId: "consultant-1",
+          consultant: {
+            id: "consultant-1",
+            name: "BS. Nguyễn Văn A",
+            avatar: "",
+            specialties: ["Sức khỏe sinh sản", "Tư vấn tâm lý"],
+            qualification: "Bác sĩ chuyên khoa Sản phụ khoa",
+            experience: "8 năm kinh nghiệm",
+            rating: 4.8,
+          },
+          appointmentDate: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
+          status: "pending" as AppointmentStatus,
+          notes: "Lý do tư vấn: Cần tư vấn về sức khỏe sinh sản\n\nTriệu chứng: Mệt mỏi, đau bụng\n\nPhương thức liên hệ mong muốn: Video call",
+          meetingLink: "https://meet.google.com/xxx-xxx-xxx",
+          location: "online",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          services: [
+            {
+              id: "service-1",
+              name: "Tư vấn sức khỏe sinh sản",
+              description: "Tư vấn trực tuyến về sức khỏe sinh sản"
+            }
+          ]
+        },
+        {
+          id: "apt-002",
+          consultantId: "consultant-2",
+          consultant: {
+            id: "consultant-2",
+            name: "BS. Trần Thị B",
+            avatar: "",
+            specialties: ["Nội tiết", "Sức khỏe phụ nữ"],
+            qualification: "Thạc sĩ Y khoa",
+            experience: "6 năm kinh nghiệm",
+            rating: 4.7,
+          },
+          appointmentDate: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+          status: "completed" as AppointmentStatus,
+          notes: "Lý do tư vấn: Khám định kỳ\n\nPhương thức liên hệ mong muốn: Điện thoại",
+          location: "online",
+          createdAt: new Date(Date.now() - 172800000).toISOString(),
+          updatedAt: new Date(Date.now() - 86400000).toISOString(),
+          services: [
+            {
+              id: "service-2",
+              name: "Khám định kỳ",
+              description: "Khám sức khỏe định kỳ"
+            }
+          ]
+        }
+      ];
       
-      setAppointments(response.data || response);
+      setAppointments(mockAppointments);
+      
+      // Uncomment when API is ready
+      // const response: any = await AppointmentService.getAll({
+      //   userId: user.id,
+      //   sortBy: "appointmentDate",
+      //   sortOrder: "DESC",
+      // });
+      // setAppointments(response.data || response);
     } catch (error) {
       console.error("Error fetching appointments:", error);
+      
+      // Fallback data when error occurs
+      const fallbackAppointments: AppointmentDetails[] = [];
+      setAppointments(fallbackAppointments);
+      
       toast({
-        title: "Lỗi",
-        description: "Không thể tải danh sách lịch hẹn",
-        variant: "destructive",
+        title: "Thông báo",
+        description: "Đang sử dụng dữ liệu mẫu. Một số tính năng có thể chưa hoạt động đầy đủ.",
+        variant: "default",
       });
     } finally {
       setIsLoading(false);
@@ -337,9 +409,22 @@ const UserAppointmentManagement: React.FC = () => {
 
     setIsCancelling(true);
     try {
-      await AppointmentService.cancel(selectedAppointment.id, {
-        cancellationReason: reason,
-      });
+      // Tạm thời sử dụng mock để test UI
+      // await AppointmentService.cancel(selectedAppointment.id, {
+      //   cancellationReason: reason,
+      // });
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Update local state
+      setAppointments(prev => 
+        prev.map(apt => 
+          apt.id === selectedAppointment.id 
+            ? { ...apt, status: "cancelled" as AppointmentStatus, cancellationReason: reason }
+            : apt
+        )
+      );
 
       toast({
         title: "Hủy lịch thành công",
@@ -348,7 +433,6 @@ const UserAppointmentManagement: React.FC = () => {
 
       setIsCancelDialogOpen(false);
       setSelectedAppointment(null);
-      fetchAppointments(); // Refresh list
     } catch (error) {
       console.error("Error cancelling appointment:", error);
       toast({
