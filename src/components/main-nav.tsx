@@ -17,6 +17,10 @@ const mainNavItems = [
     href: "/services",
   },
   {
+    title: "Tư vấn trực tuyến",
+    href: "/consultant",
+  },
+  {
     title: "Đặt lịch tư vấn",
     href: "/appointments",
   },
