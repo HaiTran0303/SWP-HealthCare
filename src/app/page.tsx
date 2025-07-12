@@ -62,7 +62,7 @@ export default function HomePage() {
             về sức khỏe giới tính của mình.
           </p>
           <div className="flex gap-4 mt-6">
-            <Link href="/appointments">
+            <Link href="/consultant">
               <button className="px-8 py-3 rounded-full font-bold bg-primary shadow-lg hover:bg-primary/90 transition text-lg border-2 border-primary text-white dark:bg-white dark:border-primary dark:hover:bg-primary/10 dark:!text-primary">
                 Đặt lịch tư vấn
               </button>
@@ -284,7 +284,7 @@ export default function HomePage() {
             Đội ngũ chuyên gia của chúng tôi luôn sẵn sàng hỗ trợ bạn. Đặt lịch
             tư vấn ngay để được giải đáp mọi thắc mắc!
           </p>
-          <Link href="/appointments">
+          <Link href="/consultant">
             <button className="px-10 py-4 rounded-full font-bold bg-primary text-white shadow-lg hover:bg-primary/90 transition text-xl">
               Đặt lịch tư vấn ngay
             </button>

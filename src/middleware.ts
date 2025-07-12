@@ -12,8 +12,8 @@ const protectedRoutes = [
 // Các route chỉ dành cho admin
 const adminRoutes = ["/admin"];
 
-// Các route chỉ dành cho consultant
-const consultantRoutes = ["/consultant"];
+// Các route chỉ dành cho consultant (hiện tại để trống vì /consultant cho phép cả user và consultant)
+const consultantRoutes: string[] = [];
 
 export function middleware(request: NextRequest) {
   const currentUser = request.cookies.get("auth-token");
@@ -51,7 +51,7 @@ export function middleware(request: NextRequest) {
   //   }
   // }
 
-  // Kiểm tra quyền consultant
+  // Kiểm tra quyền consultant (hiện tại không áp dụng vì /consultant được dùng cho cả user và consultant)
   if (consultantRoutes.some((route) => pathname.startsWith(route))) {
     try {
       if (!currentUser) {
