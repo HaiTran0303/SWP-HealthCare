@@ -4,26 +4,32 @@ import { API_ENDPOINTS } from "@/config/api";
 export interface ConsultantProfile {
   id: string;
   userId: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   specialties: string[];
   qualification: string;
   experience: string;
-  rating: number;
-  avatarUrl: string;
+  bio: string;
   consultationFee: number;
-  // ... các trường khác nếu cần
+  isAvailable: boolean;
+  rating: number;
+  avatar: string;
+  availability: ConsultantAvailability[];
+}
+
+export interface ConsultantAvailability {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  location: string;
 }
 
 export const ConsultantService = {
-  async getAll(params: Record<string, any> = {}) {
-    const query = new URLSearchParams(params).toString();
-    return apiClient.get<ConsultantProfile[]>(
-      `${API_ENDPOINTS.CONSULTANTS.BASE}${query ? `?${query}` : ""}`
-    );
+  async getAll() {
+    return apiClient.get<ConsultantProfile[]>(API_ENDPOINTS.CONSULTANTS.BASE);
   },
-  async getById(id: string) {
-    return apiClient.get<ConsultantProfile>(
-      `${API_ENDPOINTS.CONSULTANTS.BASE}/${id}`
-    );
+  async getAvailability(consultantId: string) {
+    const endpoint = `${API_ENDPOINTS.CONSULTANTS.AVAILABILITY}?consultantId=${consultantId}`;
+    return apiClient.get<ConsultantAvailability[]>(endpoint);
   },
 };

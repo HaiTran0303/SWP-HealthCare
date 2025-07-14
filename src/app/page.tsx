@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { PackageServiceService } from "@/services/package-service.service";
+import { APIService, Service } from "@/services/service.service";
 
 async function getBlogs() {
   try {
@@ -11,158 +11,57 @@ async function getBlogs() {
       { cache: "no-store" }
     );
     if (!res.ok) {
-      // Trả về mock data nếu API không hoạt động
-      return [
-        {
-          id: "1",
-          title: "Chăm sóc sức khỏe sinh sản toàn diện",
-          content: "Tìm hiểu các phương pháp chăm sóc sức khỏe sinh sản hiệu quả và an toàn...",
-          summary: "Hướng dẫn chăm sóc sức khỏe sinh sản cơ bản",
-          createdAt: new Date().toISOString(),
-          // Không sử dụng external image URLs để tránh 404
-          images: []
-        },
-        {
-          id: "2", 
-          title: "Phòng ngừa các bệnh lây truyền qua đường tình dục",
-          content: "Các biện pháp phòng ngừa STI hiệu quả và thông tin cần biết...",
-          summary: "Kiến thức cơ bản về phòng ngừa STI",
-          createdAt: new Date().toISOString(),
-          images: []
-        },
-        {
-          id: "3",
-          title: "Sức khỏe tâm lý và giới tính",
-          content: "Mối quan hệ giữa sức khỏe tâm lý và sức khỏe giới tính...",
-          summary: "Tầm quan trọng của sức khỏe tâm lý",
-          createdAt: new Date().toISOString(),
-          images: []
-        }
-      ];
+      console.error("Failed to fetch blogs:", res.status, res.statusText);
+      return [];
     }
-    const data = await res.json();
+    const result = await res.json();
     
-    // Xử lý dữ liệu blog và loại bỏ image URLs có vấn đề
-    let blogData = [];
-    if (Array.isArray(data)) blogData = data;
-    else if (Array.isArray(data?.data)) blogData = data.data;
-    else if (Array.isArray(data?.data?.data)) blogData = data.data.data;
+    const blogData = result.data?.data || result.data || [];
     
-         // Clean up image URLs để tránh 404
-     return blogData.map((blog: any) => ({
-       ...blog,
-       // Chỉ giữ lại những image URLs hợp lệ và có thể truy cập
-       coverImage: null, // Tạm thời loại bỏ để tránh 404
-       featuredImage: null, // Tạm thời loại bỏ để tránh 404
-       images: [] // Tạm thời loại bỏ để tránh 404
-     }));
-  } catch {
-    // Trả về mock data nếu có lỗi
-    return [
-      {
-        id: "1",
-        title: "Chăm sóc sức khỏe sinh sản toàn diện",
-        content: "Tìm hiểu các phương pháp chăm sóc sức khỏe sinh sản hiệu quả và an toàn...",
-        summary: "Hướng dẫn chăm sóc sức khỏe sinh sản cơ bản",
-        createdAt: new Date().toISOString(),
-        images: []
-      },
-      {
-        id: "2", 
-        title: "Phòng ngừa các bệnh lây truyền qua đường tình dục",
-        content: "Các biện pháp phòng ngừa STI hiệu quả và thông tin cần biết...",
-        summary: "Kiến thức cơ bản về phòng ngừa STI",
-        createdAt: new Date().toISOString(),
-        images: []
-      },
-      {
-        id: "3",
-        title: "Sức khỏe tâm lý và giới tính",
-        content: "Mối quan hệ giữa sức khỏe tâm lý và sức khỏe giới tính...",
-        summary: "Tầm quan trọng của sức khỏe tâm lý",
-        createdAt: new Date().toISOString(),
-        images: []
-      }
-    ];
+    if (!Array.isArray(blogData)) {
+        console.error("Expected blogData to be an array but got:", blogData);
+        return [];
+    }
+
+     return blogData.map((blog: any) => {
+        const image = blog.images?.[0];
+        return {
+          ...blog,
+          imageUrl: image?.url || null,
+        }
+     });
+  } catch(e) {
+    console.error("Failed to fetch or process blogs:", e);
+    return [];
   }
 }
 
 export default function HomePage() {
   const [blogs, setBlogs] = useState<any[]>([]);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
 
   useEffect(() => {
-    // Tạm thời sử dụng fallback data thay vì gọi API
-    const fallbackServices = [
-      {
-        id: "1",
-        service: {
-          name: "Tư vấn sức khỏe sinh sản",
-          shortDescription: "Tư vấn trực tuyến về sức khỏe sinh sản với chuyên gia",
-          description: "Dịch vụ tư vấn toàn diện về sức khỏe sinh sản",
-          price: 300000,
-        },
-        package: {
-          name: "Gói cơ bản",
-          maxServicesPerMonth: 2,
-        },
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: "2",
-        service: {
-          name: "Xét nghiệm STI",
-          shortDescription: "Xét nghiệm và tư vấn về các bệnh lây truyền qua đường tình dục",
-          description: "Dịch vụ xét nghiệm STI an toàn và bảo mật",
-          price: 500000,
-        },
-        package: {
-          name: "Gói tiêu chuẩn",
-          maxServicesPerMonth: 1,
-        },
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: "3",
-        service: {
-          name: "Theo dõi chu kỳ",
-          shortDescription: "Theo dõi và phân tích chu kỳ kinh nguyệt",
-          description: "Dịch vụ theo dõi chu kỳ kinh nguyệt chuyên nghiệp",
-          price: 150000,
-        },
-        package: {
-          name: "Gói theo dõi",
-          maxServicesPerMonth: 4,
-        },
-        createdAt: new Date().toISOString(),
-      },
-    ];
-    
-    setServices(fallbackServices);
-    
-    // Uncomment when API is ready
-    // PackageServiceService.getAll()
-    //   .then((res: any) => {
-    //     const arr = Array.isArray(res?.data)
-    //       ? res.data
-    //       : Array.isArray(res)
-    //         ? res
-    //         : [];
-    //     arr.sort(
-    //       (a: any, b: any) =>
-    //         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    //     );
-    //     setServices(arr.slice(0, 3));
-    //   })
-    //   .catch((error) => {
-    //     console.error("Error fetching package services:", error);
-    //     setServices(fallbackServices);
-    //   });
-  }, []);
+    APIService.getAll({ limit: 3, page: 1 })
+      .then((res: any) => {
+        const arr = Array.isArray(res?.data?.data)
+          ? res.data.data
+          : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
+          ? res
+          : [];
+        setServices(arr);
+      })
+      .catch((error) => {
+        console.error("Error fetching services:", error);
+        setServices([]); // Set to empty array on error
+      });
 
-  useEffect(() => {
     getBlogs().then((res) => {
       setBlogs(res);
+    }).catch((error) => {
+        console.error("Error in getBlogs promise chain:", error);
+        setBlogs([]); // Set to empty array on error
     });
   }, []);
 
@@ -231,43 +130,52 @@ export default function HomePage() {
               Chưa có dịch vụ nào.
             </div>
           )}
-          {services.map((item: any) => (
+          {services.map((service: Service) => (
             <div
-              key={item.id}
+              key={service.id}
               className="bg-white dark:bg-card/80 rounded-2xl shadow-xl border border-primary/10 dark:border-primary/20 p-7 flex flex-col gap-4 hover:scale-[1.03] hover:shadow-2xl transition-transform group relative overflow-hidden cursor-pointer"
-              onClick={() => (window.location.href = `/services/${item.id}`)}
+              onClick={() => (window.location.href = `/services/${service.id}`)}
             >
-              <div className="absolute top-0 right-0 m-4 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
-                {item.package?.name}
+              <div className="h-40 w-full bg-gradient-to-br from-secondary/10 to-primary/10 dark:from-secondary/20 dark:to-primary/20 rounded-xl flex items-center justify-center mb-2 overflow-hidden relative">
+                {service.imageUrl ? (
+                  <Image
+                    src={service.imageUrl}
+                    alt={service.name}
+                    fill
+                    className="object-cover w-full h-full rounded-xl group-hover:scale-105 transition-transform"
+                    onError={(e:any) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <span className="text-5xl text-primary/60">⚕️</span>
+                )}
               </div>
               <h3
                 className="font-bold text-2xl text-primary mb-2 group-hover:underline cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
-                  window.location.href = `/services/${item.id}`;
+                  window.location.href = `/services/${service.id}`;
                 }}
               >
-                {item.service?.name}
+                {service.name}
               </h3>
               <p className="text-base text-muted-foreground line-clamp-3 mb-2">
-                {item.service?.shortDescription || item.service?.description}
+                {service.description}
               </p>
               <div className="flex flex-col gap-1 mb-2">
                 <span className="inline-block font-semibold text-lg text-green-700">
                   Giá:{" "}
                   <span className="text-2xl text-green-800">
-                    {item.service?.price} VNĐ
+                    {service.price.toLocaleString()} VNĐ
                   </span>
                 </span>
-                <span className="inline-block text-sm text-blue-700 font-medium">
-                  Số gói hiện có/tháng:{" "}
-                  <span className="font-bold">
-                    {item.package?.maxServicesPerMonth}
-                  </span>
+                 <span className="inline-block text-sm text-blue-700 font-medium">
+                  Thời lượng: <span className="font-bold">{service.duration} phút</span>
                 </span>
               </div>
               <Link
-                href={`/services/${item.id}`}
+                href={`/services/${service.id}`}
                 className="mt-auto text-primary font-semibold hover:underline block text-center py-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -302,31 +210,20 @@ export default function HomePage() {
             </div>
           )}
           {blogs.map((blog: any) => {
-            // Cải thiện việc xử lý blog image với validation tốt hơn
-            const blogImage = null; // Tạm thời disable để tránh 404
-            
-            // Nếu muốn sử dụng lại sau này, có thể uncomment:
-            // const blogImage = 
-            //   (blog.coverImage && isValidImageUrl(blog.coverImage)) ? blog.coverImage :
-            //   (blog.featuredImage && blog.featuredImage.startsWith("http") && isValidImageUrl(blog.featuredImage)) ? blog.featuredImage :
-            //   (Array.isArray(blog.images) && blog.images.find((img: any) => img.url && isValidImageUrl(img.url))?.url) || null;
-
             return (
               <div
                 key={blog.id}
                 className="bg-card/80 dark:bg-card/60 rounded-2xl shadow-xl border border-primary/10 dark:border-primary/20 p-7 flex flex-col gap-4 hover:scale-[1.03] hover:shadow-2xl transition-transform group cursor-pointer"
                 onClick={() => (window.location.href = `/blog/${blog.id}`)}
               >
-                <div className="h-36 w-full bg-gradient-to-br from-secondary/10 to-primary/10 dark:from-secondary/20 dark:to-primary/20 rounded-xl flex items-center justify-center mb-2 overflow-hidden">
-                  {blogImage ? (
+                <div className="h-36 w-full bg-gradient-to-br from-secondary/10 to-primary/10 dark:from-secondary/20 dark:to-primary/20 rounded-xl flex items-center justify-center mb-2 overflow-hidden relative">
+                  {blog.imageUrl ? (
                     <Image
-                      src={blogImage}
+                      src={blog.imageUrl}
                       alt={blog.title}
-                      width={180}
-                      height={120}
+                      fill
                       className="object-cover w-full h-full rounded-xl group-hover:scale-105 transition-transform"
-                      onError={(e) => {
-                        // Fallback khi image load failed
+                      onError={(e:any) => {
                         e.currentTarget.style.display = 'none';
                       }}
                     />
@@ -369,7 +266,7 @@ export default function HomePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="bg-card/80 dark:bg-card/60 rounded-2xl border border-primary/10 dark:border-primary/20 shadow-lg p-8 flex flex-col items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-              <span className="text-3xl">👩‍🦰</span>
+              <span className="text-3xl">👩‍-🦰</span>
             </div>
             <blockquote className="italic text-muted-foreground text-center">
               "Dịch vụ tư vấn rất tận tâm, mình cảm thấy an tâm khi sử dụng dịch
