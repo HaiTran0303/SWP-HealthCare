@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import Image from "next/image";
 import { Blog, BlogService } from "@/services/blog.service";
 import { CategoryService, Category } from "@/services/category.service";
 import { Button } from "@/components/ui/button";
@@ -19,26 +20,27 @@ export default function BlogDetailPage() {
   const [reviewReason, setReviewReason] = useState("");
   const [categoryName, setCategoryName] = useState<string>("");
 
-  // TODO: Lấy user, role từ AuthContext
-  const user = { id: "1", role: "admin" }; // Thay bằng lấy thực tế
-  const isAuthor = blog && blog.authorId === user.id;
-  const isAdmin = user.role === "admin" || user.role === "manager";
-  const isConsultant = user.role === "consultant";
-
   useEffect(() => {
     if (!id) return;
     setLoading(true);
     BlogService.getById(id)
-      .then((data) => {
-        setBlog(data);
+      .then((res: any) => {
+        const blogData = res.data?.data || res.data || res;
+        const image = blogData.images?.[0];
+        const imageUrl = image?.url || null;
+        setBlog({ ...blogData, imageUrl });
+
         // Try to get category name if available
-        if (data.categoryId) {
-          CategoryService.getCategoryById(data.categoryId)
+        if (blogData.categoryId) {
+          CategoryService.getCategoryById(blogData.categoryId)
             .then((cat: Category) => setCategoryName(cat.name))
-            .catch(() => setCategoryName(data.categoryId));
+            .catch(() => setCategoryName(blogData.categoryId));
         }
       })
-      .catch(() => setError("Không tìm thấy blog"))
+      .catch((error) => {
+        console.error("Error fetching blog:", error);
+        setError("Không tìm thấy blog");
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -119,28 +121,18 @@ export default function BlogDetailPage() {
   if (error) return <div className="p-8 text-red-500">{error}</div>;
   if (!blog) return null;
 
-  // Cải thiện việc xử lý blog image với validation tốt hơn
-  const blogImage = null; // Tạm thời disable để tránh 404
-  
-  // Nếu muốn sử dụng lại sau này, có thể uncomment:
-  // const blogImage =
-  //   (blog.coverImage && isValidImageUrl(blog.coverImage)) ? blog.coverImage :
-  //   (blog.featuredImage && blog.featuredImage.startsWith("http") && isValidImageUrl(blog.featuredImage)) ? blog.featuredImage :
-  //   (Array.isArray(blog.images) && blog.images.find((img) => img.url && isValidImageUrl(img.url))?.url) || null;
-
   return (
     <div className="container mx-auto px-4 py-16 max-w-6xl">
       <div className="flex flex-col md:flex-row gap-14 items-center md:items-stretch">
         {/* Image section */}
         <div className="flex-shrink-0 w-full md:w-[520px] flex justify-center md:justify-start">
-          {blogImage ? (
-            <img
-              src={blogImage}
+          {blog.imageUrl ? (
+            <Image
+              src={blog.imageUrl}
               alt={blog.title}
-              className="rounded-3xl shadow-2xl object-cover w-full md:w-[520px] h-[320px] md:h-[420px]"
-              style={{ maxWidth: 520, maxHeight: 420 }}
-              onError={(e) => {
-                // Fallback khi image load failed
+              fill
+              className="rounded-3xl shadow-2xl object-cover w-full md:w-[520px] h-[320px] md:h-[420px] relative"
+              onError={(e:any) => {
                 e.currentTarget.style.display = 'none';
               }}
             />
