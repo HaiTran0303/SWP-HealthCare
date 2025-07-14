@@ -100,6 +100,10 @@ async function handleResponse(response: Response) {
     }
   }
 
+  // Ensure data is not null or undefined before accessing properties
+  if (data === null || typeof data === 'undefined') {
+    return null; // Or throw a specific error if appropriate for your API
+  }
   return data.data || data;
 }
 
@@ -120,7 +124,6 @@ export const apiClient = {
   async request<T>(endpoint: string, config: RequestConfig = {}): Promise<T> {
     try {
       const url = buildApiUrl(endpoint);
-
       const response = await fetchWithTimeout(url, config);
       return handleResponse(response);
     } catch (error) {

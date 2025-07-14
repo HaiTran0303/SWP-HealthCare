@@ -53,83 +53,37 @@ export type AppointmentStatus = "scheduled" | "completed" | "cancelled" | "pendi
 
 export const AppointmentService = {
   // Lấy danh sách appointments của user hiện tại
-  getUserAppointments: async (): Promise<Appointment[]> => {
+  getUserAppointments: async (userId: string): Promise<Appointment[]> => { // Thêm userId parameter
     try {
-      console.log("[AppointmentService] Fetching user appointments...");
-      const response = await apiClient.get<any>(`${API_ENDPOINTS.APPOINTMENTS.BASE}/my-appointments`);
+      console.log("[AppointmentService] Fetching user appointments for userId:", userId);
+      // Gọi API /appointments và truyền userId như một query parameter
+      const response = await apiClient.get<any>(`${API_ENDPOINTS.APPOINTMENTS.BASE}?userId=${userId}`);
       
-      console.log("[AppointmentService] API Response:", response);
+      console.log("[AppointmentService] Raw API Response for user appointments:", response);
       
-      // Xử lý response data
       let appointments: Appointment[] = [];
-      if (Array.isArray(response)) {
-        appointments = response;
-      } else if (response?.data && Array.isArray(response.data)) {
+      if (response && response.data && Array.isArray(response.data.data)) { // Check for response.data.data
+        appointments = response.data.data;
+      } else if (response && Array.isArray(response.data)) { // Check for response.data
         appointments = response.data;
-      } else if (response?.appointments && Array.isArray(response.appointments)) {
-        appointments = response.appointments;
+      } else if (Array.isArray(response)) { // Fallback to direct array response
+        appointments = response;
       }
       
-      console.log("[AppointmentService] Processed appointments:", appointments);
+      console.log("[AppointmentService] Processed user appointments:", appointments);
       return appointments;
-    } catch (error) {
-      console.error("[AppointmentService] Error fetching appointments:", error);
-      
-      // Fallback với mock data
-      return [
-        {
-          id: "1",
-          title: "Tư vấn sức khỏe sinh sản",
-          description: "Tư vấn về các vấn đề sức khỏe sinh sản",
-          appointmentDate: "2024-01-15",
-          appointmentTime: "10:00",
-          status: "scheduled",
-          consultantId: "consultant-1",
-          consultant: {
-            id: "consultant-1",
-            firstName: "Dr. Nguyễn",
-            lastName: "Văn A",
-            email: "consultant@example.com",
-            specialization: "Sức khỏe sinh sản",
-          },
-          serviceId: "service-1",
-          service: {
-            id: "service-1",
-            name: "Tư vấn sức khỏe sinh sản",
-            description: "Tư vấn chuyên sâu về sức khỏe sinh sản",
-            price: 500000,
-          },
-          notes: "Tư vấn ban đầu",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "2",
-          title: "Xét nghiệm STI",
-          description: "Xét nghiệm định kỳ STI",
-          appointmentDate: "2024-01-20",
-          appointmentTime: "14:30",
-          status: "completed",
-          consultantId: "consultant-2",
-          consultant: {
-            id: "consultant-2",
-            firstName: "Dr. Trần",
-            lastName: "Thị B",
-            email: "consultant2@example.com",
-            specialization: "Xét nghiệm STI",
-          },
-          serviceId: "service-2",
-          service: {
-            id: "service-2",
-            name: "Xét nghiệm STI",
-            description: "Xét nghiệm các bệnh lây truyền qua đường tình dục",
-            price: 800000,
-          },
-          notes: "Kết quả xét nghiệm bình thường",
-          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-      ];
+    } catch (error: any) {
+      console.error("[AppointmentService] Error fetching user appointments:", error);
+      if (error.response) {
+        console.error("[AppointmentService] Error response data:", error.response.data);
+        console.error("[AppointmentService] Error response status:", error.response.status);
+        console.error("[AppointmentService] Error response headers:", error.response.headers);
+      } else if (error.request) {
+        console.error("[AppointmentService] Error request:", error.request);
+      } else {
+        console.error("[AppointmentService] Error message:", error.message);
+      }
+      throw error;
     }
   },
 

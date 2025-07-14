@@ -49,7 +49,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { ConsultantService, ConsultantProfile } from "@/services/consultant.service";
-import { AppointmentService, AppointmentData } from "@/services/appointment.service";
+import { AppointmentService, Appointment } from "@/services/appointment.service";
 import { useConsultationBooking } from "@/hooks/use-consultation-booking";
 import { format, addDays, isBefore, isToday, isSameDay } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -59,12 +59,12 @@ interface TimeSlot {
   time: string;
   isAvailable: boolean;
   consultantId: string;
-  consultantName: string;
-  consultantAvatar?: string;
-  consultantRating?: number;
-  consultantExperience?: string;
-  consultantSpecialties?: string[];
-  consultationFee?: number;
+  consultantName: string; // Keep this for display purposes
+  consultantAvatar?: string; // Keep this for display purposes
+  consultantRating?: number; // Keep this for display purposes
+  consultantExperience?: string; // Keep this for display purposes
+  consultantSpecialties?: string[]; // Keep this for display purposes
+  consultationFee?: number; // Keep this for display purposes
 }
 
 interface BookingStep {
@@ -134,6 +134,7 @@ const OnlineConsultationBooking: React.FC = () => {
 
   // Fetch available slots when consultant and date are selected
   useEffect(() => {
+    console.log("useEffect for fetchAvailableSlots triggered. selectedConsultant:", selectedConsultant, "selectedDate:", selectedDate);
     if (selectedConsultant && selectedDate) {
       fetchAvailableSlots();
     }
@@ -142,102 +143,15 @@ const OnlineConsultationBooking: React.FC = () => {
   const fetchConsultants = async () => {
     setIsLoadingConsultants(true);
     try {
-      const response = await ConsultantService.getAll();
-      // Đảm bảo response là array
-      const consultantsData = Array.isArray(response) ? response : [];
-      
-      if (consultantsData.length === 0) {
-        // Fallback data nếu API không trả về data
-        const fallbackConsultants: ConsultantProfile[] = [
-          {
-            id: "1",
-            userId: "user1",
-            name: "BS. Nguyễn Văn A",
-            specialties: ["Sức khỏe sinh sản", "Tư vấn tâm lý"],
-            qualification: "Bác sĩ chuyên khoa Sản phụ khoa",
-            experience: "8 năm kinh nghiệm",
-            rating: 4.8,
-            avatarUrl: "",
-            consultationFee: 300000,
-          },
-          {
-            id: "2",
-            userId: "user2",
-            name: "BS. Trần Thị B",
-            specialties: ["Nội tiết", "Sức khỏe phụ nữ"],
-            qualification: "Thạc sĩ Y khoa",
-            experience: "6 năm kinh nghiệm",
-            rating: 4.7,
-            avatarUrl: "",
-            consultationFee: 350000,
-          },
-          {
-            id: "3",
-            userId: "user3",
-            name: "BS. Lê Văn C",
-            specialties: ["Sức khỏe nam giới", "Tư vấn tình dục"],
-            qualification: "Bác sĩ chuyên khoa Tiết niệu",
-            experience: "10 năm kinh nghiệm",
-            rating: 4.9,
-            avatarUrl: "",
-            consultationFee: 400000,
-          },
-        ];
-        setConsultants(fallbackConsultants);
-        
-        toast({
-          title: "Thông báo",
-          description: "Đang sử dụng dữ liệu mẫu. Một số tính năng có thể chưa hoạt động đầy đủ.",
-          variant: "default",
-        });
-      } else {
-        setConsultants(consultantsData);
-      }
-    } catch (error) {
-      console.error("Error fetching consultants:", error);
-      
-      // Fallback data khi có lỗi
-      const fallbackConsultants: ConsultantProfile[] = [
-        {
-          id: "1",
-          userId: "user1",
-          name: "BS. Nguyễn Văn A",
-          specialties: ["Sức khỏe sinh sản", "Tư vấn tâm lý"],
-          qualification: "Bác sĩ chuyên khoa Sản phụ khoa",
-          experience: "8 năm kinh nghiệm",
-          rating: 4.8,
-          avatarUrl: "",
-          consultationFee: 300000,
-        },
-        {
-          id: "2",
-          userId: "user2",
-          name: "BS. Trần Thị B",
-          specialties: ["Nội tiết", "Sức khỏe phụ nữ"],
-          qualification: "Thạc sĩ Y khoa",
-          experience: "6 năm kinh nghiệm",
-          rating: 4.7,
-          avatarUrl: "",
-          consultationFee: 350000,
-        },
-        {
-          id: "3",
-          userId: "user3",
-          name: "BS. Lê Văn C",
-          specialties: ["Sức khỏe nam giới", "Tư vấn tình dục"],
-          qualification: "Bác sĩ chuyên khoa Tiết niệu",
-          experience: "10 năm kinh nghiệm",
-          rating: 4.9,
-          avatarUrl: "",
-          consultationFee: 400000,
-        },
-      ];
-      setConsultants(fallbackConsultants);
-      
+      const consultantsData: ConsultantProfile[] = await ConsultantService.getAll();
+      console.log("Consultants API Response:", consultantsData); // Log the full response
+      setConsultants(consultantsData);
+    } catch (error: any) {
+      console.error("Error fetching consultants in fetchConsultants:", error);
       toast({
-        title: "Thông báo",
-        description: "Đang sử dụng dữ liệu mẫu. Một số tính năng có thể chưa hoạt động đầy đủ.",
-        variant: "default",
+        title: "Lỗi",
+        description: error.message || "Không thể tải danh sách tư vấn viên.",
+        variant: "destructive",
       });
     } finally {
       setIsLoadingConsultants(false);
@@ -245,119 +159,46 @@ const OnlineConsultationBooking: React.FC = () => {
   };
 
   const fetchAvailableSlots = async () => {
-    if (!selectedConsultant || !selectedDate) return;
-    
+    if (!selectedConsultant || !selectedDate) {
+      console.log("fetchAvailableSlots skipped: selectedConsultant or selectedDate is missing.");
+      return;
+    }
     setIsLoadingSlots(true);
     try {
-      // Sử dụng mock data vì API endpoint chưa sẵn sàng
-      const mockSlots: TimeSlot[] = [
-        {
-          id: "1",
-          time: "09:00",
-          isAvailable: true,
-          consultantId: selectedConsultant.id,
-          consultantName: selectedConsultant.name,
-          consultantAvatar: selectedConsultant.avatarUrl,
-          consultantRating: selectedConsultant.rating,
-          consultantExperience: selectedConsultant.experience,
-          consultantSpecialties: selectedConsultant.specialties,
-          consultationFee: selectedConsultant.consultationFee,
-        },
-        {
-          id: "2",
-          time: "10:00",
-          isAvailable: true,
-          consultantId: selectedConsultant.id,
-          consultantName: selectedConsultant.name,
-          consultantAvatar: selectedConsultant.avatarUrl,
-          consultantRating: selectedConsultant.rating,
-          consultantExperience: selectedConsultant.experience,
-          consultantSpecialties: selectedConsultant.specialties,
-          consultationFee: selectedConsultant.consultationFee,
-        },
-        {
-          id: "3",
-          time: "14:00",
-          isAvailable: true,
-          consultantId: selectedConsultant.id,
-          consultantName: selectedConsultant.name,
-          consultantAvatar: selectedConsultant.avatarUrl,
-          consultantRating: selectedConsultant.rating,
-          consultantExperience: selectedConsultant.experience,
-          consultantSpecialties: selectedConsultant.specialties,
-          consultationFee: selectedConsultant.consultationFee,
-        },
-        {
-          id: "4",
-          time: "15:00",
-          isAvailable: false,
-          consultantId: selectedConsultant.id,
-          consultantName: selectedConsultant.name,
-          consultantAvatar: selectedConsultant.avatarUrl,
-          consultantRating: selectedConsultant.rating,
-          consultantExperience: selectedConsultant.experience,
-          consultantSpecialties: selectedConsultant.specialties,
-          consultationFee: selectedConsultant.consultationFee,
-        },
-        {
-          id: "5",
-          time: "16:00",
-          isAvailable: true,
-          consultantId: selectedConsultant.id,
-          consultantName: selectedConsultant.name,
-          consultantAvatar: selectedConsultant.avatarUrl,
-          consultantRating: selectedConsultant.rating,
-          consultantExperience: selectedConsultant.experience,
-          consultantSpecialties: selectedConsultant.specialties,
-          consultationFee: selectedConsultant.consultationFee,
-        },
-      ];
-      
-      setAvailableSlots(mockSlots);
-    } catch (error) {
+      console.log("Fetching availability for:", {
+        consultantId: selectedConsultant.id,
+        selectedDate: selectedDate,
+      }); // Log parameters
+      const response: any = await ConsultantService.getAvailability(
+        selectedConsultant.id,
+        selectedDate
+      );
+      console.log("Availability API Raw Response:", response); // Log the raw API response
+      // Map the API response to the TimeSlot interface, extracting consultant details
+      const availableSlotsData: TimeSlot[] = Array.isArray(response?.data)
+        ? response.data.map((slot: any) => ({
+            id: slot.id,
+            time: slot.startTime, // Assuming startTime is the relevant time for the slot
+            isAvailable: slot.isAvailable,
+            consultantId: slot.consultantProfile.id,
+            consultantName: `${slot.consultantProfile.user?.firstName} ${slot.consultantProfile.user?.lastName}`, // Use user's first/last name
+            consultantAvatar: slot.consultantProfile.user?.profilePicture || slot.consultantProfile.avatar, // Use user's profile picture or consultant's avatar
+            consultantRating: slot.consultantProfile.rating,
+            consultantExperience: slot.consultantProfile.experience,
+            consultantSpecialties: slot.consultantProfile.specialties,
+            consultationFee: slot.consultantProfile.consultationFee,
+          }))
+        : [];
+      console.log("Mapped Available Slots:", availableSlotsData); // Log the mapped data
+      setAvailableSlots(availableSlotsData);
+    } catch (error: any) {
       console.error("Error fetching available slots:", error);
-      
-      // Fallback to mock data on error
-      const mockSlots: TimeSlot[] = [
-        {
-          id: "1",
-          time: "09:00",
-          isAvailable: true,
-          consultantId: selectedConsultant.id,
-          consultantName: selectedConsultant.name,
-          consultantAvatar: selectedConsultant.avatarUrl,
-          consultantRating: selectedConsultant.rating,
-          consultantExperience: selectedConsultant.experience,
-          consultantSpecialties: selectedConsultant.specialties,
-          consultationFee: selectedConsultant.consultationFee,
-        },
-        {
-          id: "2",
-          time: "10:00",
-          isAvailable: true,
-          consultantId: selectedConsultant.id,
-          consultantName: selectedConsultant.name,
-          consultantAvatar: selectedConsultant.avatarUrl,
-          consultantRating: selectedConsultant.rating,
-          consultantExperience: selectedConsultant.experience,
-          consultantSpecialties: selectedConsultant.specialties,
-          consultationFee: selectedConsultant.consultationFee,
-        },
-        {
-          id: "3",
-          time: "14:00",
-          isAvailable: true,
-          consultantId: selectedConsultant.id,
-          consultantName: selectedConsultant.name,
-          consultantAvatar: selectedConsultant.avatarUrl,
-          consultantRating: selectedConsultant.rating,
-          consultantExperience: selectedConsultant.experience,
-          consultantSpecialties: selectedConsultant.specialties,
-          consultationFee: selectedConsultant.consultationFee,
-        },
-      ];
-      
-      setAvailableSlots(mockSlots);
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể tải lịch trống của tư vấn viên.",
+        variant: "destructive",
+      });
+      setAvailableSlots([]);
     } finally {
       setIsLoadingSlots(false);
     }
@@ -493,12 +334,12 @@ const OnlineConsultationBooking: React.FC = () => {
             >
               <CardHeader className="text-center">
                 <Avatar className="w-20 h-20 mx-auto mb-4">
-                  <AvatarImage src={consultant.avatarUrl} alt={consultant.name} />
+                  <AvatarImage src={consultant.user?.profilePicture || consultant.avatar} alt={`${consultant.user?.firstName} ${consultant.user?.lastName}`} />
                   <AvatarFallback>
-                    {consultant.name.split(" ").map(n => n[0]).join("")}
+                    {`${consultant.user?.firstName ? consultant.user.firstName[0] : ""}${consultant.user?.lastName ? consultant.user.lastName[0] : ""}`}
                   </AvatarFallback>
                 </Avatar>
-                <CardTitle className="text-lg">{consultant.name}</CardTitle>
+                <CardTitle className="text-lg">{`${consultant.user?.firstName} ${consultant.user?.lastName}`}</CardTitle>
                 <CardDescription>{consultant.qualification}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -544,7 +385,7 @@ const OnlineConsultationBooking: React.FC = () => {
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold mb-2">Chọn thời gian</h2>
         <p className="text-muted-foreground">
-          Chọn ngày và giờ phù hợp cho buổi tư vấn với {selectedConsultant?.name}
+          Chọn ngày và giờ phù hợp cho buổi tư vấn với {selectedConsultant?.user?.firstName} {selectedConsultant?.user?.lastName}
         </p>
       </div>
       
@@ -588,22 +429,28 @@ const OnlineConsultationBooking: React.FC = () => {
                 <div className="text-sm font-medium mb-3">
                   {format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {availableSlots.map((slot) => (
-                    <Button
-                      key={slot.id}
-                      variant={selectedSlot?.id === slot.id ? "default" : "outline"}
-                      className={`justify-start ${
-                        !slot.isAvailable ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
-                      disabled={!slot.isAvailable}
-                      onClick={() => handleSlotSelect(slot)}
-                    >
-                      <Clock className="w-4 h-4 mr-2" />
-                      {slot.time}
-                    </Button>
-                  ))}
-                </div>
+                {availableSlots.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Không có lịch trống cho ngày này.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableSlots.map((slot) => (
+                      <Button
+                        key={slot.id}
+                        variant={selectedSlot?.id === slot.id ? "default" : "outline"}
+                        className={`justify-start ${
+                          !slot.isAvailable ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
+                        disabled={!slot.isAvailable}
+                        onClick={() => handleSlotSelect(slot)}
+                      >
+                        <Clock className="w-4 h-4 mr-2" />
+                        {slot.time}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -730,84 +577,84 @@ const OnlineConsultationBooking: React.FC = () => {
       <Card>
         <CardContent className="space-y-6 pt-6">
           <div className="flex items-center gap-4">
-            <Avatar className="w-16 h-16">
-              <AvatarImage src={selectedConsultant?.avatarUrl} alt={selectedConsultant?.name} />
-              <AvatarFallback>
-                {selectedConsultant?.name.split(" ").map(n => n[0]).join("")}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="font-semibold text-lg">{selectedConsultant?.name}</div>
-              <div className="text-sm text-muted-foreground">{selectedConsultant?.qualification}</div>
-              <div className="flex items-center gap-1 mt-1">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm">{selectedConsultant?.rating}/5</span>
+              <Avatar className="w-16 h-16">
+                <AvatarImage src={selectedConsultant?.user?.profilePicture || selectedConsultant?.avatar} alt={`${selectedConsultant?.user?.firstName} ${selectedConsultant?.user?.lastName}`} />
+                <AvatarFallback>
+                  {`${selectedConsultant?.user?.firstName ? selectedConsultant.user.firstName[0] : ""}${selectedConsultant?.user?.lastName ? selectedConsultant.user.lastName[0] : ""}`}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="font-semibold text-lg">{`${selectedConsultant?.user?.firstName} ${selectedConsultant?.user?.lastName}`}</div>
+                <div className="text-sm text-muted-foreground">{selectedConsultant?.qualification}</div>
+                <div className="flex items-center gap-1 mt-1">
+                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  <span className="text-sm">{selectedConsultant?.rating}/5</span>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <Separator />
-          
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Ngày tư vấn:</span>
-              <span className="font-medium">
-                {selectedDate && format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
-              </span>
-            </div>
             
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Thời gian:</span>
-              <span className="font-medium">{selectedSlot?.time}</span>
-            </div>
+            <Separator />
             
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Phương thức:</span>
-              <div className="flex items-center gap-2">
-                {preferredContactMethod === "video" && <Video className="w-4 h-4" />}
-                {preferredContactMethod === "phone" && <Phone className="w-4 h-4" />}
-                {preferredContactMethod === "chat" && <MessageSquare className="w-4 h-4" />}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Ngày tư vấn:</span>
                 <span className="font-medium">
-                  {preferredContactMethod === "video" ? "Video call" : 
-                   preferredContactMethod === "phone" ? "Điện thoại" : "Chat"}
+                  {selectedDate && format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Thời gian:</span>
+                <span className="font-medium">{selectedSlot?.time}</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Phương thức:</span>
+                <div className="flex items-center gap-2">
+                  {preferredContactMethod === "video" && <Video className="w-4 h-4" />}
+                  {preferredContactMethod === "phone" && <Phone className="w-4 h-4" />}
+                  {preferredContactMethod === "chat" && <MessageSquare className="w-4 h-4" />}
+                  <span className="font-medium">
+                    {preferredContactMethod === "video" ? "Video call" : 
+                     preferredContactMethod === "phone" ? "Điện thoại" : "Chat"}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Chi phí:</span>
+                <span className="font-semibold text-lg text-primary">
+                  {selectedConsultant?.consultationFee?.toLocaleString()}đ
                 </span>
               </div>
             </div>
             
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Chi phí:</span>
-              <span className="font-semibold text-lg text-primary">
-                {selectedConsultant?.consultationFee.toLocaleString()}đ
-              </span>
-            </div>
-          </div>
-          
-          <Separator />
-          
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Lý do tư vấn:</div>
-            <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-              {consultationReason}
-            </div>
-          </div>
-          
-          {symptoms && (
+            <Separator />
+            
             <div className="space-y-2">
-              <div className="text-sm font-medium">Triệu chứng:</div>
+              <div className="text-sm font-medium">Lý do tư vấn:</div>
               <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                {symptoms}
+                {consultationReason}
               </div>
             </div>
-          )}
-          
-          {additionalNotes && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Ghi chú:</div>
-              <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                {additionalNotes}
+            
+            {symptoms && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Triệu chứng:</div>
+                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                  {symptoms}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+            
+            {additionalNotes && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Ghi chú:</div>
+                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                  {additionalNotes}
+                </div>
+              </div>
+            )}
         </CardContent>
       </Card>
     </div>
@@ -915,7 +762,7 @@ const OnlineConsultationBooking: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Xác nhận đặt lịch tư vấn</DialogTitle>
             <DialogDescription>
-              Bạn có chắc chắn muốn đặt lịch tư vấn với {selectedConsultant?.name} vào {selectedDate && format(selectedDate, "dd/MM/yyyy", { locale: vi })} lúc {selectedSlot?.time}?
+              Bạn có chắc chắn muốn đặt lịch tư vấn với {selectedConsultant?.user?.firstName} {selectedConsultant?.user?.lastName} vào {selectedDate && format(selectedDate, "dd/MM/yyyy", { locale: vi })} lúc {selectedSlot?.time}?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -959,4 +806,4 @@ const OnlineConsultationBooking: React.FC = () => {
   );
 };
 
-export default OnlineConsultationBooking; 
+export default OnlineConsultationBooking;

@@ -47,8 +47,9 @@ interface AppointmentDetails {
   consultantId: string;
   consultant: {
     id: string;
-    name: string;
-    avatar?: string;
+    firstName: string;
+    lastName: string;
+    profilePicture?: string;
     specialties: string[];
     qualification: string;
     experience: string;
@@ -98,7 +99,7 @@ const CancelDialog: React.FC<CancelDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Hủy lịch hẹn</DialogTitle>
           <DialogDescription>
-            Bạn có chắc chắn muốn hủy lịch hẹn với {appointment.consultant.name}?
+            Bạn có chắc chắn muốn hủy lịch hẹn với {appointment.consultant.firstName} {appointment.consultant.lastName}?
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -154,13 +155,13 @@ const AppointmentCard: React.FC<{
         <div className="flex justify-between items-start">
           <div className="flex items-center space-x-3">
             <Avatar className="w-12 h-12">
-              <AvatarImage src={appointment.consultant.avatar} alt={appointment.consultant.name} />
+              <AvatarImage src={appointment.consultant.profilePicture} alt={`${appointment.consultant.firstName} ${appointment.consultant.lastName}`} />
               <AvatarFallback>
-                {appointment.consultant.name.split(" ").map(n => n[0]).join("")}
+                {`${appointment.consultant.firstName[0]}${appointment.consultant.lastName[0]}`}
               </AvatarFallback>
             </Avatar>
             <div>
-              <h3 className="font-semibold text-lg">{appointment.consultant.name}</h3>
+              <h3 className="font-semibold text-lg">{`${appointment.consultant.firstName} ${appointment.consultant.lastName}`}</h3>
               <p className="text-sm text-muted-foreground">{appointment.consultant.qualification}</p>
               <div className="flex items-center gap-1 mt-1">
                 <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
@@ -306,79 +307,57 @@ const UserAppointmentManagement: React.FC = () => {
   }, []);
 
   const fetchAppointments = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log("User not logged in.");
+      setIsLoading(false);
+      return;
+    }
     
     setIsLoading(true);
     try {
-      // Tạm thời sử dụng mock data vì API chưa sẵn sàng
-      const mockAppointments: AppointmentDetails[] = [
-        {
-          id: "apt-001",
-          consultantId: "consultant-1",
-          consultant: {
-            id: "consultant-1",
-            name: "BS. Nguyễn Văn A",
-            avatar: "",
-            specialties: ["Sức khỏe sinh sản", "Tư vấn tâm lý"],
-            qualification: "Bác sĩ chuyên khoa Sản phụ khoa",
-            experience: "8 năm kinh nghiệm",
-            rating: 4.8,
-          },
-          appointmentDate: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-          status: "pending" as AppointmentStatus,
-          notes: "Lý do tư vấn: Cần tư vấn về sức khỏe sinh sản\n\nTriệu chứng: Mệt mỏi, đau bụng\n\nPhương thức liên hệ mong muốn: Video call",
-          meetingLink: "https://meet.google.com/xxx-xxx-xxx",
-          location: "online",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          services: [
-            {
-              id: "service-1",
-              name: "Tư vấn sức khỏe sinh sản",
-              description: "Tư vấn trực tuyến về sức khỏe sinh sản"
-            }
-          ]
-        },
-        {
-          id: "apt-002",
-          consultantId: "consultant-2",
-          consultant: {
-            id: "consultant-2",
-            name: "BS. Trần Thị B",
-            avatar: "",
-            specialties: ["Nội tiết", "Sức khỏe phụ nữ"],
-            qualification: "Thạc sĩ Y khoa",
-            experience: "6 năm kinh nghiệm",
-            rating: 4.7,
-          },
-          appointmentDate: new Date(Date.now() - 86400000).toISOString(), // Yesterday
-          status: "completed" as AppointmentStatus,
-          notes: "Lý do tư vấn: Khám định kỳ\n\nPhương thức liên hệ mong muốn: Điện thoại",
-          location: "online",
-          createdAt: new Date(Date.now() - 172800000).toISOString(),
-          updatedAt: new Date(Date.now() - 86400000).toISOString(),
-          services: [
-            {
-              id: "service-2",
-              name: "Khám định kỳ",
-              description: "Khám sức khỏe định kỳ"
-            }
-          ]
-        }
-      ];
-      
-      setAppointments(mockAppointments);
-      
-      // Uncomment when API is ready
-      // const response: any = await AppointmentService.getAll({
-      //   userId: user.id,
-      //   sortBy: "appointmentDate",
-      //   sortOrder: "DESC",
-      // });
-      // setAppointments(response.data || response);
+      // Truyền userId vào getUserAppointments
+      const response: any = await AppointmentService.getUserAppointments(user.id);
+      console.log("Appointments API Response:", response);
+
+      // Map API response to AppointmentDetails interface
+      const fetchedAppointments: AppointmentDetails[] = Array.isArray(response)
+        ? response.map((apt: any) => ({
+            id: apt.id,
+            consultantId: apt.consultant?.id, // Use apt.consultant.id
+            consultant: {
+              id: apt.consultant?.id,
+              firstName: apt.consultant?.firstName || '',
+              lastName: apt.consultant?.lastName || '',
+              profilePicture: apt.consultant?.profilePicture || apt.consultant?.avatar, // Use profilePicture or fallback to avatar
+              specialties: apt.consultant?.specialties || [], // Ensure specialties is an array
+              qualification: apt.consultant?.qualification,
+              experience: apt.consultant?.experience,
+              rating: apt.consultant?.rating,
+            },
+            appointmentDate: apt.appointmentDate,
+            status: apt.status as AppointmentStatus,
+            notes: apt.notes,
+            meetingLink: apt.meetingLink,
+            location: apt.location,
+            createdAt: apt.createdAt,
+            updatedAt: apt.updatedAt,
+            cancellationReason: apt.cancellationReason,
+            services: apt.services?.map((s: any) => ({
+              id: s.id,
+              name: s.name,
+              description: s.description,
+            })),
+          }))
+        : [];
+      setAppointments(fetchedAppointments);
     } catch (error) {
       console.error("Error fetching appointments:", error);
       setAppointments([]);
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách lịch hẹn. Vui lòng thử lại.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -394,13 +373,7 @@ const UserAppointmentManagement: React.FC = () => {
 
     setIsCancelling(true);
     try {
-      // Tạm thời sử dụng mock để test UI
-      // await AppointmentService.cancel(selectedAppointment.id, {
-      //   cancellationReason: reason,
-      // });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await AppointmentService.cancelAppointment(selectedAppointment.id, reason);
       
       // Update local state
       setAppointments(prev => 
@@ -592,13 +565,13 @@ const UserAppointmentManagement: React.FC = () => {
             <div className="space-y-6">
               <div className="flex items-center gap-4">
                 <Avatar className="w-16 h-16">
-                  <AvatarImage src={selectedAppointment.consultant.avatar} alt={selectedAppointment.consultant.name} />
+                  <AvatarImage src={selectedAppointment.consultant.profilePicture} alt={`${selectedAppointment.consultant.firstName} ${selectedAppointment.consultant.lastName}`} />
                   <AvatarFallback>
-                    {selectedAppointment.consultant.name.split(" ").map(n => n[0]).join("")}
+                    {`${selectedAppointment.consultant.firstName[0]}${selectedAppointment.consultant.lastName[0]}`}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="text-xl font-semibold">{selectedAppointment.consultant.name}</h3>
+                  <h3 className="text-xl font-semibold">{`${selectedAppointment.consultant.firstName} ${selectedAppointment.consultant.lastName}`}</h3>
                   <p className="text-muted-foreground">{selectedAppointment.consultant.qualification}</p>
                   <div className="flex items-center gap-4 mt-2">
                     <div className="flex items-center gap-1">
@@ -674,4 +647,4 @@ const UserAppointmentManagement: React.FC = () => {
   );
 };
 
-export default UserAppointmentManagement; 
+export default UserAppointmentManagement;

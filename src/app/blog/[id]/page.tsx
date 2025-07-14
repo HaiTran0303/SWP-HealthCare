@@ -122,38 +122,40 @@ export default function BlogDetailPage() {
   if (!blog) return null;
 
   return (
-    <div className="container mx-auto px-4 py-16 max-w-6xl">
-      <div className="flex flex-col md:flex-row gap-14 items-center md:items-stretch">
-        {/* Image section */}
-        <div className="flex-shrink-0 w-full md:w-[520px] flex justify-center md:justify-start">
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="flex flex-col md:flex-row gap-8">
+        {/* Image section (takes full width on small screens, 1/2 on medium and up) */}
+        <div className="w-full md:w-1/2">
           {blog.imageUrl ? (
-            <Image
-              src={blog.imageUrl}
-              alt={blog.title}
-              fill
-              className="rounded-3xl shadow-2xl object-cover w-full md:w-[520px] h-[320px] md:h-[420px] relative"
-              onError={(e:any) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
+            <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden shadow-lg">
+              <Image
+                src={blog.imageUrl}
+                alt={blog.title}
+                fill
+                className="object-cover"
+                onError={(e: any) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
           ) : (
-            <div className="w-full h-[320px] md:w-[520px] md:h-[420px] flex items-center justify-center bg-gray-100 rounded-3xl">
+            <div className="w-full h-64 md:h-80 flex items-center justify-center bg-gray-100 rounded-lg shadow-lg">
               <span className="text-8xl text-primary/40">📰</span>
             </div>
           )}
         </div>
-        {/* Content section */}
-        <div className="flex-1 flex items-center">
-          <div className="w-full bg-white dark:bg-card/80 rounded-3xl shadow-xl p-10 flex flex-col justify-center min-h-[320px] md:min-h-[420px]">
-            <h1 className="text-4xl font-extrabold mb-6 text-primary leading-tight">
+        {/* Content section (takes full width on small screens, 1/2 on medium and up) */}
+        <div className="w-full md:w-1/2 flex flex-col">
+          <div className="bg-white dark:bg-card/80 rounded-lg shadow-lg p-6 flex-1">
+            <h1 className="text-3xl font-bold mb-4 text-primary leading-tight">
               {blog.title}
             </h1>
-            <div className="mb-8 text-base font-medium text-gray-600">
+            <div className="mb-6 text-sm font-medium text-gray-600">
               Chủ đề: {categoryName}
             </div>
-            <div className="prose max-w-none text-lg leading-relaxed">
-              <h2 className="text-xl font-semibold mb-2">Nội dung</h2>
-              {blog.content}
+            <div className="prose prose-lg max-w-none text-gray-800 dark:text-gray-200 leading-relaxed">
+              {/* Render HTML content directly if blog.content is HTML */}
+              <div dangerouslySetInnerHTML={{ __html: blog.content }} />
             </div>
           </div>
         </div>

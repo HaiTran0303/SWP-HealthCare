@@ -74,27 +74,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
 
-  const setDefaultUser = () => {
-    const defaultUser: User = {
-      id: "default-user-1",
-      email: "user@example.com",
-      firstName: "Người dùng",
-      lastName: "Mặc định",
-      fullName: "Người dùng Mặc định",
-      role: "customer",
-      profilePicture: "",
-      phone: "+84123456789",
-      address: "123 Demo Street",
-      gender: "M",
-    };
-    
-    // Set cookie để middleware không chặn
-    document.cookie = `auth-token=default-token; path=/; max-age=86400`;
-    
-    setUser(defaultUser);
-    console.log("[AuthContext] Default user set:", defaultUser);
-  };
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     
@@ -106,13 +85,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       apiClient.setDefaultHeaders({
         Authorization: `Bearer ${accessToken}`,
       });
+      // Try to check auth with existing token
+      checkAuth();
+    } else {
+      setIsLoading(false);
+      setIsAuthReady(true);
+      console.log("[AuthContext] No access token found, not authenticated.");
     }
-    
-    // Set default user ngay từ đầu
-    setDefaultUser();
-    
-    // Sau đó thử check auth thực tế
-    checkAuth();
   }, []);
 
   const refreshToken = async () => {
@@ -146,9 +125,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (accessToken) {
         document.cookie = `auth-token=${accessToken}; path=/; max-age=86400`;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log("[AuthContext] Auth failed:", error);
-      if ((error as ApiError).status === 401) {
+      // If unauthorized, try to refresh token or clear auth
+      if (error.status === 401) {
         try {
           console.log("[AuthContext] Trying to refresh token...");
           await refreshToken();
@@ -160,12 +140,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             document.cookie = `auth-token=${accessToken}; path=/; max-age=86400`;
           }
         } catch (refreshError) {
-          console.log("[AuthContext] Refresh failed, using default user");
-          // Default user đã được set từ đầu, không cần set lại
+          console.error("[AuthContext] Refresh failed:", refreshError);
+          logoutUser(); // Clear user data and tokens
         }
       } else {
-        console.log("[AuthContext] Other error, using default user");
-        // Default user đã được set từ đầu, không cần set lại
+        console.error("[AuthContext] Other auth error:", error);
+        logoutUser(); // Clear user data and tokens for other errors
       }
     } finally {
       setIsLoading(false);
@@ -242,20 +222,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const logoutUser = useCallback(() => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userId");
+    document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"; // Clear auth-token cookie
+    apiClient.removeDefaultHeader("Authorization");
+    setUser(null);
+    router.push("/");
+  }, [router]);
+
   const logout = async () => {
     try {
       console.log("[AuthContext] Logging out...");
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("userId");
-
-      apiClient.removeDefaultHeader("Authorization");
-      
-      // Set lại default user thay vì null
-      setDefaultUser();
-      
-      router.push("/");
-
+      logoutUser();
       toast({
         title: "Đăng xuất thành công",
         description: "Hẹn gặp lại bạn!",

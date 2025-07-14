@@ -25,48 +25,7 @@ export default function RootLayout({
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
       <html lang="vi" suppressHydrationWarning>
         <head>
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-              (function() {
-                function showReloadModal() {
-                  if (document.getElementById('chunk-error-modal')) return;
-                  var modal = document.createElement('div');
-                  modal.id = 'chunk-error-modal';
-                  modal.style.position = 'fixed';
-                  modal.style.top = 0;
-                  modal.style.left = 0;
-                  modal.style.width = '100vw';
-                  modal.style.height = '100vh';
-                  modal.style.background = 'rgba(0,0,0,0.5)';
-                  modal.style.display = 'flex';
-                  modal.style.alignItems = 'center';
-                  modal.style.justifyContent = 'center';
-                  modal.style.zIndex = 99999;
-                  modal.innerHTML = '<div style="background: white; border-radius: 12px; padding: 32px 24px; box-shadow: 0 4px 32px rgba(0,0,0,0.15); max-width: 90vw; text-align: center;">' +
-                    '<h2 style="font-size: 1.5rem; margin-bottom: 12px; color: #d97706;">Ứng dụng vừa được cập nhật!</h2>' +
-                    '<p style="margin-bottom: 24px; color: #333;">Để đảm bảo trải nghiệm tốt nhất, vui lòng tải lại trang để sử dụng phiên bản mới nhất.<br><span style="font-size:0.95em;color:#888">(Nếu bạn đang phát triển trên localhost, đây là hiện tượng bình thường khi restart server.)</span></p>' +
-                    '<button id="reload-btn-modal" style="background: #2563eb; color: white; border: none; border-radius: 6px; padding: 10px 24px; font-size: 1rem; cursor: pointer;">Tải lại trang</button>' +
-                  '</div>';
-                  document.body.appendChild(modal);
-                  document.getElementById('reload-btn-modal').onclick = function() {
-                    window.location.reload();
-                  };
-                }
-                window.addEventListener('error', function(e) {
-                  if (e && e.message && (e.message.includes('ChunkLoadError') || e.message.includes('Unexpected token'))) {
-                    showReloadModal();
-                  }
-                });
-                window.addEventListener('unhandledrejection', function(e) {
-                  if (e && e.reason && e.reason.name === 'ChunkLoadError') {
-                    showReloadModal();
-                  }
-                });
-              })();
-            `,
-            }}
-          />
+          {/* Removed the inline script for chunk load errors to debug syntax error */}
         </head>
         <body className={inter.className}>
           <ThemeProvider attribute="class" defaultTheme="light">
