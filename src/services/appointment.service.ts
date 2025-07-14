@@ -53,20 +53,21 @@ export type AppointmentStatus = "scheduled" | "completed" | "cancelled" | "pendi
 
 export const AppointmentService = {
   // Lấy danh sách appointments của user hiện tại
-  getUserAppointments: async (userId: string): Promise<Appointment[]> => { // Thêm userId parameter
+  getUserAppointments: async (userId: string): Promise<Appointment[]> => { // Add userId parameter back
     try {
       console.log("[AppointmentService] Fetching user appointments for userId:", userId);
       // Gọi API /appointments và truyền userId như một query parameter
-      const response = await apiClient.get<any>(`${API_ENDPOINTS.APPOINTMENTS.BASE}?userId=${userId}`);
+      // Thêm một tham số để backend hiểu đây là yêu cầu lấy lịch hẹn của người dùng hiện tại
+      const response = await apiClient.get<any>(`${API_ENDPOINTS.APPOINTMENTS.BASE}?userId=${userId}&isCurrentUser=true`);
       
       console.log("[AppointmentService] Raw API Response for user appointments:", response);
       
       let appointments: Appointment[] = [];
-      if (response && response.data && Array.isArray(response.data.data)) { // Check for response.data.data
+      if (response && typeof response.data === 'object' && Array.isArray(response.data.data)) {
         appointments = response.data.data;
-      } else if (response && Array.isArray(response.data)) { // Check for response.data
+      } else if (response && Array.isArray(response.data)) {
         appointments = response.data;
-      } else if (Array.isArray(response)) { // Fallback to direct array response
+      } else if (Array.isArray(response)) {
         appointments = response;
       }
       
@@ -122,11 +123,32 @@ export const AppointmentService = {
   // Tạo appointment mới
   createAppointment: async (data: CreateAppointmentRequest): Promise<Appointment> => {
     try {
-      console.log("[AppointmentService] Creating appointment:", data);
-      const response = await apiClient.post<Appointment>(API_ENDPOINTS.APPOINTMENTS.BASE, data);
+      console.log("[AppointmentService] Creating appointment with data:", data);
+      // Log headers being sent
+      const accessToken =
+        typeof window !== "undefined"
+          ? localStorage.getItem("accessToken")
+          : null;
+      console.log("[AppointmentService] Sending with headers:", {
+        Authorization: `Bearer ${accessToken}`,
+      });
+
+      const response = await apiClient.post<Appointment>(API_ENDPOINTS.APPOINTMENTS.BASE, data, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      });
+      console.log("[AppointmentService] Create appointment successful. Response:", response);
       return response;
-    } catch (error) {
+    } catch (error: any) {
       console.error("[AppointmentService] Error creating appointment:", error);
+      if (error.response) {
+        console.error("[AppointmentService] Error response data:", error.response.data);
+        console.error("[AppointmentService] Error response status:", error.response.status);
+        console.error("[AppointmentService] Error response headers:", error.response.headers);
+      } else if (error.request) {
+        console.error("[AppointmentService] Error request:", error.request);
+      } else {
+        console.error("[AppointmentService] Error message:", error.message);
+      }
       throw error;
     }
   },

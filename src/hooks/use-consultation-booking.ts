@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { ConsultantProfile } from "@/services/consultant.service";
-import { AppointmentService, AppointmentData } from "@/services/appointment.service";
+import { AppointmentService, CreateAppointmentRequest } from "@/services/appointment.service";
 
 interface BookingFormData {
   consultationReason: string;
@@ -88,25 +88,27 @@ export function useConsultationBooking() {
       }
 
       // Prepare appointment data
-      const appointmentData: AppointmentData = {
-        serviceIds: ["online-consultation"],
+      const appointmentData: CreateAppointmentRequest = {
         consultantId: consultant.id,
         appointmentDate: appointmentDate.toISOString(),
-        appointmentLocation: "online",
+        appointmentTime: selectedTime, // Use selectedTime for appointmentTime
         notes: buildNotesString(formData),
-        meetingLink: formData.preferredContactMethod === "video" ? "TBD" : undefined,
+        // serviceId and type are optional in CreateAppointmentRequest
+        // based on the provided API documentation, serviceIds should be mapped to serviceId
+        serviceId: "online-consultation-service-id", // Placeholder, you might need to get this from somewhere
+        type: "online-consultation", // Placeholder, you might need to get this from somewhere
       };
 
-      // Create appointment (sử dụng mock để test)
-      // await AppointmentService.create(appointmentData);
+      // Create appointment
+      await AppointmentService.createAppointment(appointmentData);
       
-      // Simulate API call với delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       toast({
         title: "Đặt lịch thành công!",
         description: "Tư vấn viên sẽ liên hệ với bạn trong thời gian sớm nhất",
       });
+
+      // Chuyển hướng đến trang lịch hẹn của tôi
+      window.location.href = "/manage/appointments"; // Hoặc "/profile/appointments" tùy theo URL chính xác của trang lịch hẹn của bạn
 
       return true;
     } catch (error: any) {
@@ -176,4 +178,4 @@ export function useConsultationBooking() {
     isLoading,
     errors,
   };
-} 
+}
