@@ -62,10 +62,7 @@ export default function Header() {
                       Tài khoản
                     </Link>
                   </DropdownMenuItem>
-                  {((typeof user?.role === "string" &&
-                    user.role === "customer") ||
-                    (typeof user?.role === "object" &&
-                      user.role?.name === "customer")) && (
+                  {user && (
                     <DropdownMenuItem asChild>
                       <Link href="/profile/appointments" className="w-full">
                         <Calendar className="mr-2 h-4 w-4" />

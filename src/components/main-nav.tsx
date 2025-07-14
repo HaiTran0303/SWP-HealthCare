@@ -18,7 +18,7 @@ const mainNavItems = [
   },
   {
     title: "Đặt lịch tư vấn",
-    href: "/appointments",
+    href: "/consultant",
   },
   {
     title: "Xét nghiệm STI",

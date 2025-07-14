@@ -6,6 +6,56 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Utility function để validate image URLs
+export function isValidImageUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  
+  // Kiểm tra format URL cơ bản
+  try {
+    const urlObj = new URL(url);
+    // Chỉ chấp nhận http/https
+    if (!['http:', 'https:'].includes(urlObj.protocol)) return false;
+    
+    // Kiểm tra extension hợp lệ
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+    const hasValidExtension = validExtensions.some(ext => 
+      url.toLowerCase().includes(ext)
+    );
+    
+    return hasValidExtension;
+  } catch {
+    return false;
+  }
+}
+
+// Utility function để get safe image URL với fallback
+export function getSafeImageUrl(
+  coverImage?: string | null,
+  featuredImage?: string | null, 
+  images?: Array<{url: string}> | null
+): string | null {
+  // Tạm thời return null để tránh 404, có thể enable lại sau
+  return null;
+  
+  // Code để enable lại sau này:
+  // if (coverImage && isValidImageUrl(coverImage)) return coverImage;
+  // if (featuredImage && featuredImage.startsWith("http") && isValidImageUrl(featuredImage)) return featuredImage;
+  // if (Array.isArray(images)) {
+  //   const validImage = images.find(img => img.url && isValidImageUrl(img.url));
+  //   if (validImage) return validImage.url;
+  // }
+  // return null;
+}
+
+// Utility function để handle image loading errors
+export function handleImageError(e: React.SyntheticEvent<HTMLImageElement>) {
+  // Ẩn image khi load failed
+  e.currentTarget.style.display = 'none';
+  
+  // Có thể thêm fallback image khác nếu cần
+  // e.currentTarget.src = '/images/fallback-image.jpg';
+}
+
 // Định dạng ngày tháng
 export function formatDate(date: Date | string): string {
   const d = new Date(date);

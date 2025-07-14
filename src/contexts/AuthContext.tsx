@@ -76,13 +76,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    
+    console.log("[AuthContext] Initializing...");
+    
     const accessToken = localStorage.getItem("accessToken");
     if (accessToken) {
+      console.log("[AuthContext] Found access token, setting headers");
       apiClient.setDefaultHeaders({
         Authorization: `Bearer ${accessToken}`,
       });
+      // Try to check auth with existing token
+      checkAuth();
+    } else {
+      setIsLoading(false);
+      setIsAuthReady(true);
+      console.log("[AuthContext] No access token found, not authenticated.");
     }
-    checkAuth();
   }, []);
 
   const refreshToken = async () => {
@@ -107,28 +116,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async () => {
     try {
+      console.log("[AuthContext] Checking auth...");
       const userData = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
+      console.log("[AuthContext] Auth successful:", userData);
       setUser(userData);
-    } catch (error) {
-      if ((error as ApiError).status === 401) {
+      // Set cookie với token thật
+      const accessToken = localStorage.getItem("accessToken");
+      if (accessToken) {
+        document.cookie = `auth-token=${accessToken}; path=/; max-age=86400`;
+      }
+    } catch (error: any) {
+      console.log("[AuthContext] Auth failed:", error);
+      // If unauthorized, try to refresh token or clear auth
+      if (error.status === 401) {
         try {
+          console.log("[AuthContext] Trying to refresh token...");
           await refreshToken();
           const userData = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
+          console.log("[AuthContext] Auth successful after refresh:", userData);
           setUser(userData);
+          const accessToken = localStorage.getItem("accessToken");
+          if (accessToken) {
+            document.cookie = `auth-token=${accessToken}; path=/; max-age=86400`;
+          }
         } catch (refreshError) {
-          setUser(null);
+          console.error("[AuthContext] Refresh failed:", refreshError);
+          logoutUser(); // Clear user data and tokens
         }
       } else {
-        setUser(null);
+        console.error("[AuthContext] Other auth error:", error);
+        logoutUser(); // Clear user data and tokens for other errors
       }
     } finally {
       setIsLoading(false);
       setIsAuthReady(true);
+      console.log("[AuthContext] Auth ready");
     }
   };
 
   const login = async (email: string, password: string) => {
     try {
+      console.log("[AuthContext] Attempting login...");
       const response = await apiClient.post<any>(API_ENDPOINTS.AUTH.LOGIN, {
         email,
         password,
@@ -137,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data && data.accessToken) {
         localStorage.setItem("accessToken", data.accessToken);
         localStorage.setItem("refreshToken", data.refreshToken);
-        document.cookie = `auth-token=${data.accessToken}; path=/;`;
+        document.cookie = `auth-token=${data.accessToken}; path=/; max-age=86400`;
         apiClient.setDefaultHeaders({
           Authorization: `Bearer ${data.accessToken}`,
         });
@@ -145,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const freshUser = await apiClient.get<User>("/users/me");
         setUser(freshUser);
         localStorage.setItem("userId", freshUser.id);
+        console.log("[AuthContext] Login successful:", freshUser);
       } else {
         throw new Error(
           "Đăng nhập thất bại: Không tìm thấy accessToken trong response"
@@ -163,6 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.push("/");
       }
     } catch (error) {
+      console.error("[AuthContext] Login error:", error);
       toast({
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Có lỗi xảy ra",
@@ -174,6 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (userData: any) => {
     try {
+      console.log("[AuthContext] Attempting registration...");
       await apiClient.post(API_ENDPOINTS.AUTH.REGISTER, userData);
       toast({
         title: "Đăng ký thành công",
@@ -181,6 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       router.push("/auth/verify-email");
     } catch (error) {
+      console.error("[AuthContext] Registration error:", error);
       toast({
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Có lỗi xảy ra",
@@ -190,23 +222,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const logoutUser = useCallback(() => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userId");
+    document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"; // Clear auth-token cookie
+    apiClient.removeDefaultHeader("Authorization");
+    setUser(null);
+    router.push("/");
+  }, [router]);
+
   const logout = async () => {
     try {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("userId");
-      setUser(null);
-
-      apiClient.removeDefaultHeader("Authorization");
-      document.cookie =
-        "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-      router.push("/");
-
+      console.log("[AuthContext] Logging out...");
+      logoutUser();
       toast({
         title: "Đăng xuất thành công",
         description: "Hẹn gặp lại bạn!",
       });
     } catch (error) {
+      console.error("[AuthContext] Logout error:", error);
       toast({
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Có lỗi xảy ra",

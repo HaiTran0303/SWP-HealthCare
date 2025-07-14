@@ -15,6 +15,7 @@ export interface Blog {
   coverImage?: string;
   featuredImage?: string;
   images?: { id: string; url: string; [key: string]: any }[];
+  imageUrl?: string; // Add imageUrl to the Blog interface
   rejectionReason?: string;
   revisionNotes?: string;
   // ... các trường khác nếu cần

@@ -39,30 +39,13 @@ import {
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  ConsultantService,
+  ConsultantProfile,
+} from "@/services/consultant.service";
 
 // Types
-interface ConsultantProfile {
-  id: string;
-  userId: string;
-  firstName: string;
-  lastName: string;
-  specialties: string[];
-  qualification: string;
-  experience: string;
-  bio: string;
-  consultationFee: number;
-  isAvailable: boolean;
-  rating: number;
-  avatar: string;
-  availability: ConsultantAvailability[];
-}
-
-interface ConsultantAvailability {
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  location: string;
-}
+import { ConsultantAvailability } from "@/services/consultant.service";
 
 interface Appointment {
   id: string;
@@ -115,12 +98,8 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
       setIsLoadingConsultants(true);
       setError(null);
       try {
-        const response = await fetch(
-          "https://gender-healthcare.org/api/consultant-profiles"
-        );
-        if (!response.ok) throw new Error("Failed to fetch consultants");
-        const data = await response.json();
-        setConsultants(data);
+        const data:any = await ConsultantService.getAll();
+        setConsultants(data.data.data);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Failed to load consultants";
@@ -164,12 +143,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
   const handleConsultantSelect = async (consultant: ConsultantProfile) => {
     setIsLoadingAvailability(true);
     try {
-      const response = await fetch(
-        `https://gender-healthcare.org/api/consultant-availability?consultantId=${consultant.id}`
-      );
-      if (!response.ok)
-        throw new Error("Failed to fetch consultant availability");
-      const availability = await response.json();
+      const availability = await ConsultantService.getAvailability(consultant.id);
       setSelectedConsultant({ ...consultant, availability });
       setBookingStep(2);
     } catch (error) {
@@ -439,39 +413,39 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                   </div>
 
                   <div className="md:w-2/3">
-                    <Card>
+                    <Card className="shadow-lg">
                       <CardHeader>
-                        <CardTitle>Chọn ngày và giờ</CardTitle>
+                        <CardTitle className="text-2xl font-bold text-primary">Chọn ngày và giờ</CardTitle>
                         <CardDescription>
                           Chọn thời gian phù hợp cho buổi tư vấn của bạn
                         </CardDescription>
                       </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-col md:flex-row gap-6">
-                          <div className="md:w-1/2">
-                            <CalendarComponent
-                              mode="single"
-                              selected={selectedDate}
-                              onSelect={handleDateSelect}
-                              className="rounded-md border"
-                              disabled={(date: Date) => {
-                                const today = new Date();
-                                today.setHours(0, 0, 0, 0);
-
-                                const maxDate = new Date();
-                                maxDate.setDate(today.getDate() + 30);
-                                maxDate.setHours(23, 59, 59, 999);
-
-                                return date < today || date > maxDate;
-                              }}
-                            />
+                      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+                        <div>
+                          <h4 className="font-semibold text-lg mb-3 text-center">Chọn ngày</h4>
+                          <div className="p-3 bg-muted/50 rounded-2xl">
+                          <CalendarComponent
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={handleDateSelect}
+                            className="rounded-md"
+                            disabled={(date: Date) => {
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              const maxDate = new Date();
+                              maxDate.setDate(today.getDate() + 30);
+                              return date < today || date > maxDate;
+                            }}
+                          />
                           </div>
-                          <div className="md:w-1/2">
-                            <h4 className="font-medium mb-3">
-                              Khung giờ trống
-                            </h4>
-                            <div className="grid grid-cols-2 gap-2">
-                              {selectedConsultant.availability
+                        </div>
+                        <div className="border-l border-border pl-6">
+                          <h4 className="font-semibold text-lg mb-3 text-center">
+                            Chọn giờ
+                          </h4>
+                          <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
+                            {selectedDate ? (
+                              selectedConsultant.availability
                                 .filter(
                                   (slot) =>
                                     slot.dayOfWeek === selectedDate?.getDay()
@@ -484,16 +458,21 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                                         ? "default"
                                         : "outline"
                                     }
-                                    className="justify-start"
+                                    className="w-full justify-center py-3 text-base"
                                     onClick={() =>
                                       handleTimeSelect(slot.startTime)
                                     }
                                   >
-                                    <Clock className="mr-2 h-4 w-4" />
+                                    <Clock className="mr-2 h-5 w-5" />
                                     {slot.startTime}
                                   </Button>
-                                ))}
-                            </div>
+                                ))
+                            ) : (
+                              <div className="text-center text-muted-foreground pt-16">
+                                <CalendarIcon className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                                <p className="mt-2">Vui lòng chọn ngày trước</p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </CardContent>

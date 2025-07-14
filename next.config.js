@@ -31,10 +31,23 @@ const nextConfig = {
   },
 
   images: {
+    // Cải thiện cấu hình images để tránh lỗi 404
     domains: [
       "d3fdwgxfvcmuj8.cloudfront.net",
-      // thêm các domain khác nếu
+      "d4vjsyqlv6u6j.cloudfront.net", 
+      "gender-healthcare.org",
+      "localhost",
+      // thêm các domain khác nếu cần
     ],
+    // Thêm fallback cho images bị lỗi
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    // Disable tối ưu hóa image nếu gặp vấn đề
+    unoptimized: false,
+    // Timeout cho việc load image
+    loader: 'default',
+    // Thêm error handling
+    minimumCacheTTL: 60,
   },
 };
 

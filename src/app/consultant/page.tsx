@@ -1,5 +1,7 @@
 "use client";
 
+import { useAuth } from "@/contexts/AuthContext";
+import OnlineConsultationBooking from "@/components/OnlineConsultationBooking";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -17,7 +19,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 
-export default function ConsultantDashboard() {
+export default function ConsultantPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const router = useRouter();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    new Date()
+  );
+
+  // Nếu người dùng là tư vấn viên, hiển thị dashboard
+  if (user && (
+    (typeof user.role === "string" && user.role === "consultant") ||
+    (typeof user.role === "object" && user.role?.name === "consultant")
+  )) {
+    return <ConsultantDashboard />;
+  }
+
+  // Nếu không phải tư vấn viên, hiển thị giao diện đặt lịch
+  return <OnlineConsultationBooking />;
+}
+
+function ConsultantDashboard() {
   const { toast } = useToast();
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(

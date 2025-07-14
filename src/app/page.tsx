@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { PackageServiceService } from "@/services/package-service.service";
+import { APIService, Service } from "@/services/service.service";
 
 async function getBlogs() {
   try {
@@ -10,39 +10,58 @@ async function getBlogs() {
       "https://gender-healthcare.org/blogs/published?page=1&limit=3",
       { cache: "no-store" }
     );
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.data)) return data.data;
-    if (Array.isArray(data?.data?.data)) return data.data.data;
-    return [];
-  } catch {
+    if (!res.ok) {
+      console.error("Failed to fetch blogs:", res.status, res.statusText);
+      return [];
+    }
+    const result = await res.json();
+    
+    const blogData = result.data?.data || result.data || [];
+    
+    if (!Array.isArray(blogData)) {
+        console.error("Expected blogData to be an array but got:", blogData);
+        return [];
+    }
+
+     return blogData.map((blog: any) => {
+        const image = blog.images?.[0];
+        return {
+          ...blog,
+          imageUrl: image?.url || null,
+        }
+     });
+  } catch(e) {
+    console.error("Failed to fetch or process blogs:", e);
     return [];
   }
 }
 
 export default function HomePage() {
   const [blogs, setBlogs] = useState<any[]>([]);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
 
   useEffect(() => {
-    PackageServiceService.getAll().then((res: any) => {
-      const arr = Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res)
+    APIService.getAll({ limit: 3, page: 1 })
+      .then((res: any) => {
+        const arr = Array.isArray(res?.data?.data)
+          ? res.data.data
+          : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
           ? res
           : [];
-      arr.sort(
-        (a: any, b: any) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setServices(arr.slice(0, 3));
-    });
-  }, []);
+        setServices(arr);
+      })
+      .catch((error) => {
+        console.error("Error fetching services:", error);
+        setServices([]); // Set to empty array on error
+      });
 
-  useEffect(() => {
     getBlogs().then((res) => {
       setBlogs(res);
+    }).catch((error) => {
+        console.error("Error in getBlogs promise chain:", error);
+        setBlogs([]); // Set to empty array on error
     });
   }, []);
 
@@ -62,7 +81,7 @@ export default function HomePage() {
             về sức khỏe giới tính của mình.
           </p>
           <div className="flex gap-4 mt-6">
-            <Link href="/appointments">
+            <Link href="/consultant">
               <button className="px-8 py-3 rounded-full font-bold bg-primary shadow-lg hover:bg-primary/90 transition text-lg border-2 border-primary text-white dark:bg-white dark:border-primary dark:hover:bg-primary/10 dark:!text-primary">
                 Đặt lịch tư vấn
               </button>
@@ -111,43 +130,52 @@ export default function HomePage() {
               Chưa có dịch vụ nào.
             </div>
           )}
-          {services.map((item: any) => (
+          {services.map((service: Service) => (
             <div
-              key={item.id}
+              key={service.id}
               className="bg-white dark:bg-card/80 rounded-2xl shadow-xl border border-primary/10 dark:border-primary/20 p-7 flex flex-col gap-4 hover:scale-[1.03] hover:shadow-2xl transition-transform group relative overflow-hidden cursor-pointer"
-              onClick={() => (window.location.href = `/services/${item.id}`)}
+              onClick={() => (window.location.href = `/services/${service.id}`)}
             >
-              <div className="absolute top-0 right-0 m-4 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
-                {item.package?.name}
+              <div className="h-40 w-full bg-gradient-to-br from-secondary/10 to-primary/10 dark:from-secondary/20 dark:to-primary/20 rounded-xl flex items-center justify-center mb-2 overflow-hidden relative">
+                {service.imageUrl ? (
+                  <Image
+                    src={service.imageUrl}
+                    alt={service.name}
+                    fill
+                    className="object-cover w-full h-full rounded-xl group-hover:scale-105 transition-transform"
+                    onError={(e:any) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <span className="text-5xl text-primary/60">⚕️</span>
+                )}
               </div>
               <h3
                 className="font-bold text-2xl text-primary mb-2 group-hover:underline cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
-                  window.location.href = `/services/${item.id}`;
+                  window.location.href = `/services/${service.id}`;
                 }}
               >
-                {item.service?.name}
+                {service.name}
               </h3>
               <p className="text-base text-muted-foreground line-clamp-3 mb-2">
-                {item.service?.shortDescription || item.service?.description}
+                {service.description}
               </p>
               <div className="flex flex-col gap-1 mb-2">
                 <span className="inline-block font-semibold text-lg text-green-700">
                   Giá:{" "}
                   <span className="text-2xl text-green-800">
-                    {item.service?.price} VNĐ
+                    {service.price.toLocaleString()} VNĐ
                   </span>
                 </span>
-                <span className="inline-block text-sm text-blue-700 font-medium">
-                  Số gói hiện có/tháng:{" "}
-                  <span className="font-bold">
-                    {item.package?.maxServicesPerMonth}
-                  </span>
+                 <span className="inline-block text-sm text-blue-700 font-medium">
+                  Thời lượng: <span className="font-bold">{service.duration} phút</span>
                 </span>
               </div>
               <Link
-                href={`/services/${item.id}`}
+                href={`/services/${service.id}`}
                 className="mt-auto text-primary font-semibold hover:underline block text-center py-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -182,27 +210,22 @@ export default function HomePage() {
             </div>
           )}
           {blogs.map((blog: any) => {
-            const blogImage =
-              blog.coverImage ||
-              (blog.featuredImage && blog.featuredImage.startsWith("http")
-                ? blog.featuredImage
-                : null) ||
-              (Array.isArray(blog.images) &&
-                blog.images.find((img: any) => img.url)?.url);
             return (
               <div
                 key={blog.id}
                 className="bg-card/80 dark:bg-card/60 rounded-2xl shadow-xl border border-primary/10 dark:border-primary/20 p-7 flex flex-col gap-4 hover:scale-[1.03] hover:shadow-2xl transition-transform group cursor-pointer"
                 onClick={() => (window.location.href = `/blog/${blog.id}`)}
               >
-                <div className="h-36 w-full bg-gradient-to-br from-secondary/10 to-primary/10 dark:from-secondary/20 dark:to-primary/20 rounded-xl flex items-center justify-center mb-2 overflow-hidden">
-                  {blogImage ? (
+                <div className="h-36 w-full bg-gradient-to-br from-secondary/10 to-primary/10 dark:from-secondary/20 dark:to-primary/20 rounded-xl flex items-center justify-center mb-2 overflow-hidden relative">
+                  {blog.imageUrl ? (
                     <Image
-                      src={blogImage}
+                      src={blog.imageUrl}
                       alt={blog.title}
-                      width={180}
-                      height={120}
+                      fill
                       className="object-cover w-full h-full rounded-xl group-hover:scale-105 transition-transform"
+                      onError={(e:any) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
                   ) : (
                     <span className="text-5xl text-primary/60">📰</span>
@@ -243,7 +266,7 @@ export default function HomePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="bg-card/80 dark:bg-card/60 rounded-2xl border border-primary/10 dark:border-primary/20 shadow-lg p-8 flex flex-col items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-              <span className="text-3xl">👩‍🦰</span>
+              <span className="text-3xl">👩‍-🦰</span>
             </div>
             <blockquote className="italic text-muted-foreground text-center">
               "Dịch vụ tư vấn rất tận tâm, mình cảm thấy an tâm khi sử dụng dịch
@@ -284,7 +307,7 @@ export default function HomePage() {
             Đội ngũ chuyên gia của chúng tôi luôn sẵn sàng hỗ trợ bạn. Đặt lịch
             tư vấn ngay để được giải đáp mọi thắc mắc!
           </p>
-          <Link href="/appointments">
+          <Link href="/consultant">
             <button className="px-10 py-4 rounded-full font-bold bg-primary text-white shadow-lg hover:bg-primary/90 transition text-xl">
               Đặt lịch tư vấn ngay
             </button>

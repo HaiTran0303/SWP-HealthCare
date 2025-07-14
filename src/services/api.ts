@@ -76,30 +76,34 @@ async function handleResponse(response: Response) {
       case 401:
         throw new ApiError(
           response.status,
-          safeData.message || API_ERROR_MESSAGES.UNAUTHORIZED,
+          safeData.message || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
           safeData
         );
       case 403:
         throw new ApiError(
           response.status,
-          safeData.message || API_ERROR_MESSAGES.FORBIDDEN,
+          safeData.message || "Bạn không có quyền truy cập tài nguyên này.",
           safeData
         );
       case 404:
         throw new ApiError(
           response.status,
-          safeData.message || API_ERROR_MESSAGES.NOT_FOUND,
+          safeData.message || "Không tìm thấy tài nguyên yêu cầu.",
           safeData
         );
       default:
         throw new ApiError(
           response.status,
-          safeData.message || API_ERROR_MESSAGES.SERVER_ERROR,
+          safeData.message || "Đã có lỗi xảy ra. Vui lòng thử lại sau.",
           safeData
         );
     }
   }
 
+  // Ensure data is not null or undefined before accessing properties
+  if (data === null || typeof data === 'undefined') {
+    return null; // Or throw a specific error if appropriate for your API
+  }
   return data.data || data;
 }
 
@@ -120,7 +124,6 @@ export const apiClient = {
   async request<T>(endpoint: string, config: RequestConfig = {}): Promise<T> {
     try {
       const url = buildApiUrl(endpoint);
-
       const response = await fetchWithTimeout(url, config);
       return handleResponse(response);
     } catch (error) {
@@ -130,7 +133,7 @@ export const apiClient = {
 
       if (error instanceof Error) {
         if (error.name === "AbortError") {
-          throw new ApiError(408, API_ERROR_MESSAGES.TIMEOUT);
+          throw new ApiError(408, "Yêu cầu đã hết thời gian chờ. Vui lòng thử lại.");
         }
         // Check for specific network errors
         if (error.message.includes("Failed to fetch")) {
@@ -139,10 +142,10 @@ export const apiClient = {
             "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
           );
         }
-        throw new ApiError(0, API_ERROR_MESSAGES.NETWORK_ERROR);
+        throw new ApiError(0, "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.");
       }
 
-      throw new ApiError(0, API_ERROR_MESSAGES.SERVER_ERROR);
+      throw new ApiError(0, "Đã có lỗi xảy ra. Vui lòng thử lại sau.");
     }
   },
 

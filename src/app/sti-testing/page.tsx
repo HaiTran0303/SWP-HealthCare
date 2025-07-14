@@ -23,12 +23,13 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiClient } from "@/services/api";
+import { apiClient } from "@/services/api"; // Keep this for now, might be needed for booking
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import StiStepper from "@/components/StiStepper";
 import StiServiceCard from "@/components/StiServiceCard";
 import StiSummarySidebar from "@/components/StiSummarySidebar";
+import { APIService, Service } from "@/services/service.service"; // Import APIService and Service
 
 const steps = [
   "Chọn dịch vụ",
@@ -163,17 +164,26 @@ export default function STITestingPage() {
 
   // Lấy danh sách dịch vụ STI
   useEffect(() => {
-    apiClient
-      .get("/sti-test-processes/services/available")
-      .then((data) => setServices(data as any[]))
-      .catch(() =>
+    APIService.getAll({ categoryType: "sti", limit: 100 }) // Assuming 'sti' is the category type for STI services
+      .then((res: any) => {
+        const fetchedServices: Service[] = res.data?.data || res.data || res;
+        if (Array.isArray(fetchedServices)) {
+          setServices(fetchedServices);
+        } else {
+          console.error("Expected fetchedServices to be an array but got:", fetchedServices);
+          setServices([]);
+        }
+      })
+      .catch((error: Error) => {
+        console.error("Error fetching STI services:", error);
         toast({
           title: "Lỗi",
-          description: "Không thể tải danh sách dịch vụ.",
+          description: "Không thể tải danh sách dịch vụ xét nghiệm STI.",
           variant: "destructive",
-        })
-      );
-  }, []);
+        });
+        setServices([]); // Ensure services state is an empty array on error
+      });
+  }, [toast]);
 
   // Lấy thông tin chi tiết chi phí, thời gian dự kiến khi chọn dịch vụ
   useEffect(() => {
