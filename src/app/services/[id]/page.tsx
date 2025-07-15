@@ -99,9 +99,12 @@ export default function ServiceDetailPage() {
             <h1 className="text-4xl md:text-5xl font-extrabold text-primary mb-4">
               {service.name}
             </h1>
-            <p className="text-lg text-muted-foreground mb-6">
-              {service.description || "Không có mô tả."}
-            </p>
+            <div
+              className="text-lg text-muted-foreground mb-6"
+              dangerouslySetInnerHTML={{
+                __html: service.htmlDescription || service.description || "Không có mô tả.",
+              }}
+            />
             <div className="flex flex-col gap-3 text-lg mb-8">
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Giá:</span>
