@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import { PackageServiceService } from "@/services/package-service.service";
+import { APIService, Service } from "@/services/service.service";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function ServicesPage() {
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
-    PackageServiceService.getAll().then((res: any) => {
+    APIService.getAll().then((res: any) => {
       const arr = Array.isArray(res?.data)
         ? res.data
         : Array.isArray(res)
@@ -20,6 +22,10 @@ export default function ServicesPage() {
       setServices(arr);
     });
   }, []);
+
+  const handleServiceClick = (id: string) => {
+    router.push(`/services/${id}`);
+  };
 
   return (
     <main className="min-h-screen bg-background">
@@ -45,48 +51,36 @@ export default function ServicesPage() {
               Chưa có dịch vụ nào.
             </div>
           )}
-          {services.map((item: any) => (
+          {services.map((item: Service) => (
             <div
               key={item.id}
               className="bg-white dark:bg-card/80 rounded-2xl shadow-xl border border-primary/10 dark:border-primary/20 p-7 flex flex-col gap-4 hover:scale-[1.03] hover:shadow-2xl transition-transform group relative overflow-hidden cursor-pointer"
-              onClick={() => (window.location.href = `/services/${item.id}`)}
+              onClick={() => handleServiceClick(item.id)}
             >
-              <div className="absolute top-0 right-0 m-4 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
-                {item.package?.name}
-              </div>
-              <h3
-                className="font-bold text-2xl text-primary mb-2 group-hover:underline cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.location.href = `/services/${item.id}`;
-                }}
-              >
-                {item.service?.name}
+              {item.featured && (
+                <div className="absolute top-0 right-0 m-4 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
+                  Nổi bật
+                </div>
+              )}
+              <h3 className="font-bold text-2xl text-primary mb-2 group-hover:underline">
+                {item.name}
               </h3>
               <p className="text-base text-muted-foreground line-clamp-3 mb-2">
-                {item.service?.shortDescription || item.service?.description}
+                {item.shortDescription || item.description}
               </p>
               <div className="flex flex-col gap-1 mb-2">
                 <span className="inline-block font-semibold text-lg text-green-700">
                   Giá:{" "}
                   <span className="text-2xl text-green-800">
-                    {item.service?.price} VNĐ
+                    {item.price} VNĐ
                   </span>
                 </span>
-                <span className="inline-block text-sm text-blue-700 font-medium">
-                  Số gói hiện có/tháng:{" "}
-                  <span className="font-bold">
-                    {item.package?.maxServicesPerMonth}
-                  </span>
-                </span>
+                {/* Removed package specific info as we are fetching services directly */}
               </div>
-              <Link
-                href={`/services/${item.id}`}
-                className="mt-auto text-primary font-semibold hover:underline block text-center py-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition"
-                onClick={(e) => e.stopPropagation()}
-              >
+              {/* The Link component below is now redundant for navigation but kept for styling if needed */}
+              <div className="mt-auto text-primary font-semibold hover:underline block text-center py-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition">
                 Xem chi tiết
-              </Link>
+              </div>
             </div>
           ))}
         </div>

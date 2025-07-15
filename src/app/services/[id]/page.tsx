@@ -104,10 +104,28 @@ export default function ServiceDetailPage() {
                 <span className="font-bold text-primary">Thời lượng:</span>
                 <span className="font-semibold">{service.duration} phút</span>
               </div>
-               <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Yêu cầu tư vấn:</span>
                 <span className="font-semibold">
                   {service.requiresConsultant ? "Có" : "Không"}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-primary">Mô tả ngắn:</span>
+                <span className="font-semibold">{service.shortDescription}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-primary">Điều kiện tiên quyết:</span>
+                <span className="font-semibold">{service.prerequisites}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-primary">Hướng dẫn sau dịch vụ:</span>
+                <span className="font-semibold">{service.postInstructions}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-primary">Địa điểm:</span>
+                <span className="font-semibold">
+                  {service.location === "online" ? "Trực tuyến" : "Tại văn phòng"}
                 </span>
               </div>
             </div>

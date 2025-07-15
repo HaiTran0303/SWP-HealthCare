@@ -15,8 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
-import { Service, ServiceService } from "@/services/service.service";
+import { PackageServiceService } from "@/services/package-service.service";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AppointmentService } from "@/services/appointment.service"; // Add this import
 import { useSearchParams, useRouter } from "next/navigation";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
@@ -67,39 +68,8 @@ async function getAvailableSlots({
   return res.json();
 }
 
-// API: Book appointment
-async function bookAppointmentApi({
-  serviceIds,
-  consultantId,
-  appointmentDate,
-  appointmentLocation,
-  notes,
-  token,
-}: {
-  serviceIds: string[];
-  consultantId?: string;
-  appointmentDate: string;
-  appointmentLocation: string;
-  notes?: string;
-  token: string;
-}) {
-  const res = await fetch("https://gender-healthcare.org/appointments", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      serviceIds,
-      ...(consultantId ? { consultantId } : {}),
-      appointmentDate,
-      appointmentLocation,
-      ...(notes ? { notes } : {}),
-    }),
-  });
-  if (!res.ok) throw new Error("Không thể đặt lịch");
-  return res.json();
-}
+// API: Book appointment (using AppointmentService for consistency)
+// Removed the direct fetch function and will use AppointmentService.createAppointment directly within handleBookAppointment
 
 export default function AppointmentsPage() {
   // const { user } = useContext(AuthContext); // Uncomment if you have AuthContext
@@ -123,14 +93,15 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     setLoadingServices(true);
-    ServiceService.getAll()
-      .then((data) => {
+    PackageServiceService.getAll()
+      .then((res: any) => { // Using res: any to match original code's data extraction logic
         // Robustly extract the array from possible response shapes
+        const data = res?.data || res; // Adjusting data extraction to match previous
         if (Array.isArray(data)) {
           setServices(data);
-        } else if (Array.isArray(data?.data)) {
+        } else if (Array.isArray(data?.data)) { // This might be redundant now but keeping for robustness
           setServices(data.data);
-        } else if (Array.isArray(data?.services)) {
+        } else if (Array.isArray(data?.services)) { // This might be redundant now but keeping for robustness
           setServices(data.services);
         } else {
           setServices([]);
@@ -296,28 +267,36 @@ export default function AppointmentsPage() {
         token,
       };
       console.log("Body gửi lên:", body);
-      const result = await bookAppointmentApi(body);
-      setBooking({ success: result.success, message: result.message });
-      toast({
-        title: result.success ? "Thành công" : "Lỗi",
-        description: result.message,
-        variant: result.success ? undefined : "destructive",
+      // Use AppointmentService.createAppointment instead of direct fetch
+      const result = await AppointmentService.createAppointment({
+        serviceIds: body.serviceIds,
+        consultantId: body.consultantId,
+        appointmentDate: body.appointmentDate,
+        appointmentLocation: body.appointmentLocation,
+        notes: body.notes,
+        // The token is handled internally by apiClient now
       });
-      if (result.success) {
-        setStep(4);
-        setSelectedServiceIds([]);
-        setSelectedDate(undefined);
-        setSelectedTime("");
-        setSelectedSlot(null);
-        setNotes("");
-        setTimeout(() => {
-          router.push("/profile/appointments");
-        }, 1500);
-      }
+      setBooking({ success: true, message: "Đặt lịch thành công!" }); // Assuming success if no error is thrown
+      toast({
+        title: "Thành công",
+        description: "Lịch hẹn của bạn đã được đặt thành công.",
+      });
+      setStep(4);
+      setSelectedServiceIds([]);
+      setSelectedDate(undefined);
+      setSelectedTime("");
+      setSelectedSlot(null);
+      setNotes("");
+      setTimeout(() => {
+        router.push("/profile/appointments");
+      }, 1500);
     } catch (error: any) {
+      console.error("Error booking appointment:", error);
+      const errorMessage = error?.data?.message || error?.message || "Không thể đặt lịch. Vui lòng thử lại.";
+      setBooking({ success: false, message: errorMessage });
       toast({
         title: "Lỗi",
-        description: error?.message || "Không thể đặt lịch. Vui lòng thử lại.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -491,19 +470,22 @@ export default function AppointmentsPage() {
                           },
                         }}
                         modifiersClassNames={{
-                          available:
-                            "bg-primary/10 border-primary text-primary font-bold rounded-full shadow-md",
-                          selected:
-                            "bg-primary text-white rounded-full shadow-lg",
-                          today: "border border-primary",
+                          // Apply styles from the image
+                          selected: "bg-primary text-white rounded-lg",
+                          today: "border border-primary rounded-lg",
+                          // Make days that are not available look disabled
+                          outside: "text-muted-foreground opacity-50", // Style for days outside the current month
+                          // Style for available days matching the image
+                          day: "hover:bg-primary/10 rounded-lg", // Apply hover and base styling to all days
                         }}
                         disabled={(date) => {
-                          // Disable ngày trong quá khứ
                           const today = new Date();
                           today.setHours(0, 0, 0, 0);
+                          // Disable past dates
                           if (date < today) return true;
+
                           if (needsConsultant && availableSlots.length > 0) {
-                            // Disable ngày không có slot khả dụng
+                            // Disable dates without available slots for consultants
                             return !availableSlots.some((slot) => {
                               const slotDate = new Date(slot.dateTime);
                               return (
@@ -513,6 +495,7 @@ export default function AppointmentsPage() {
                               );
                             });
                           }
+                          // If no consultant needed, all future dates are available
                           return false;
                         }}
                         className="rounded-2xl border shadow-lg p-4 bg-white"
@@ -524,7 +507,7 @@ export default function AppointmentsPage() {
                         Ngày đã chọn:{" "}
                         <span className="font-semibold text-primary">
                           {selectedDate
-                            ? selectedDate.toLocaleDateString()
+                            ? selectedDate.toLocaleDateString("vi-VN") // Format for Vietnamese locale
                             : "Chưa chọn"}
                         </span>
                       </div>

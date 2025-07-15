@@ -417,8 +417,19 @@ export default function STITestingPage() {
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
-                className="rounded-md border"
-                disabled={(date) => date < new Date()}
+                className="rounded-2xl border shadow-lg p-4 bg-white"
+                fromDate={new Date()}
+                modifiersClassNames={{
+                  selected: "bg-primary text-white rounded-lg",
+                  today: "border border-primary rounded-lg",
+                  outside: "text-muted-foreground opacity-50",
+                  day: "hover:bg-primary/10 rounded-lg",
+                }}
+                disabled={(date) => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return date < today;
+                }}
               />
             </div>
             <div className="mb-4">

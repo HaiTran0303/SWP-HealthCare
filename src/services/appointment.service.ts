@@ -36,12 +36,12 @@ export interface Appointment {
 }
 
 export interface CreateAppointmentRequest {
-  consultantId: string;
+  consultantId?: string; // Make optional as it's not always required
   serviceIds?: string[]; // Change to array of service IDs
   appointmentDate: string; // This will now include both date and time in ISO format
   notes?: string;
   meetingLink?: string;
-  appointmentLocation?: string; // This will now carry the "type" value
+  appointmentLocation?: string; // Make optional to match usage
 }
 
 export interface UpdateAppointmentStatusRequest {

@@ -49,18 +49,23 @@ async function fetchWithTimeout(resource: string, config: RequestConfig = {}) {
   }
 }
 
-async function handleResponse(response: Response) {
-  const contentType = response.headers.get("content-type");
-  let data;
-  try {
-    if (contentType?.includes("application/json")) {
-      data = await response.json();
-    } else {
-      data = await response.text();
+  async function handleResponse(response: Response) {
+    const contentType = response.headers.get("content-type");
+    let data;
+    let rawResponseText; // Added to store raw text for debugging
+
+    try {
+      if (contentType?.includes("application/json")) {
+        rawResponseText = await response.text(); // Read as text first
+        data = JSON.parse(rawResponseText); // Then parse as JSON
+      } else {
+        data = await response.text();
+      }
+    } catch (error) {
+      console.error("[APIClient] Error parsing response JSON:", error);
+      console.error("[APIClient] Raw response text:", rawResponseText); // Log raw text
+      throw new ApiError(response.status, "Invalid response format from server", { rawResponse: rawResponseText, parseError: error });
     }
-  } catch (error) {
-    throw new ApiError(response.status, "Invalid response format from server");
-  }
 
   if (!response.ok) {
     // Đảm bảo data luôn là object
@@ -102,6 +107,7 @@ async function handleResponse(response: Response) {
 
   // Ensure data is not null or undefined before accessing properties
   if (data === null || typeof data === 'undefined') {
+    console.warn("[APIClient] API response data is null or undefined."); // Added warning
     return null; // Or throw a specific error if appropriate for your API
   }
   return data.data || data;
