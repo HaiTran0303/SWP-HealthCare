@@ -23,24 +23,87 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
+import { Blog, BlogService } from "@/services/blog.service";
+import BlogReviewModal from "@/components/BlogReviewModal";
+import BlogPublishModal from "@/components/BlogPublishModal";
+import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [blogs, setBlogs] = useState<Blog[]>([]);
+  const [loadingBlogs, setLoadingBlogs] = useState(true);
+  const [errorBlogs, setErrorBlogs] = useState<string | null>(null);
+  const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (user.isAdmin) {
-      setIsAdmin(true);
-    } else {
-      setIsAdmin(false);
+    if (!isAuthLoading) {
+      const userRole = typeof user?.role === "object" ? user.role.name : user?.role;
+      if (user && userRole === "admin") {
+        setIsAdmin(true);
+        fetchBlogs();
+      } else {
+        setIsAdmin(false);
+      }
     }
-  }, [router]);
+  }, [user, isAuthLoading]);
 
-  if (isAdmin === null) return null;
+  const fetchBlogs = async () => {
+    setLoadingBlogs(true);
+    setErrorBlogs(null);
+    try {
+      const fetchedBlogs = await BlogService.getAll();
+      setBlogs(fetchedBlogs);
+    } catch (err: any) {
+      setErrorBlogs(err?.message || "Lỗi khi tải danh sách bài viết");
+    } finally {
+      setLoadingBlogs(false);
+    }
+  };
+
+  const handleOpenReviewModal = (blog: Blog) => {
+    setSelectedBlog(blog);
+    setIsReviewModalOpen(true);
+  };
+
+  const handleCloseReviewModal = () => {
+    setIsReviewModalOpen(false);
+    setSelectedBlog(null);
+  };
+
+  const handleOpenPublishModal = (blog: Blog) => {
+    setSelectedBlog(blog);
+    setIsPublishModalOpen(true);
+  };
+
+  const handleClosePublishModal = () => {
+    setIsPublishModalOpen(false);
+    setSelectedBlog(null);
+  };
+
+  const handleReviewSuccess = () => {
+    fetchBlogs(); // Refresh blog list after successful review
+  };
+
+  const handlePublishSuccess = () => {
+    fetchBlogs(); // Refresh blog list after successful publish
+  };
+
+  if (isAuthLoading || isAdmin === null) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p>Đang tải...</p>
+      </div>
+    );
+  }
+
   if (!isAdmin) {
     return (
-      <div style={{ color: "red", textAlign: "center", marginTop: 40 }}>
+      <div className="text-red-500 text-center mt-10">
         Bạn không có quyền truy cập trang này!
       </div>
     );
@@ -113,6 +176,7 @@ export default function AdminDashboard() {
           <TabsTrigger value="tests">Xét nghiệm</TabsTrigger>
           <TabsTrigger value="consultants">Tư vấn viên</TabsTrigger>
           <TabsTrigger value="services">Dịch vụ</TabsTrigger>
+          <TabsTrigger value="blogs">Bài viết</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -235,7 +299,97 @@ export default function AdminDashboard() {
         </TabsContent>
 
         {/* Add similar content for other tabs */}
+
+        <TabsContent value="blogs">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý bài viết</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex gap-4">
+                  <Input
+                    placeholder="Tìm kiếm bài viết..."
+                    className="w-[200px]"
+                  />
+                  <Select>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Chờ duyệt</SelectItem>
+                      <SelectItem value="approved">Đã duyệt</SelectItem>
+                      <SelectItem value="published">Đã xuất bản</SelectItem>
+                      <SelectItem value="rejected">Đã từ chối</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Link href="/blog/new">
+                  <Button>Thêm bài viết</Button>
+                </Link>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tiêu đề</TableHead>
+                    <TableHead>Tác giả</TableHead>
+                    <TableHead>Ngày tạo</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Array.isArray(blogs) && blogs.map((blog) => (
+                    <TableRow key={blog.id}>
+                      <TableCell>{blog.title}</TableCell>
+                      <TableCell>{blog.author}</TableCell>
+                      <TableCell>{new Date(blog.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Badge>{blog.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {blog.status === "pending" && (
+                            <Button variant="outline" size="sm" onClick={() => handleOpenReviewModal(blog)}>
+                              Duyệt
+                            </Button>
+                          )}
+                          {(blog.status === "approved" || blog.status === "rejected") && (
+                            <Button variant="outline" size="sm" onClick={() => handleOpenPublishModal(blog)}>
+                              Xuất bản
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm">
+                            Chi tiết
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {loadingBlogs && <div className="text-center py-4">Đang tải bài viết...</div>}
+              {errorBlogs && <div className="text-red-500 text-center py-4">{errorBlogs}</div>}
+              {!loadingBlogs && blogs.length === 0 && <div className="text-center py-4">Không có bài viết nào.</div>}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+      {isReviewModalOpen && (
+        <BlogReviewModal
+          blog={selectedBlog}
+          onClose={handleCloseReviewModal}
+          onReviewSuccess={handleReviewSuccess}
+        />
+      )}
+      {isPublishModalOpen && (
+        <BlogPublishModal
+          blog={selectedBlog}
+          onClose={handleClosePublishModal}
+          onPublishSuccess={handlePublishSuccess}
+        />
+      )}
     </div>
   );
 }

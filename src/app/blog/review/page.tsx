@@ -3,18 +3,15 @@ import { useEffect, useState } from "react";
 import { Blog, BlogService } from "@/services/blog.service";
 import { Button } from "@/components/ui/button";
 import { fetchAllUsers } from "@/services/api";
+import BlogReviewModal from "@/components/BlogReviewModal";
+import BlogPublishModal from "@/components/BlogPublishModal"; // Import the new publish modal
 
 export default function BlogReviewPage() {
   const [pendingBlogs, setPendingBlogs] = useState<Blog[]>([]);
   const [approvedBlogs, setApprovedBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
-  const [reviewStatus, setReviewStatus] = useState("approved");
-  const [reason, setReason] = useState("");
-  const [publishNotes, setPublishNotes] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null); // For review modal
+  const [selectedBlogToPublish, setSelectedBlogToPublish] = useState<Blog | null>(null); // For publish modal
   const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
@@ -47,43 +44,6 @@ export default function BlogReviewPage() {
     if (!user) return authorId;
     return (user.firstName || "") + (user.lastName ? " " + user.lastName : "");
   }
-
-  const handleReview = async () => {
-    if (!selectedBlog) return;
-    setActionLoading(true);
-    setError("");
-    setSuccess("");
-    try {
-      await BlogService.review(selectedBlog.id, {
-        status: reviewStatus,
-        ...(reviewStatus === "approved" && { revisionNotes: reason }),
-        ...(reviewStatus === "rejected" && { rejectionReason: reason }),
-      });
-      setSuccess("Đã review thành công!");
-      setSelectedBlog(null);
-      fetchBlogs();
-    } catch (err: any) {
-      setError(err?.message || "Lỗi review");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handlePublish = async (blogId: string) => {
-    setActionLoading(true);
-    setError("");
-    setSuccess("");
-    try {
-      await BlogService.publish(blogId, { publishNotes });
-      setSuccess("Đã publish thành công!");
-      setPublishNotes("");
-      fetchBlogs();
-    } catch (err: any) {
-      setError(err?.message || "Lỗi publish");
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -145,17 +105,10 @@ export default function BlogReviewPage() {
                   </div>
                   <div className="flex flex-col gap-2 mt-2 md:mt-0">
                     <Button
-                      onClick={() => handlePublish(blog.id)}
-                      disabled={actionLoading}
+                      onClick={() => setSelectedBlogToPublish(blog)}
                     >
-                      {actionLoading ? "Đang publish..." : "Publish"}
+                      Publish
                     </Button>
-                    <input
-                      className="border rounded px-2 py-1 mt-1"
-                      placeholder="Ghi chú publish (không bắt buộc)"
-                      value={publishNotes}
-                      onChange={(e) => setPublishNotes(e.target.value)}
-                    />
                   </div>
                 </div>
               ))}
@@ -164,103 +117,19 @@ export default function BlogReviewPage() {
         </>
       )}
 
-      {/* Modal review */}
-      {selectedBlog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-xl relative">
-            <button
-              className="absolute top-2 right-2 text-xl"
-              onClick={() => setSelectedBlog(null)}
-            >
-              &times;
-            </button>
-            <h2 className="text-xl font-bold mb-2">{selectedBlog.title}</h2>
-            <div className="mb-4">{selectedBlog.content}</div>
-            <div className="mb-4">
-              <label className="font-medium">Trạng thái review</label>
-              <select
-                className="w-full border rounded px-2 py-1 mt-1"
-                value={reviewStatus}
-                onChange={(e) => {
-                  setReviewStatus(e.target.value);
-                  setReason("");
-                }}
-              >
-                <option value="approved">Duyệt (approved)</option>
-                <option value="rejected">Từ chối (rejected)</option>
-              </select>
-            </div>
-            {reviewStatus === "approved" && (
-              <div className="mb-4">
-                <label className="font-medium">
-                  Ghi chú chỉnh sửa (revisionNotes)
-                </label>
-                <textarea
-                  className="w-full border rounded px-2 py-1 mt-1"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  required
-                  placeholder="Nhập ghi chú chỉnh sửa"
-                />
-              </div>
-            )}
-            {reviewStatus === "rejected" && (
-              <div className="mb-4">
-                <label className="font-medium">
-                  Lý do từ chối (rejectionReason)
-                </label>
-                <textarea
-                  className="w-full border rounded px-2 py-1 mt-1"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  required
-                  placeholder="Nhập lý do từ chối"
-                />
-              </div>
-            )}
-            {error && <div className="text-red-500 mb-2">{error}</div>}
-            {success && <div className="text-green-600 mb-2">{success}</div>}
-            <div className="flex gap-2 justify-end">
-              <Button
-                onClick={async () => {
-                  if (!reason.trim()) {
-                    setError(
-                      reviewStatus === "approved"
-                        ? "Vui lòng nhập ghi chú chỉnh sửa!"
-                        : "Vui lòng nhập lý do từ chối!"
-                    );
-                    return;
-                  }
-                  setActionLoading(true);
-                  setError("");
-                  setSuccess("");
-                  try {
-                    await BlogService.review(selectedBlog.id, {
-                      status: reviewStatus,
-                      ...(reviewStatus === "approved" && {
-                        revisionNotes: reason,
-                      }),
-                      ...(reviewStatus === "rejected" && {
-                        rejectionReason: reason,
-                      }),
-                    });
-                    setSuccess("Đã review thành công!");
-                    setSelectedBlog(null);
-                    fetchBlogs();
-                  } catch (err: any) {
-                    setError(err?.message || "Lỗi review");
-                  } finally {
-                    setActionLoading(false);
-                  }
-                }}
-                disabled={actionLoading}
-              >
-                {actionLoading ? "Đang gửi..." : "Gửi review"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Blog Review Modal */}
+      <BlogReviewModal
+        blog={selectedBlog}
+        onClose={() => setSelectedBlog(null)}
+        onReviewSuccess={fetchBlogs}
+      />
+
+      {/* Blog Publish Modal */}
+      <BlogPublishModal
+        blog={selectedBlogToPublish}
+        onClose={() => setSelectedBlogToPublish(null)}
+        onPublishSuccess={fetchBlogs}
+      />
     </div>
   );
 }

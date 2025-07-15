@@ -3,6 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import AuthDialog from "@/components/AuthDialog";
 
 export default function ConfirmInfoPage() {
   const { user, isLoading } = useAuth();
@@ -17,9 +18,8 @@ export default function ConfirmInfoPage() {
   }
 
   if (!user) {
-    // Redirect to login or home if user is not authenticated
-    router.push("/auth/login"); // Assuming a login page exists
-    return null;
+    // Show AuthDialog if user is not authenticated
+    return <AuthDialog trigger={<div className="sr-only"></div>} defaultTab="signin" />;
   }
 
   const handleBack = () => {

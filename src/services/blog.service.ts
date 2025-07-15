@@ -9,6 +9,7 @@ export interface Blog {
   categoryId: string;
   tags: (string | { id: string; name: string; slug?: string })[];
   authorId: string;
+  author: string; // Add author field
   createdAt: string;
   updatedAt: string;
   category?: { id: string; name: string; slug?: string };

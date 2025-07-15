@@ -196,9 +196,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Chào mừng bạn quay trở lại!",
       });
       // Redirect based on user role
-      if (data && data.user && data.user.role === "admin") {
+      const userRole = typeof data.user.role === "object" ? data.user.role.name : data.user.role;
+      if (data && data.user && userRole === "admin") {
         router.push("/admin");
-      } else if (data && data.user && data.user.role === "consultant") {
+      } else if (data && data.user && userRole === "consultant") {
         router.push("/consultant");
       } else {
         router.push("/");
@@ -223,11 +224,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Vui lòng kiểm tra email để xác thực tài khoản",
       });
       router.push("/auth/verify-email");
-    } catch (error) {
+    } catch (error: any) {
       console.error("[AuthContext] Registration error:", error);
+      let errorMessage = "Có lỗi xảy ra";
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       toast({
         title: "Lỗi",
-        description: error instanceof Error ? error.message : "Có lỗi xảy ra",
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;

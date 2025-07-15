@@ -5,6 +5,7 @@ export const fetchCache = "force-no-store";
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import AuthDialog from "@/components/AuthDialog"; // Added this line
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, XCircle } from "lucide-react";
 
@@ -32,9 +33,7 @@ function VerifyEmailContent() {
             {decodeURIComponent(message || "")}
           </p>
           <div className="flex flex-col space-y-2">
-            <Button onClick={() => router.push("/auth/login")}>
-              Đăng nhập ngay
-            </Button>
+            <AuthDialog trigger={<Button>Đăng nhập ngay</Button>} defaultTab="signin" />
             <Button variant="outline" onClick={() => router.push("/")}>
               Về trang chủ
             </Button>
