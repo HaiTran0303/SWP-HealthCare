@@ -77,6 +77,7 @@ export const API_ENDPOINTS = {
   SERVICES: {
     BASE: "/services",
     BY_ID: (id: string) => `/services/${id}`,
+    STI: "/services/sti", // Add STI services endpoint
   },
 };
 

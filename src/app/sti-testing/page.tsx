@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiClient } from "@/services/api"; // Keep this for now, might be needed for booking
+import axios from "axios"; // Import Axios
+import { buildApiUrl, API_ENDPOINTS } from "@/config/api"; // Import buildApiUrl and API_ENDPOINTS
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import StiStepper from "@/components/StiStepper";
@@ -164,25 +165,26 @@ export default function STITestingPage() {
 
   // Lấy danh sách dịch vụ STI
   useEffect(() => {
-    APIService.getAll({ categoryType: "sti", limit: 100 }) // Assuming 'sti' is the category type for STI services
-      .then((res: any) => {
-        const fetchedServices: Service[] = res.data?.data || res.data || res;
+    const fetchServices = async () => {
+      try {
+        const fetchedServices = await APIService.getStiServices(); // Use new getStiServices
         if (Array.isArray(fetchedServices)) {
           setServices(fetchedServices);
         } else {
           console.error("Expected fetchedServices to be an array but got:", fetchedServices);
           setServices([]);
         }
-      })
-      .catch((error: Error) => {
+      } catch (error: any) {
         console.error("Error fetching STI services:", error);
         toast({
           title: "Lỗi",
           description: "Không thể tải danh sách dịch vụ xét nghiệm STI.",
           variant: "destructive",
         });
-        setServices([]); // Ensure services state is an empty array on error
-      });
+        setServices([]);
+      }
+    };
+    fetchServices();
   }, [toast]);
 
   // Lấy thông tin chi tiết chi phí, thời gian dự kiến khi chọn dịch vụ
@@ -192,20 +194,22 @@ export default function STITestingPage() {
       setEstimatedDuration(null);
       return;
     }
-    apiClient
-      .post("/sti-test-processes/booking/from-service-selection", {
-        patientId: user.id,
-        serviceIds: selectedServiceIds,
-        notes: "Tạm tính chi phí",
-      })
-      .then((res: any) => {
-        setEstimatedCost(res.estimatedCost);
-        setEstimatedDuration(res.estimatedDuration);
-      })
-      .catch(() => {
+    const fetchEstimatedCost = async () => {
+      try {
+        const response = await axios.post(buildApiUrl(`${API_ENDPOINTS.STI_TESTING.BASE}/booking/from-service-selection`), {
+          patientId: user.id,
+          serviceIds: selectedServiceIds,
+          notes: "Tạm tính chi phí",
+        });
+        setEstimatedCost(response.data.estimatedCost);
+        setEstimatedDuration(response.data.estimatedDuration);
+      } catch (error) {
+        console.error("Error fetching estimated cost:", error);
         setEstimatedCost(null);
         setEstimatedDuration(null);
-      });
+      }
+    };
+    fetchEstimatedCost();
     // eslint-disable-next-line
   }, [selectedServiceIds, user?.id]);
 
@@ -230,8 +234,8 @@ export default function STITestingPage() {
     setBookingLoading(true);
     setError("");
     try {
-      const res: any = await apiClient.post(
-        "/sti-test-processes/booking/from-service-selection",
+      const response = await axios.post(
+        buildApiUrl(`${API_ENDPOINTS.STI_TESTING.BASE}/booking/from-service-selection`),
         {
           patientId: user.id,
           serviceIds: selectedServiceIds,
@@ -239,7 +243,7 @@ export default function STITestingPage() {
           // appointmentId, consultantId nếu cần
         }
       );
-      setBookingResult(res);
+      setBookingResult(response.data);
       setStep(4);
     } catch (e: any) {
       setError(e?.message || "Không thể đặt lịch. Vui lòng thử lại sau.");
