@@ -29,6 +29,26 @@ export interface STITestData {
   isConfidential?: boolean;
 }
 
+export interface StiTestProcess {
+  serviceId: string;
+  patientId: string;
+  sampleType: SampleType;
+  priority: Priority;
+  appointmentId?: string;
+  estimatedResultDate: string;
+  sampleCollectionLocation: string;
+  processNotes?: string;
+  consultantDoctorId?: string;
+  requiresConsultation?: boolean;
+  isConfidential?: boolean;
+  id: string;
+  testCode: string;
+  status: TestStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
 export interface TestFilters {
   status?: TestStatus;
   sampleType?: SampleType;
@@ -67,14 +87,14 @@ export interface TestResult {
 
 export const STITestingService = {
   // Quản lý quy trình xét nghiệm
-  async createTest(data: STITestData) {
+  async createTest(data: STITestData): Promise<StiTestProcess> {
     const payload = {
       ...data,
       estimatedResultDate: data.estimatedResultDate
         ? new Date(data.estimatedResultDate).toISOString()
         : undefined,
     };
-    return apiClient.post(API_ENDPOINTS.STI_TESTING.BASE, payload);
+    return apiClient.post<StiTestProcess>(API_ENDPOINTS.STI_TESTING.BASE, payload);
   },
 
   async getAllTests(filters: TestFilters = {}) {
@@ -103,6 +123,17 @@ export const STITestingService = {
     return apiClient.patch(`${API_ENDPOINTS.STI_TESTING.BASE}/${id}/status`, {
       status,
     });
+  },
+
+  async getBookingEstimation(data: {
+    patientId: string;
+    serviceIds: string[];
+    notes?: string;
+  }) {
+    return apiClient.post<{ estimatedCost: number; estimatedDuration: string }>(
+      `${API_ENDPOINTS.STI_TESTING.BASE}/booking/from-service-selection`,
+      data
+    );
   },
 
   // Quản lý kết quả xét nghiệm

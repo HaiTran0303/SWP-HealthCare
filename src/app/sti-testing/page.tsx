@@ -23,14 +23,13 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import axios from "axios"; // Import Axios
-import { buildApiUrl, API_ENDPOINTS } from "@/config/api"; // Import buildApiUrl and API_ENDPOINTS
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import StiStepper from "@/components/StiStepper";
 import StiServiceCard from "@/components/StiServiceCard";
 import StiSummarySidebar from "@/components/StiSummarySidebar";
 import { APIService, Service } from "@/services/service.service"; // Import APIService and Service
+import { STITestingService, STITestData, StiTestProcess } from "@/services/sti-testing.service"; // Import STITestingService
 
 const steps = [
   "Chọn dịch vụ",
@@ -155,7 +154,7 @@ export default function STITestingPage() {
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [bookingResult, setBookingResult] = useState<any>(null);
+  const [bookingResult, setBookingResult] = useState<StiTestProcess[] | null>(null);
   const [error, setError] = useState("");
   const [estimatedCost, setEstimatedCost] = useState<number | null>(null);
   const [estimatedDuration, setEstimatedDuration] = useState<string | null>(
@@ -196,13 +195,13 @@ export default function STITestingPage() {
     }
     const fetchEstimatedCost = async () => {
       try {
-        const response = await axios.post(buildApiUrl(`${API_ENDPOINTS.STI_TESTING.BASE}/booking/from-service-selection`), {
+        const response = await STITestingService.getBookingEstimation({
           patientId: user.id,
           serviceIds: selectedServiceIds,
           notes: "Tạm tính chi phí",
         });
-        setEstimatedCost(response.data.estimatedCost);
-        setEstimatedDuration(response.data.estimatedDuration);
+        setEstimatedCost(response.estimatedCost);
+        setEstimatedDuration(response.estimatedDuration);
       } catch (error) {
         console.error("Error fetching estimated cost:", error);
         setEstimatedCost(null);
@@ -234,18 +233,29 @@ export default function STITestingPage() {
     setBookingLoading(true);
     setError("");
     try {
-      const response = await axios.post(
-        buildApiUrl(`${API_ENDPOINTS.STI_TESTING.BASE}/booking/from-service-selection`),
-        {
+      const bookedResults: StiTestProcess[] = [];
+      for (const serviceId of selectedServiceIds) {
+        const sampleCollectionDateTime = new Date(selectedDate);
+        const [hours, minutes] = selectedTime.split(":").map(Number);
+        sampleCollectionDateTime.setHours(hours, minutes, 0, 0);
+
+        const payload: STITestData = {
+          serviceId: serviceId,
           patientId: user.id,
-          serviceIds: selectedServiceIds,
-          notes,
-          // appointmentId, consultantId nếu cần
-        }
-      );
-      setBookingResult(response.data);
+          sampleType: "blood", // Default, ideally from UI
+          priority: "normal", // Default, ideally from UI
+          sampleCollectionLocation: "office", // Default, ideally from UI
+          processNotes: notes,
+          estimatedResultDate: sampleCollectionDateTime.toISOString(), // Use collection date for estimation
+        };
+        const response = await STITestingService.createTest(payload);
+        bookedResults.push(response);
+      }
+
+      setBookingResult(bookedResults); // Store all results
       setStep(4);
     } catch (e: any) {
+      console.error("Booking error:", e);
       setError(e?.message || "Không thể đặt lịch. Vui lòng thử lại sau.");
     } finally {
       setBookingLoading(false);
@@ -387,19 +397,23 @@ export default function STITestingPage() {
             <div className="mb-2">
               Mã xét nghiệm:{" "}
               <span className="font-mono font-bold">
-                {bookingResult.stiTestProcesses?.[0]?.testCode}
+                {bookingResult?.[0]?.testCode || "N/A"}
+              </span>
+            </div>
+            <div className="mb-2">
+              Số lượng xét nghiệm đã đặt:{" "}
+              <span className="font-medium">{bookingResult.length}</span>
+            </div>
+            <div className="mb-2">
+              Tổng chi phí:{" "}
+              <span className="font-bold text-primary">
+                {estimatedCost?.toLocaleString() || "0"}đ
               </span>
             </div>
             <div className="mb-2">
               Thời gian dự kiến có kết quả:{" "}
               <span className="font-medium">
-                {bookingResult.estimatedDuration}
-              </span>
-            </div>
-            <div className="mb-2">
-              Tổng chi phí:{" "}
-              <span className="font-bold text-primary">
-                {bookingResult.estimatedCost?.toLocaleString()}đ
+                {estimatedDuration || "N/A"}
               </span>
             </div>
             <Button
@@ -424,10 +438,8 @@ export default function STITestingPage() {
           user={user}
           selectedDate={selectedDate}
           selectedTime={selectedTime}
-          estimatedCost={estimatedCost || bookingResult?.estimatedCost}
-          estimatedDuration={
-            estimatedDuration || bookingResult?.estimatedDuration
-          }
+          estimatedCost={estimatedCost}
+          estimatedDuration={estimatedDuration}
         />
       </div>
     </div>

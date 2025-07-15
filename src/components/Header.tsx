@@ -70,19 +70,6 @@ export default function Header() {
                       </Link>
                     </DropdownMenuItem>
                   )}
-                  {((typeof user?.role === "string" &&
-                    ["admin", "manager", "consultant"].includes(user.role)) ||
-                    (typeof user?.role === "object" &&
-                      ["admin", "manager", "consultant"].includes(
-                        user.role?.name
-                      ))) && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/manage/appointments" className="w-full">
-                        <Calendar className="mr-2 h-4 w-4" />
-                        Quản lý lịch hẹn
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
                   {((typeof user?.role === "string" && user.role === "admin") ||
                     (typeof user?.role === "object" &&
                       user.role?.name === "admin")) && (
