@@ -30,10 +30,11 @@ export const APIService = {
   async getById(id: string) {
     try {
       const response = await axios.get<Service>(buildApiUrl(API_ENDPOINTS.SERVICES.BY_ID(id)));
-      console.log("[APIService] getById raw response:", response); // Added log
+      console.log("[APIService] getById raw response:", response);
+      console.log("[APIService] getById response.data:", response.data); // Log response.data explicitly
       return response.data; // Return the actual service data
     } catch (error) {
-      console.error("[APIService] Error in getById:", error); // Added error log
+      console.error("[APIService] Error in getById:", error);
       throw error;
     }
   },

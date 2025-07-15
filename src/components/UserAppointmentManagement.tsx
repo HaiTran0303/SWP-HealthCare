@@ -39,23 +39,34 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppointmentService, AppointmentStatus } from "@/services/appointment.service";
+import { STITestingService } from "@/services/sti-testing.service";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 
+interface ConsultantDetails {
+  id: string;
+  firstName: string;
+  lastName: string;
+  profilePicture?: string;
+  specialties: string[];
+  qualification?: string;
+  experience?: string;
+  rating?: number;
+}
+
+interface ServiceDetails {
+  id: string;
+  name: string;
+  description?: string;
+  price?: number;
+  type?: string;
+}
+
 interface AppointmentDetails {
   id: string;
-  consultantId: string;
-  consultant: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    profilePicture?: string;
-    specialties: string[];
-    qualification: string;
-    experience: string;
-    rating: number;
-  };
+  consultantId?: string;
+  consultant?: ConsultantDetails;
   appointmentDate: string;
   status: AppointmentStatus;
   notes?: string;
@@ -64,12 +75,13 @@ interface AppointmentDetails {
   createdAt: string;
   updatedAt: string;
   cancellationReason?: string;
-  services?: Array<{
-    id: string;
-    name: string;
-    description?: string;
-  }>;
-  questionId?: string; // Add questionId here
+  services?: ServiceDetails[];
+  questionId?: string;
+  type: "consultation" | "sti_test";
+  sampleCollectionDate?: string;
+  sampleCollectionLocation?: "online" | "office";
+  stiServiceId?: string;
+  testCode?: string;
 }
 
 interface CancelDialogProps {
@@ -101,7 +113,7 @@ const CancelDialog: React.FC<CancelDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Hủy lịch hẹn</DialogTitle>
           <DialogDescription>
-            Bạn có chắc chắn muốn hủy lịch hẹn với {appointment.consultant.firstName} {appointment.consultant.lastName}?
+            Bạn có chắc chắn muốn hủy lịch hẹn với {appointment.consultant?.firstName} {appointment.consultant?.lastName}?
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -152,23 +164,28 @@ const AppointmentCard: React.FC<{
   const canCancel = AppointmentService.canCancel(appointment.status);
   const isPastAppointment = AppointmentService.isPastAppointment(appointment.appointmentDate);
 
+  const appointmentDateObj = new Date(appointment.appointmentDate);
+  const isDateValid = !isNaN(appointmentDateObj.getTime());
+
   return (
     <Card className="w-full">
       <CardHeader>
         <div className="flex justify-between items-start">
           <div className="flex items-center space-x-3">
             <Avatar className="w-12 h-12">
-              <AvatarImage src={appointment.consultant.profilePicture} alt={`${appointment.consultant.firstName} ${appointment.consultant.lastName}`} />
+              <AvatarImage src={appointment.consultant?.profilePicture} alt={`${appointment.consultant?.firstName} ${appointment.consultant?.lastName}`} />
               <AvatarFallback>
-                {`${appointment.consultant.firstName[0]}${appointment.consultant.lastName[0]}`}
+                {`${appointment.consultant?.firstName?.[0] || ''}${appointment.consultant?.lastName?.[0] || ''}`}
               </AvatarFallback>
             </Avatar>
             <div>
-              <h3 className="font-semibold text-lg">{`${appointment.consultant.firstName} ${appointment.consultant.lastName}`}</h3>
-              <p className="text-sm text-muted-foreground">{appointment.consultant.qualification}</p>
+              <h3 className="font-semibold text-lg">
+                {appointment.consultant ? `${appointment.consultant.firstName} ${appointment.consultant.lastName}` : "N/A"}
+              </h3>
+              <p className="text-sm text-muted-foreground">{appointment.consultant?.qualification || "N/A"}</p>
               <div className="flex items-center gap-1 mt-1">
                 <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm">{appointment.consultant.rating}/5</span>
+                <span className="text-sm">{appointment.consultant?.rating ? `${appointment.consultant.rating}/5` : "N/A"}</span>
               </div>
             </div>
           </div>
@@ -185,13 +202,13 @@ const AppointmentCard: React.FC<{
           <div className="flex items-center gap-2">
             <CalendarIcon className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">
-              {format(new Date(appointment.appointmentDate), "EEEE, dd/MM/yyyy", { locale: vi })}
+              {isDateValid ? format(appointmentDateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">
-              {format(new Date(appointment.appointmentDate), "HH:mm")}
+              {isDateValid ? format(appointmentDateObj, "HH:mm") : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -205,6 +222,7 @@ const AppointmentCard: React.FC<{
               <FileText className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm">
                 {appointment.services.map(s => s.name).join(", ")}
+                {appointment.type === "sti_test" && appointment.testCode && ` (Mã: ${appointment.testCode})`}
               </span>
             </div>
           )}
@@ -332,25 +350,25 @@ const UserAppointmentManagement: React.FC = () => {
     
     setIsLoading(true);
     try {
-      // Truyền userId vào getUserAppointments
-      const response: any = await AppointmentService.getUserAppointments();
-      console.log("Appointments API Response:", response);
+      const [generalAppointmentsResponse, stiAppointmentsResponse] = await Promise.all([
+        AppointmentService.getUserAppointments(),
+        STITestingService.getUserStiAppointments(),
+      ]);
 
-      // Map API response to AppointmentDetails interface
-      const fetchedAppointments: AppointmentDetails[] = Array.isArray(response)
-        ? response.map((apt: any) => ({
+      const generalAppointments: AppointmentDetails[] = Array.isArray(generalAppointmentsResponse)
+        ? generalAppointmentsResponse.map((apt: any) => ({
             id: apt.id,
-            consultantId: apt.consultant?.id, // Use apt.consultant.id
-            consultant: {
-              id: apt.consultant?.id,
-              firstName: apt.consultant?.firstName || '',
-              lastName: apt.consultant?.lastName || '',
-              profilePicture: apt.consultant?.profilePicture || apt.consultant?.avatar, // Use profilePicture or fallback to avatar
-              specialties: apt.consultant?.specialties || [], // Ensure specialties is an array
-              qualification: apt.consultant?.qualification,
-              experience: apt.consultant?.experience,
-              rating: apt.consultant?.rating,
-            },
+            consultantId: apt.consultant?.id,
+            consultant: apt.consultant ? {
+              id: apt.consultant.id,
+              firstName: apt.consultant.firstName || '',
+              lastName: apt.consultant.lastName || '',
+              profilePicture: apt.consultant.profilePicture || apt.consultant.avatar,
+              specialties: apt.consultant.specialties || [],
+              qualification: apt.consultant.qualification,
+              experience: apt.consultant.experience,
+              rating: apt.consultant.rating,
+            } : undefined,
             appointmentDate: apt.appointmentDate,
             status: apt.status as AppointmentStatus,
             notes: apt.notes,
@@ -363,17 +381,64 @@ const UserAppointmentManagement: React.FC = () => {
               id: s.id,
               name: s.name,
               description: s.description,
+              price: s.price,
+              type: s.type,
             })),
-            questionId: apt.questionId, // Add questionId from API response
+            questionId: apt.questionId,
+            type: "consultation", // Mark as consultation appointment
           }))
         : [];
-      setAppointments(fetchedAppointments);
-    } catch (error) {
+
+      const stiAppointments: AppointmentDetails[] = Array.isArray(stiAppointmentsResponse)
+        ? stiAppointmentsResponse.map((apt: any) => ({
+            id: apt.id,
+            consultantId: apt.consultantDoctor?.id,
+            consultant: apt.consultantDoctor ? {
+              id: apt.consultantDoctor.id,
+              firstName: apt.consultantDoctor.firstName || '',
+              lastName: apt.consultantDoctor.lastName || '',
+              profilePicture: apt.consultantDoctor.profilePicture || apt.consultantDoctor.avatar,
+              specialties: apt.consultantDoctor.specialties || [],
+              qualification: apt.consultantDoctor.qualification,
+              experience: apt.consultantDoctor.experience,
+              rating: apt.consultantDoctor.rating,
+            } : undefined,
+            appointmentDate: apt.sampleCollectionDate,
+            status: apt.status as AppointmentStatus,
+            notes: apt.processNotes,
+            location: apt.sampleCollectionLocation,
+            createdAt: apt.createdAt,
+            updatedAt: apt.updatedAt,
+            services: apt.service ? [{
+              id: apt.service.id,
+              name: apt.service.name,
+              description: apt.service.description,
+              price: apt.service.price,
+              type: apt.service.type,
+            }] : [],
+            type: "sti_test", // Mark as STI test appointment
+            sampleCollectionDate: apt.sampleCollectionDate,
+            sampleCollectionLocation: apt.sampleCollectionLocation,
+            stiServiceId: apt.service?.id,
+            testCode: apt.testCode,
+          }))
+        : [];
+      
+      const combinedAppointments = [...generalAppointments, ...stiAppointments];
+
+      combinedAppointments.sort((a, b) => {
+        const dateA = new Date(a.appointmentDate).getTime();
+        const dateB = new Date(b.appointmentDate).getTime();
+        return dateB - dateA;
+      });
+
+      setAppointments(combinedAppointments);
+    } catch (error: any) {
       console.error("Error fetching appointments:", error);
       setAppointments([]);
       toast({
         title: "Lỗi",
-        description: "Không thể tải danh sách lịch hẹn. Vui lòng thử lại.",
+        description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
         variant: "destructive",
       });
     } finally {
@@ -398,7 +463,7 @@ const UserAppointmentManagement: React.FC = () => {
             variant: "destructive",
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching chat room for appointment:", error);
         toast({
           title: "Lỗi",
@@ -437,7 +502,7 @@ const UserAppointmentManagement: React.FC = () => {
 
       setIsCancelDialogOpen(false);
       setSelectedAppointment(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error cancelling appointment:", error);
       toast({
         title: "Lỗi",
@@ -461,7 +526,7 @@ const UserAppointmentManagement: React.FC = () => {
 
   const upcomingAppointments = appointments.filter(apt => 
     !AppointmentService.isPastAppointment(apt.appointmentDate) && 
-    ["pending", "confirmed"].includes(apt.status)
+    ["pending", "confirmed", "scheduled"].includes(apt.status)
   );
 
   const pastAppointments = appointments.filter(apt => 
@@ -614,18 +679,20 @@ const UserAppointmentManagement: React.FC = () => {
             <div className="space-y-6">
               <div className="flex items-center gap-4">
                 <Avatar className="w-16 h-16">
-                  <AvatarImage src={selectedAppointment.consultant.profilePicture} alt={`${selectedAppointment.consultant.firstName} ${selectedAppointment.consultant.lastName}`} />
+                  <AvatarImage src={selectedAppointment.consultant?.profilePicture} alt={`${selectedAppointment.consultant?.firstName} ${selectedAppointment.consultant?.lastName}`} />
                   <AvatarFallback>
-                    {`${selectedAppointment.consultant.firstName[0]}${selectedAppointment.consultant.lastName[0]}`}
+                    {`${selectedAppointment.consultant?.firstName?.[0] || ''}${selectedAppointment.consultant?.lastName?.[0] || ''}`}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="text-xl font-semibold">{`${selectedAppointment.consultant.firstName} ${selectedAppointment.consultant.lastName}`}</h3>
-                  <p className="text-muted-foreground">{selectedAppointment.consultant.qualification}</p>
+                  <h3 className="text-xl font-semibold">
+                    {selectedAppointment.consultant ? `${selectedAppointment.consultant.firstName} ${selectedAppointment.consultant.lastName}` : "N/A"}
+                  </h3>
+                  <p className="text-muted-foreground">{selectedAppointment.consultant?.qualification || "N/A"}</p>
                   <div className="flex items-center gap-4 mt-2">
                     <div className="flex items-center gap-1">
                       <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm">{selectedAppointment.consultant.rating}/5</span>
+                      <span className="text-sm">{selectedAppointment.consultant?.rating ? `${selectedAppointment.consultant.rating}/5` : "N/A"}</span>
                     </div>
                     <Badge className={getStatusColor(selectedAppointment.status)}>
                       {getStatusIcon(selectedAppointment.status)}
@@ -641,13 +708,19 @@ const UserAppointmentManagement: React.FC = () => {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Ngày hẹn:</Label>
                   <p className="text-sm">
-                    {format(new Date(selectedAppointment.appointmentDate), "EEEE, dd/MM/yyyy", { locale: vi })}
+                    {(() => {
+                      const dateObj = new Date(selectedAppointment.appointmentDate);
+                      return !isNaN(dateObj.getTime()) ? format(dateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A";
+                    })()}
                   </p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Giờ hẹn:</Label>
                   <p className="text-sm">
-                    {format(new Date(selectedAppointment.appointmentDate), "HH:mm")}
+                    {(() => {
+                      const dateObj = new Date(selectedAppointment.appointmentDate);
+                      return !isNaN(dateObj.getTime()) ? format(dateObj, "HH:mm") : "N/A";
+                    })()}
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -661,6 +734,7 @@ const UserAppointmentManagement: React.FC = () => {
                     <Label className="text-sm font-medium">Dịch vụ:</Label>
                     <p className="text-sm">
                       {selectedAppointment.services.map(s => s.name).join(", ")}
+                      {selectedAppointment.type === "sti_test" && selectedAppointment.testCode && ` (Mã: ${selectedAppointment.testCode})`}
                     </p>
                   </div>
                 )}

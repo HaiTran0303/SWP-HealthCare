@@ -17,7 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { PackageServiceService } from "@/services/package-service.service";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AppointmentService } from "@/services/appointment.service"; // Add this import
+import { AppointmentService } from "@/services/appointment.service";
+import { STITestingService } from "@/services/sti-testing.service"; // Import STITestingService
 import { useSearchParams, useRouter } from "next/navigation";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
@@ -229,59 +230,100 @@ export default function AppointmentsPage() {
       });
       return;
     }
+
     try {
-      let appointmentDate = "";
-      let consultantId: string | undefined = undefined;
-      let appointmentLocation = needsConsultant ? "online" : "office";
-      if (needsConsultant) {
-        appointmentDate = selectedSlot.dateTime;
-        consultantId = selectedSlot.consultant?.id;
-      } else {
+      const selectedService = services.find((s) => selectedServiceIds.includes(s.id))?.service;
+      const isStiService = selectedService?.type === 'STI_TEST'; // Giả định có trường `type` để phân biệt dịch vụ STI
+
+      if (isStiService) {
+        // Handle STI Appointment
         if (!selectedDate || !selectedTime) {
           toast({
             title: "Lỗi",
-            description: "Vui lòng chọn ngày và giờ.",
+            description: "Vui lòng chọn ngày và giờ lấy mẫu.",
             variant: "destructive",
           });
           return;
         }
-        const date = new Date(selectedDate);
-        const [hour, minute] = selectedTime.split(":");
-        date.setHours(Number(hour), Number(minute), 0, 0);
-        appointmentDate = date.toISOString();
+
+        const [year, month, day] = [
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          selectedDate.getDate(),
+        ];
+        const [hour, minute] = selectedTime.split(":").map(Number);
+        
+        // Construct date in local timezone and format it to ISO 8601 string without timezone offset
+        // This ensures the backend receives the exact local time components
+        const localDate = new Date(year, month, day, hour, minute, 0, 0);
+        const pad = (num: number) => num < 10 ? '0' + num : num;
+        const sampleCollectionDate = `${localDate.getFullYear()}-${pad(localDate.getMonth() + 1)}-${pad(localDate.getDate())}T${pad(localDate.getHours())}:${pad(localDate.getMinutes())}:00`;
+        
+        const sampleCollectionLocation: "office" = "office"; // STI tests are typically at an office
+
+        const stiAppointmentData = {
+          stiServiceId: selectedService.id,
+          consultantId: selectedSlot?.consultant?.id, // Có thể có tư vấn viên cho STI
+          sampleCollectionDate,
+          sampleCollectionLocation,
+          notes,
+        };
+
+        console.log("STI Appointment Data gửi lên:", stiAppointmentData);
+        await STITestingService.createStiAppointment(stiAppointmentData);
+
+      } else {
+        // Handle General Appointment
+        let appointmentDate = "";
+        let consultantId: string | undefined = undefined;
+        let appointmentLocation = needsConsultant ? "online" : "office";
+
+        if (needsConsultant) {
+          appointmentDate = selectedSlot.dateTime;
+          consultantId = selectedSlot.consultant?.id;
+        } else {
+          if (!selectedDate || !selectedTime) {
+            toast({
+              title: "Lỗi",
+              description: "Vui lòng chọn ngày và giờ.",
+              variant: "destructive",
+            });
+            return;
+          }
+          const [year, month, day] = [
+            selectedDate.getFullYear(),
+            selectedDate.getMonth(),
+            selectedDate.getDate(),
+          ];
+          const [hour, minute] = selectedTime.split(":").map(Number);
+
+          // Construct date in local timezone and format it to ISO 8601 string without timezone offset
+          const localDate = new Date(year, month, day, hour, minute, 0, 0);
+          const pad = (num: number) => num < 10 ? '0' + num : num;
+          appointmentDate = `${localDate.getFullYear()}-${pad(localDate.getMonth() + 1)}-${pad(localDate.getDate())}T${pad(localDate.getHours())}:${pad(localDate.getMinutes())}:00`;
+        }
+
+        const generalAppointmentData = {
+          serviceIds: selectedServiceIds.map((id) => {
+            const found = services.find((s) => s.id === id);
+            return found?.service?.id || id;
+          }),
+          consultantId,
+          appointmentDate,
+          appointmentLocation,
+          notes,
+        };
+
+        console.log("General Appointment Data gửi lên:", generalAppointmentData);
+        await AppointmentService.createAppointment(generalAppointmentData);
       }
-      console.log(
-        "appointmentDate gửi lên:",
-        appointmentDate,
-        typeof appointmentDate
-      );
-      const body = {
-        serviceIds: selectedServiceIds.map((id) => {
-          const found = services.find((s) => s.id === id);
-          return found?.service?.id || id;
-        }),
-        consultantId,
-        appointmentDate,
-        appointmentLocation,
-        notes,
-        token,
-      };
-      console.log("Body gửi lên:", body);
-      // Use AppointmentService.createAppointment instead of direct fetch
-      const result = await AppointmentService.createAppointment({
-        serviceIds: body.serviceIds,
-        consultantId: body.consultantId,
-        appointmentDate: body.appointmentDate,
-        appointmentLocation: body.appointmentLocation,
-        notes: body.notes,
-        // The token is handled internally by apiClient now
-      });
-      setBooking({ success: true, message: "Đặt lịch thành công!" }); // Assuming success if no error is thrown
+
+      setBooking({ success: true, message: "Đặt lịch thành công!" });
       toast({
         title: "Thành công",
         description: "Lịch hẹn của bạn đã được đặt thành công.",
       });
-      setStep(4);
+      setStep(5); // Changed to step 5 for success message
       setSelectedServiceIds([]);
       setSelectedDate(undefined);
       setSelectedTime("");
@@ -292,7 +334,7 @@ export default function AppointmentsPage() {
       }, 1500);
     } catch (error: any) {
       console.error("Error booking appointment:", error);
-      const errorMessage = error?.data?.message || error?.message || "Không thể đặt lịch. Vui lòng thử lại.";
+      const errorMessage = error?.response?.data?.message || error?.message || "Không thể đặt lịch. Vui lòng thử lại.";
       setBooking({ success: false, message: errorMessage });
       toast({
         title: "Lỗi",
@@ -543,30 +585,61 @@ export default function AppointmentsPage() {
                         <div className="text-center py-8">Đang tải slot...</div>
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {availableSlots
-                            .filter((slot) => {
-                              if (!selectedDate) return false;
-                              const slotDateLocal = new Date(
-                                slot.dateTime
-                              ).toLocaleDateString();
-                              const selectedDateLocal =
-                                selectedDate.toLocaleDateString();
+                          {(() => {
+                            if (!selectedDate) return null;
+
+                            const filteredSlots = availableSlots.filter((slot) => {
+                              const slotDateLocal = new Date(slot.dateTime).toLocaleDateString();
+                              const selectedDateLocal = selectedDate.toLocaleDateString();
                               return slotDateLocal === selectedDateLocal;
-                            })
-                            .map((slot, idx) => (
+                            });
+
+                            // Group slots by time
+                            // Helper function for consistent time string
+                            const formatTimeKey = (date: Date): string => {
+                              const hour = date.getHours().toString().padStart(2, '0');
+                              const minute = date.getMinutes().toString().padStart(2, '0');
+                              return `${hour}:${minute}`;
+                            };
+
+                            const groupedSlots = filteredSlots.reduce((acc: any, slot) => {
+                              // Normalize the date to strip seconds, milliseconds, and ensure consistent timezone handling for grouping
+                              const dateObj = new Date(slot.dateTime);
+                              const normalizedDate = new Date(
+                                dateObj.getFullYear(),
+                                dateObj.getMonth(),
+                                dateObj.getDate(),
+                                dateObj.getHours(),
+                                dateObj.getMinutes()
+                              );
+                              const timeKey = formatTimeKey(normalizedDate); // This will be "HH:MM"
+
+                              if (!acc[timeKey]) {
+                                acc[timeKey] = {
+                                  displayTime: timeKey,
+                                  totalRemainingSlots: 0,
+                                  originalSlots: [],
+                                };
+                              }
+                              acc[timeKey].totalRemainingSlots += slot.remainingSlots;
+                              acc[timeKey].originalSlots.push(slot);
+                              return acc;
+                            }, {});
+
+                            const sortedGroupedSlots = Object.values(groupedSlots).sort((a: any, b: any) => {
+                              // Parse time strings for sorting
+                              const [aHour, aMinute] = a.displayTime.split(':').map(Number);
+                              const [bHour, bMinute] = b.displayTime.split(':').map(Number);
+                              if (aHour !== bHour) return aHour - bHour;
+                              return aMinute - bMinute;
+                            });
+
+                            return sortedGroupedSlots.map((group: any) => (
                               <label
-                                key={
-                                  slot.dateTime +
-                                  "-" +
-                                  (slot.consultant?.id || "") +
-                                  "-" +
-                                  idx
-                                }
+                                key={group.displayTime} // Key by the canonical time string
                                 className={`flex items-center gap-4 p-4 border rounded-xl shadow-sm cursor-pointer transition hover:border-primary ${
                                   selectedSlot &&
-                                  selectedSlot.dateTime === slot.dateTime &&
-                                  (selectedSlot.consultant?.id || "") ===
-                                    (slot.consultant?.id || "")
+                                  formatTimeKey(new Date(selectedSlot.dateTime)) === group.displayTime
                                     ? "border-primary bg-primary/5"
                                     : ""
                                 }`}
@@ -576,34 +649,22 @@ export default function AppointmentsPage() {
                                   name="slot"
                                   checked={Boolean(
                                     selectedSlot &&
-                                      selectedSlot.dateTime === slot.dateTime &&
-                                      (selectedSlot.consultant?.id || "") ===
-                                        (slot.consultant?.id || "")
+                                    formatTimeKey(new Date(selectedSlot.dateTime)) === group.displayTime
                                   )}
-                                  onChange={() => setSelectedSlot(slot)}
+                                  onChange={() => setSelectedSlot(group.originalSlots[0])} // Select the first original slot from the group
                                   className="accent-primary w-5 h-5"
                                 />
                                 <div className="flex-1">
                                   <div className="font-semibold text-lg text-primary">
-                                    {new Date(slot.dateTime).toLocaleTimeString(
-                                      [],
-                                      {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      }
-                                    )}
+                                    {group.displayTime}
                                   </div>
                                   <div className="text-sm text-muted-foreground">
-                                    {slot.consultant
-                                      ? `${slot.consultant.lastName} ${slot.consultant.firstName}`
-                                      : "-"}
+                                    Còn {group.totalRemainingSlots} slot
                                   </div>
                                 </div>
-                                <div className="text-xs text-gray-500">
-                                  Còn {slot.remainingSlots} slot
-                                </div>
                               </label>
-                            ))}
+                            ));
+                          })()}
                         </div>
                       )}
                       <div className="flex gap-4 mt-8">
@@ -665,12 +726,12 @@ export default function AppointmentsPage() {
                 </div>
               )}
               {/* Bước 4: Xác nhận */}
+              {/* Bước 4: Ghi chú và xác nhận */}
               {step === 4 && (
                 <div>
                   <h2 className="text-xl font-bold mb-4">
-                    4. Xác nhận thông tin đặt lịch
+                    4. Ghi chú và Xác nhận
                   </h2>
-                  <div className="mb-6">{summary}</div>
                   <div className="mb-4">
                     <label className="font-medium">Ghi chú</label>
                     <Textarea
@@ -693,7 +754,7 @@ export default function AppointmentsPage() {
                   </div>
                 </div>
               )}
-              {/* Thông báo kết quả */}
+              {/* Bước 5: Thông báo kết quả */}
               {step === 5 && booking && (
                 <div className="space-y-4 text-center">
                   <h2 className="text-2xl font-bold text-green-600">
@@ -702,7 +763,10 @@ export default function AppointmentsPage() {
                       : "Đặt lịch thất bại"}
                   </h2>
                   <p>{booking.message}</p>
-                  <Button size="lg" onClick={() => setStep(1)}>
+                  <Button size="lg" onClick={() => {
+                    setStep(1);
+                    setBooking(null); // Reset booking state
+                  }}>
                     Đặt lịch mới
                   </Button>
                 </div>
@@ -711,7 +775,9 @@ export default function AppointmentsPage() {
           </Card>
         </div>
         {/* Cột phải: tóm tắt thông tin */}
-        <div className="w-full md:w-96 flex-shrink-0">{summary}</div>
+        <div className="w-full md:w-96 flex-shrink-0">
+          {step !== 5 && summary} /* Hide summary on success/failure page */
+        </div>
       </div>
     </div>
   );

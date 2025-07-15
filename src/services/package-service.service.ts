@@ -26,50 +26,67 @@ export interface EnrichedPackageService extends RawPackageService {
 export const PackageServiceService = {
   async getAll(): Promise<EnrichedPackageService[]> {
     const rawPackageServices = await apiClient.get<RawPackageService[]>("/package-services");
-    console.log("[PackageServiceService] Raw package services:", rawPackageServices); // Added log
+    console.log("[PackageServiceService] Raw package services (before enrichment):", rawPackageServices); // Log raw data for debugging
+
+    const results = await Promise.allSettled(
+      rawPackageServices.map(async (rawPs) => {
+        if (!rawPs.serviceId) {
+          // Log the specific rawPs that is missing serviceId
+          console.error(`[PackageServiceService] Missing serviceId in raw package service:`, rawPs);
+          throw new Error(`serviceId is missing for raw package service ${rawPs.id}`);
+        }
+        if (!rawPs.packageId) {
+          throw new Error(`packageId is missing for raw package service ${rawPs.id}`);
+        }
+
+        try {
+          const service = await APIService.getById(rawPs.serviceId);
+          const packageInfo = await apiClient.get<EnrichedServicePackage>(`/service-packages/${rawPs.packageId}`);
+
+          return {
+            ...rawPs,
+            service: service,
+            package: packageInfo,
+          };
+        } catch (error) {
+          console.error(`Failed to enrich package service ${rawPs.id}:`, error);
+          throw error; // Re-throw to be caught by Promise.allSettled
+        }
+      })
+    );
 
     const enrichedServices: EnrichedPackageService[] = [];
-
-    // Use Promise.all to fetch all service and package details concurrently
-    const promises = rawPackageServices.map(async (rawPs) => {
-      try {
-        const service = await APIService.getById(rawPs.serviceId); // Directly get the service object
-        const packageInfo = await apiClient.get<EnrichedServicePackage>(`/service-packages/${rawPs.packageId}`); // Directly get the package object
-
-        return {
-          ...rawPs,
-          service: service,
-          package: packageInfo,
-        };
-      } catch (error) {
-        console.error(`Failed to enrich package service ${rawPs.id}:`, error);
-        return null; // Return null for failed enrichments
+    results.forEach((result) => {
+      if (result.status === "fulfilled") {
+        enrichedServices.push(result.value);
+      } else {
+        // Log rejected promises
+        console.warn(`[PackageServiceService] Failed to enrich one or more package services:`, result.reason);
       }
     });
 
-    const results = await Promise.all(promises);
-    return results.filter(Boolean) as EnrichedPackageService[]; // Filter out nulls
+    return enrichedServices;
   },
-  async getById(id: string) {
-    // This function might also need enrichment if it's used to display details
+  async getById(id: string): Promise<EnrichedPackageService> {
     const rawPs = await apiClient.get<RawPackageService>(`/package-services/${id}`);
     if (!rawPs) {
       console.warn(`[PackageServiceService] Raw package service with ID ${id} not found.`);
       throw new Error(`Package service with ID ${id} not found.`);
     }
-    try {
-      // Ensure serviceId and packageId exist before attempting to fetch
-      if (!rawPs.serviceId) {
-        console.warn(`[PackageServiceService] serviceId is undefined for raw package service ${rawPs.id}. Skipping service enrichment.`);
-        // Optionally, return a partially enriched object or throw an error
-        throw new Error(`serviceId is missing for package service ${rawPs.id}`);
-      }
-      if (!rawPs.packageId) {
-        console.warn(`[PackageServiceService] packageId is undefined for raw package service ${rawPs.id}. Skipping package enrichment.`);
-        // Optionally, return a partially enriched object or throw an error
-        throw new Error(`packageId is missing for package service ${rawPs.id}`);
-      }
 
+    // Ensure serviceId and packageId exist before attempting to fetch
+    if (!rawPs.serviceId) {
+      const errorMessage = `serviceId is missing for raw package service ${rawPs.id}`;
+      console.warn(`[PackageServiceService] ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
+    if (!rawPs.packageId) {
+      const errorMessage = `packageId is missing for raw package service ${rawPs.id}`;
+      console.warn(`[PackageServiceService] ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
+
+    try {
       const service = await APIService.getById(rawPs.serviceId);
       const packageInfo = await apiClient.get<EnrichedServicePackage>(`/service-packages/${rawPs.packageId}`);
 
