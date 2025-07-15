@@ -22,6 +22,12 @@ export interface Blog {
   // ... các trường khác nếu cần
 }
 
+interface UploadImageResponse {
+  id: string;
+  url: string;
+  // Add other properties if available in the API response
+}
+
 export const BlogService = {
   async getAll(params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();
@@ -85,6 +91,19 @@ export const BlogService = {
   },
   async delete(id: string) {
     return apiClient.delete(`${API_ENDPOINTS.BLOG.BASE}/${id}`);
+  },
+
+  async uploadBlogImage(file: File, userId: string) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("entityType", "blog"); // Or "user" if it's a user profile image
+    formData.append("entityId", userId); // The user ID who is uploading the image
+
+    return apiClient.post<UploadImageResponse>(API_ENDPOINTS.FILES.UPLOAD_IMAGE, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data", // Important for FormData
+      },
+    });
   },
 };
 

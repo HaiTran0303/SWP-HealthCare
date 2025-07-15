@@ -240,8 +240,17 @@ export default function STITestingPage() {
         };
 
         const response = await STITestingService.getAvailableAppointmentSlots(payload);
-        const slots = response.availableSlots.filter(slot => slot.remainingSlots > 0);
+        let slots = response.availableSlots.filter(slot => slot.remainingSlots > 0);
         
+        // Deduplicate slots by availabilityId to ensure unique keys for rendering
+        const uniqueSlotsMap = new Map<string, AvailableSlotDto>();
+        for (const slot of slots) {
+          if (!uniqueSlotsMap.has(slot.availabilityId)) {
+            uniqueSlotsMap.set(slot.availabilityId, slot);
+          }
+        }
+        slots = Array.from(uniqueSlotsMap.values());
+
         // Sort slots by time
         slots.sort((a, b) => {
           const timeA = new Date(a.dateTime).getHours() * 60 + new Date(a.dateTime).getMinutes();
