@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
-import { LogOut, User, Calendar } from "lucide-react";
+import { LogOut, User, Calendar, MessageSquare } from "lucide-react";
 
 export default function Header() {
   const { user, logout, isAuthenticated, isLoading } = useAuth();
@@ -63,25 +63,14 @@ export default function Header() {
                     </Link>
                   </DropdownMenuItem>
                   {user && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/profile/appointments" className="w-full">
-                        <Calendar className="mr-2 h-4 w-4" />
-                        Lịch tư vấn của tôi
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  {((typeof user?.role === "string" &&
-                    ["admin", "manager", "consultant"].includes(user.role)) ||
-                    (typeof user?.role === "object" &&
-                      ["admin", "manager", "consultant"].includes(
-                        user.role?.name
-                      ))) && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/manage/appointments" className="w-full">
-                        <Calendar className="mr-2 h-4 w-4" />
-                        Quản lý lịch hẹn
-                      </Link>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/profile/appointments" className="w-full">
+                          <Calendar className="mr-2 h-4 w-4" />
+                          Lịch tư vấn của tôi
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
                   )}
                   {((typeof user?.role === "string" && user.role === "admin") ||
                     (typeof user?.role === "object" &&

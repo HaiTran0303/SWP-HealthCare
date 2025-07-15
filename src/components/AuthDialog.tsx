@@ -48,6 +48,7 @@ export default function AuthDialog({
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotError, setForgotError] = useState("");
+  const [passwordError, setPasswordError] = useState(""); // State for password validation error
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -72,19 +73,47 @@ export default function AuthDialog({
     }
   };
 
-
+  // Password validation function
+  const validatePassword = (password: string): string => {
+    if (password.length < 8) {
+      return "Mật khẩu phải có ít nhất 8 ký tự.";
+    }
+    if (!/[A-Z]/.test(password)) {
+      return "Mật khẩu phải chứa ít nhất một chữ cái viết hoa.";
+    }
+    if (!/[a-z]/.test(password)) {
+      return "Mật khẩu phải chứa ít nhất một chữ cái viết thường.";
+    }
+    if (!/[0-9]/.test(password)) {
+      return "Mật khẩu phải chứa ít nhất một chữ số.";
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      return "Mật khẩu phải chứa ít nhất một ký tự đặc biệt.";
+    }
+    return ""; // No error
+  };
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    setPasswordError(""); // Clear previous password error
+
+    const formData = new FormData(e.currentTarget);
+    const password = formData.get("password") as string;
+
+    const validationMessage = validatePassword(password);
+    if (validationMessage) {
+      setPasswordError(validationMessage);
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const formData = new FormData(e.currentTarget);
       const data = {
         firstName: formData.get("firstName") as string,
         lastName: formData.get("lastName") as string,
         email: formData.get("email") as string,
-        password: formData.get("password") as string,
+        password: password, // Use the validated password
         phone: formData.get("phone") as string,
         address: formData.get("address") as string,
         gender: formData.get("gender") as "M" | "F" | "O",
@@ -320,62 +349,65 @@ export default function AuthDialog({
                     name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Tạo mật khẩu"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-phone">Số điện thoại</Label>
-                <Input
-                  id="register-phone"
-                  name="phone"
-                  type="tel"
-                  placeholder="Nhập số điện thoại"
                   required
                 />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-address">Địa chỉ</Label>
-                <Input
-                  id="register-address"
-                  name="address"
-                  placeholder="Nhập địa chỉ"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-gender">Giới tính</Label>
-                <Select name="gender" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn giới tính" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="M">Nam</SelectItem>
-                    <SelectItem value="F">Nữ</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">
-                Bằng cách tạo tài khoản, bạn đồng ý với Điều khoản dịch vụ và
-                Chính sách bảo mật của chúng tôi.
-              </p>
-            </form>
+              {passwordError && (
+                <p className="text-red-500 text-sm">{passwordError}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="register-phone">Số điện thoại</Label>
+              <Input
+                id="register-phone"
+                name="phone"
+                type="tel"
+                placeholder="Nhập số điện thoại"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="register-address">Địa chỉ</Label>
+              <Input
+                id="register-address"
+                name="address"
+                placeholder="Nhập địa chỉ"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="register-gender">Giới tính</Label>
+              <Select name="gender" required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn giới tính" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="M">Nam</SelectItem>
+                  <SelectItem value="F">Nữ</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Bằng cách tạo tài khoản, bạn đồng ý với Điều khoản dịch vụ và
+              Chính sách bảo mật của chúng tôi.
+            </p>
+          </form>
           </TabsContent>
         </Tabs>
       </DialogContent>

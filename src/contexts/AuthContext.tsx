@@ -119,7 +119,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("[AuthContext] Checking auth...");
       const userData = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
       console.log("[AuthContext] Auth successful:", userData);
-      setUser(userData);
+      const userWithFullName = {
+        ...userData,
+        fullName: `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
+      };
+      setUser(userWithFullName);
       // Set cookie với token thật
       const accessToken = localStorage.getItem("accessToken");
       if (accessToken) {
@@ -134,7 +138,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await refreshToken();
           const userData = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
           console.log("[AuthContext] Auth successful after refresh:", userData);
-          setUser(userData);
+          const userWithFullNameAfterRefresh = {
+            ...userData,
+            fullName: `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
+          };
+          setUser(userWithFullNameAfterRefresh);
           const accessToken = localStorage.getItem("accessToken");
           if (accessToken) {
             document.cookie = `auth-token=${accessToken}; path=/; max-age=86400`;
@@ -171,7 +179,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         // Lấy lại user đầy đủ từ backend
         const freshUser = await apiClient.get<User>("/users/me");
-        setUser(freshUser);
+        const freshUserWithFullName = {
+          ...freshUser,
+          fullName: `${freshUser.firstName || ""} ${freshUser.lastName || ""}`.trim(),
+        };
+        setUser(freshUserWithFullName);
         localStorage.setItem("userId", freshUser.id);
         console.log("[AuthContext] Login successful:", freshUser);
       } else {
@@ -184,9 +196,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Chào mừng bạn quay trở lại!",
       });
       // Redirect based on user role
-      if (data && data.user && data.user.role === "admin") {
+      const userRole = typeof data.user.role === "object" ? data.user.role.name : data.user.role;
+      if (data && data.user && userRole === "admin") {
         router.push("/admin");
-      } else if (data && data.user && data.user.role === "consultant") {
+      } else if (data && data.user && userRole === "consultant") {
         router.push("/consultant");
       } else {
         router.push("/");
@@ -211,11 +224,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Vui lòng kiểm tra email để xác thực tài khoản",
       });
       router.push("/auth/verify-email");
-    } catch (error) {
+    } catch (error: any) {
       console.error("[AuthContext] Registration error:", error);
+      let errorMessage = "Có lỗi xảy ra";
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       toast({
         title: "Lỗi",
-        description: error instanceof Error ? error.message : "Có lỗi xảy ra",
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;

@@ -18,6 +18,8 @@ export default function BlogNewPage() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const { user } = useAuth();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadedImageId, setUploadedImageId] = useState<string | null>(null);
 
   // TODO: Lấy role từ AuthContext
   const canAutoPublish = true; // Thay bằng kiểm tra role thực tế
@@ -36,6 +38,14 @@ export default function BlogNewPage() {
       .catch(() => setCategories([]));
   }, []);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    } else {
+      setSelectedFile(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -46,6 +56,13 @@ export default function BlogNewPage() {
       return;
     }
     try {
+      let featuredImageId: string | null = null;
+      if (selectedFile) {
+        // Upload image first
+        const uploadResponse = await BlogService.uploadBlogImage(selectedFile, user.id);
+        featuredImageId = uploadResponse.id; // Assuming the response contains the ID of the uploaded image
+      }
+
       const tagArr = tags
         .split(",")
         .map((t) => t.trim())
@@ -68,6 +85,9 @@ export default function BlogNewPage() {
         tags: tagArr,
         status: "draft",
       };
+      if (featuredImageId) {
+        payload.featuredImage = featuredImageId;
+      }
       if (canAutoPublish && autoPublish) payload.autoPublish = true;
       Object.keys(payload).forEach(
         (key) =>
@@ -148,6 +168,16 @@ export default function BlogNewPage() {
             </label>
           </div>
         )}
+        {error && <div className="text-red-500 text-sm">{error}</div>}
+        <div>
+          <label className="font-medium">Ảnh nổi bật</label>
+          <input
+            type="file"
+            className="w-full border rounded px-2 py-1 mt-1"
+            accept="image/*"
+            onChange={handleFileChange}
+          />
+        </div>
         {error && <div className="text-red-500 text-sm">{error}</div>}
         <div className="flex justify-end">
           <Button type="submit" disabled={loading}>

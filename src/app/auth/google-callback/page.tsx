@@ -2,11 +2,14 @@
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import AuthDialog from "@/components/AuthDialog";
+import { useState } from "react";
 
 export default function GoogleCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
+  const [showAuthDialog, setShowAuthDialog] = useState(false); // Added this line
 
   useEffect(() => {
     const accessToken = searchParams.get("accessToken");
@@ -20,9 +23,17 @@ export default function GoogleCallbackPage() {
       // login(user); // hoặc setUser(user)
       router.push("/");
     } else {
-      router.push("/auth/login?error=google");
+      // Show AuthDialog on error
+      setShowAuthDialog(true);
     }
   }, [searchParams, login, router]);
 
-  return <div>Đang đăng nhập với Google...</div>;
+  return (
+    <>
+      <div>Đang đăng nhập với Google...</div>
+      {showAuthDialog && (
+        <AuthDialog trigger={<span className="sr-only"></span>} defaultTab="signin" />
+      )}
+    </>
+  );
 }

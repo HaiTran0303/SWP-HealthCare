@@ -65,6 +65,8 @@ interface TimeSlot {
   consultantExperience?: string; // Keep this for display purposes
   consultantSpecialties?: string[]; // Keep this for display purposes
   consultationFee?: number; // Keep this for display purposes
+  serviceId: string; // Add serviceId
+  meetingLink?: string; // Add meetingLink
 }
 
 interface BookingStep {
@@ -187,6 +189,8 @@ const OnlineConsultationBooking: React.FC = () => {
             consultantExperience: slot.consultantProfile.experience,
             consultantSpecialties: slot.consultantProfile.specialties,
             consultationFee: slot.consultantProfile.consultationFee,
+            serviceId: slot.serviceId, // Extract serviceId from the slot
+            meetingLink: slot.meetingLink, // Extract meetingLink from the slot
           }))
         : [];
       console.log("Mapped Available Slots:", availableSlotsData); // Log the mapped data
@@ -206,6 +210,8 @@ const OnlineConsultationBooking: React.FC = () => {
 
   const handleConsultantSelect = (consultant: ConsultantProfile) => {
     setSelectedConsultant(consultant);
+    console.log("Selected Consultant ID:", consultant.id);
+    console.log("Selected Consultant User ID:", consultant.userId);
     setCurrentStep(2);
     setSelectedDate(undefined);
     setSelectedSlot(null);
@@ -248,6 +254,9 @@ const OnlineConsultationBooking: React.FC = () => {
   const handleConfirmBooking = async () => {
     if (!selectedConsultant || !selectedDate || !selectedSlot) return;
     
+    console.log("Attempting to book appointment with consultantId:", selectedConsultant.id);
+    console.log("Attempting to book appointment with consultant.userId:", selectedConsultant.userId);
+
     const success = await bookAppointment(
       selectedConsultant,
       selectedDate,
@@ -257,7 +266,9 @@ const OnlineConsultationBooking: React.FC = () => {
         symptoms,
         additionalNotes,
         preferredContactMethod,
-      }
+      },
+      selectedSlot.serviceId ? [selectedSlot.serviceId] : [], // Pass serviceIds as an array
+      selectedSlot.meetingLink || "https://meet.google.com/default-meeting-link" // Use meetingLink from slot, or a default
     );
 
     if (success) {

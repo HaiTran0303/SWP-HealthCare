@@ -5,6 +5,7 @@ export const fetchCache = "force-no-store";
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import AuthDialog from "@/components/AuthDialog";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
 
@@ -25,12 +26,7 @@ function VerifySuccessContent() {
             )}
           </p>
           <div className="flex flex-col space-y-2 w-full">
-            <Button
-              className="w-full"
-              onClick={() => router.push("/auth/login")}
-            >
-              Đăng nhập ngay
-            </Button>
+            <AuthDialog trigger={<Button className="w-full">Đăng nhập ngay</Button>} defaultTab="signin" />
             <Button
               variant="outline"
               className="w-full"

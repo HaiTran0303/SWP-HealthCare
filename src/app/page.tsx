@@ -42,15 +42,8 @@ export default function HomePage() {
 
   useEffect(() => {
     APIService.getAll({ limit: 3, page: 1 })
-      .then((res: any) => {
-        const arr = Array.isArray(res?.data?.data)
-          ? res.data.data
-          : Array.isArray(res?.data)
-          ? res.data
-          : Array.isArray(res)
-          ? res
-          : [];
-        setServices(arr);
+      .then((res: Service[]) => {
+        setServices(res);
       })
       .catch((error) => {
         console.error("Error fetching services:", error);

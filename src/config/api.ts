@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
   // Appointments
   APPOINTMENTS: {
     BASE: "/appointments",
+    AVAILABLE_SLOTS: "/appointments/available-slots",
     STATUS: (id: string) => `/appointments/${id}/status`,
     CANCEL: (id: string) => `/appointments/${id}/cancel`,
     CHAT_ROOM: (id: string) => `/appointments/${id}/chat-room`,
@@ -55,8 +56,12 @@ export const API_ENDPOINTS = {
   // STI Testing
   STI_TESTING: {
     BASE: "/sti-test-processes",
+    CREATE_STI_APPOINTMENT: "/sti-appointments",
     RESULTS: "/test-results",
     TEMPLATES: "/test-results/templates",
+    STATISTICS: {
+      DASHBOARD: "/sti-test-processes/statistics/dashboard",
+    },
   },
 
   // Files
@@ -77,6 +82,23 @@ export const API_ENDPOINTS = {
   SERVICES: {
     BASE: "/services",
     BY_ID: (id: string) => `/services/${id}`,
+    STI: "/services/sti", // Add STI services endpoint
+  },
+
+  // User Dashboard
+  USER_DASHBOARD: {
+    OVERVIEW: "/user-dashboard/overview",
+    CUSTOMERS: "/user-dashboard/customers",
+    CONSULTANTS: "/user-dashboard/consultants",
+    STATS_GENDER: "/user-dashboard/stats/gender",
+    REGISTRATION_TREND: "/user-dashboard/stats/registration-trend",
+  },
+
+  // Revenue Stats
+  REVENUE_STATS: {
+    MONTHLY: "/revenue-stats/monthly",
+    YEARLY: "/revenue-stats/yearly",
+    REPORT: "/revenue-stats/report",
   },
 };
 

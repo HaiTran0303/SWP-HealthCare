@@ -1,5 +1,6 @@
 import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
+import { CreateStiAppointmentDto, Appointment, FindAvailableSlotsDto, FindAvailableSlotsResponseDto } from "@/types/sti-appointment.d";
 
 export type SampleType = "blood" | "urine" | "swab" | "saliva" | "other";
 export type Priority = "normal" | "high" | "urgent";
@@ -28,6 +29,26 @@ export interface STITestData {
   requiresConsultation?: boolean;
   isConfidential?: boolean;
 }
+
+export interface StiTestProcess {
+  serviceId: string;
+  patientId: string;
+  sampleType: SampleType;
+  priority: Priority;
+  appointmentId?: string;
+  estimatedResultDate: string;
+  sampleCollectionLocation: string;
+  processNotes?: string;
+  consultantDoctorId?: string;
+  requiresConsultation?: boolean;
+  isConfidential?: boolean;
+  id: string;
+  testCode: string;
+  status: TestStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 export interface TestFilters {
   status?: TestStatus;
@@ -67,14 +88,29 @@ export interface TestResult {
 
 export const STITestingService = {
   // Quản lý quy trình xét nghiệm
-  async createTest(data: STITestData) {
+  async createTest(data: STITestData): Promise<StiTestProcess> {
     const payload = {
       ...data,
       estimatedResultDate: data.estimatedResultDate
         ? new Date(data.estimatedResultDate).toISOString()
         : undefined,
     };
-    return apiClient.post(API_ENDPOINTS.STI_TESTING.BASE, payload);
+    return apiClient.post<StiTestProcess>(API_ENDPOINTS.STI_TESTING.BASE, payload);
+  },
+
+  async createStiAppointment(
+    data: CreateStiAppointmentDto
+  ): Promise<Appointment> {
+    const payload = {
+      ...data,
+      sampleCollectionDate: data.sampleCollectionDate
+        ? new Date(data.sampleCollectionDate).toISOString()
+        : undefined,
+    };
+    return apiClient.post<Appointment>(
+      API_ENDPOINTS.STI_TESTING.CREATE_STI_APPOINTMENT,
+      payload
+    );
   },
 
   async getAllTests(filters: TestFilters = {}) {
@@ -105,6 +141,17 @@ export const STITestingService = {
     });
   },
 
+  async getBookingEstimation(data: {
+    patientId: string;
+    serviceIds: string[];
+    notes?: string;
+  }) {
+    return apiClient.post<{ estimatedCost: number; estimatedDuration: string }>(
+      `${API_ENDPOINTS.STI_TESTING.BASE}/booking/from-service-selection`,
+      data
+    );
+  },
+
   // Quản lý kết quả xét nghiệm
   async submitTestResult(
     testId: string,
@@ -123,9 +170,22 @@ export const STITestingService = {
     return apiClient.get(`${API_ENDPOINTS.STI_TESTING.RESULTS}/${testId}`);
   },
 
+  async getUserStiAppointments() {
+    return apiClient.get(API_ENDPOINTS.STI_TESTING.CREATE_STI_APPOINTMENT);
+  },
+
   async getTestTemplate(serviceType: string) {
     return apiClient.get(
       `${API_ENDPOINTS.STI_TESTING.TEMPLATES}/${serviceType}`
+    );
+  },
+
+  async getAvailableAppointmentSlots(
+    data: FindAvailableSlotsDto
+  ): Promise<FindAvailableSlotsResponseDto> {
+    return apiClient.post<FindAvailableSlotsResponseDto>(
+      API_ENDPOINTS.APPOINTMENTS.AVAILABLE_SLOTS,
+      data
     );
   },
 

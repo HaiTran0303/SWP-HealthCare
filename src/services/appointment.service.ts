@@ -17,7 +17,7 @@ export interface Appointment {
     profilePicture?: string;
     specialization?: string;
   };
-  serviceId?: string;
+  serviceIds?: string[];
   service?: {
     id: string;
     name: string;
@@ -36,12 +36,12 @@ export interface Appointment {
 }
 
 export interface CreateAppointmentRequest {
-  consultantId: string;
-  serviceId?: string;
-  appointmentDate: string;
-  appointmentTime: string;
+  consultantId?: string; // Make optional as it's not always required
+  serviceIds?: string[]; // Change to array of service IDs
+  appointmentDate: string; // This will now include both date and time in ISO format
   notes?: string;
-  type?: string;
+  meetingLink?: string;
+  appointmentLocation?: string; // Make optional to match usage
 }
 
 export interface UpdateAppointmentStatusRequest {
@@ -53,14 +53,13 @@ export type AppointmentStatus = "scheduled" | "completed" | "cancelled" | "pendi
 
 export const AppointmentService = {
   // Lấy danh sách appointments của user hiện tại
-  getUserAppointments: async (userId: string): Promise<Appointment[]> => { // Add userId parameter back
+  getUserAppointments: async (): Promise<Appointment[]> => {
     try {
-      console.log("[AppointmentService] Fetching user appointments for userId:", userId);
-      // Gọi API /appointments và truyền userId như một query parameter
-      // Thêm một tham số để backend hiểu đây là yêu cầu lấy lịch hẹn của người dùng hiện tại
-      const response = await apiClient.get<any>(`${API_ENDPOINTS.APPOINTMENTS.BASE}?userId=${userId}&isCurrentUser=true`);
+      console.log("[AppointmentService] Fetching current user appointments...");
+      // Gọi API /appointments. Backend sẽ xác định người dùng hiện tại từ token xác thực.
+      const response = await apiClient.get<any>(API_ENDPOINTS.APPOINTMENTS.BASE);
       
-      console.log("[AppointmentService] Raw API Response for user appointments:", response);
+      console.log("[AppointmentService] Raw API Response for current user appointments:", response);
       
       let appointments: Appointment[] = [];
       if (response && typeof response.data === 'object' && Array.isArray(response.data.data)) {
@@ -172,7 +171,7 @@ export const AppointmentService = {
   cancelAppointment: async (id: string, reason?: string): Promise<void> => {
     try {
       console.log("[AppointmentService] Cancelling appointment:", id, reason);
-      await apiClient.post(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), {
+      await apiClient.patch(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), {
         cancellationReason: reason,
       });
     } catch (error) {
