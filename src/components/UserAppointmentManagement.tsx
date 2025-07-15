@@ -316,7 +316,7 @@ const UserAppointmentManagement: React.FC = () => {
     setIsLoading(true);
     try {
       // Truyền userId vào getUserAppointments
-      const response: any = await AppointmentService.getUserAppointments(user.id);
+      const response: any = await AppointmentService.getUserAppointments();
       console.log("Appointments API Response:", response);
 
       // Map API response to AppointmentDetails interface

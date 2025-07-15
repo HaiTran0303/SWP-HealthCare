@@ -51,8 +51,13 @@ export const ConsultantService = {
 
     const uniqueConsultantsMap = new Map<string, ConsultantProfile>();
     availabilityData.forEach((availability: ConsultantAvailability) => {
-      if (availability.consultantProfile) {
-        uniqueConsultantsMap.set(availability.consultantProfile.id, availability.consultantProfile);
+      if (availability.consultantProfile && availability.consultantProfile.user) {
+        // Ensure userId is correctly set from user.id
+        const consultant = {
+          ...availability.consultantProfile,
+          userId: availability.consultantProfile.user.id,
+        };
+        uniqueConsultantsMap.set(consultant.id, consultant);
       }
     });
     return Array.from(uniqueConsultantsMap.values());

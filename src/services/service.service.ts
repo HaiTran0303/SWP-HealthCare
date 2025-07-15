@@ -17,8 +17,9 @@ export const APIService = {
     const query = new URLSearchParams(params).toString();
     const endpoint = `${API_ENDPOINTS.SERVICES.BASE}${query ? `?${query}` : ""}`;
     const response = await axios.get<any>(buildApiUrl(endpoint)); // Use axios.get
-    // Ensure response is always an array, handling cases where API might return { data: [...] }
-    return response.data && Array.isArray(response.data) ? response.data : (Array.isArray(response) ? response : []);
+    // Handle cases where API might return { data: [...] } or just [...]
+    const resultData = response.data?.data?.data || response.data?.data || response.data;
+    return Array.isArray(resultData) ? resultData : [];
   },
   async getById(id: string) {
     return axios.get<Service>(buildApiUrl(API_ENDPOINTS.SERVICES.BY_ID(id))); // Use axios.get

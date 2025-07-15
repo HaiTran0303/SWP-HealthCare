@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { ConsultantProfile } from "@/services/consultant.service";
 import { AppointmentService, CreateAppointmentRequest } from "@/services/appointment.service";
+import { format } from "date-fns"; // Import format from date-fns
 
 interface BookingFormData {
   consultationReason: string;
@@ -53,7 +54,9 @@ export function useConsultationBooking() {
     consultant: ConsultantProfile,
     selectedDate: Date,
     selectedTime: string,
-    formData: BookingFormData
+    formData: BookingFormData,
+    serviceIds: string[], // Accept serviceIds as an array
+    meetingLink: string // Accept meetingLink directly
   ) => {
     setIsLoading(true);
     setErrors({});
@@ -71,13 +74,21 @@ export function useConsultationBooking() {
         return false;
       }
 
-      // Create appointment date
-      const appointmentDate = new Date(selectedDate);
+      // Combine selectedDate and selectedTime into a single Date object in local timezone
       const [hours, minutes] = selectedTime.split(":").map(Number);
-      appointmentDate.setHours(hours, minutes, 0, 0);
+      const finalAppointmentDateTime = new Date(selectedDate.setHours(hours, minutes, 0, 0));
 
-      // Check if appointment date is in the past
-      if (appointmentDate < new Date()) {
+      // Format to ISO 8601 string without converting to UTC, using local timezone
+      // Example: 2025-07-19T08:00:00.000
+      const formattedAppointmentDate = format(finalAppointmentDateTime, "yyyy-MM-dd'T'HH:mm:ss.SSS");
+
+      console.log("selectedDate (original):", selectedDate);
+      console.log("selectedTime:", selectedTime);
+      console.log("finalAppointmentDateTime (Date object, local timezone):", finalAppointmentDateTime);
+      console.log("formattedAppointmentDate (ISO local):", formattedAppointmentDate);
+
+      // Check if combined date and time is in the past
+      if (finalAppointmentDateTime < new Date()) {
         setErrors({ general: "Không thể đặt lịch cho thời gian trong quá khứ" });
         toast({
           title: "Thời gian không hợp lệ",
@@ -89,15 +100,15 @@ export function useConsultationBooking() {
 
       // Prepare appointment data
       const appointmentData: CreateAppointmentRequest = {
-        consultantId: consultant.id,
-        appointmentDate: appointmentDate.toISOString(),
-        appointmentTime: selectedTime, // Use selectedTime for appointmentTime
+        consultantId: consultant.userId, // Use consultant.userId
+        appointmentDate: formattedAppointmentDate, // Use the locally formatted date and time
         notes: buildNotesString(formData),
-        // serviceId and type are optional in CreateAppointmentRequest
-        // based on the provided API documentation, serviceIds should be mapped to serviceId
-        serviceId: "online-consultation-service-id", // Placeholder, you might need to get this from somewhere
-        type: "online-consultation", // Placeholder, you might need to get this from somewhere
+        serviceIds: serviceIds,
+        meetingLink: meetingLink,
+        appointmentLocation: "online",
       };
+
+      console.log("[useConsultationBooking] Final appointmentData:", appointmentData); // Log the final data
 
       // Create appointment
       await AppointmentService.createAppointment(appointmentData);
@@ -113,19 +124,23 @@ export function useConsultationBooking() {
       return true;
     } catch (error: any) {
       console.error("Error booking appointment:", error);
-      
+
       let errorMessage = "Có lỗi xảy ra khi đặt lịch. Vui lòng thử lại.";
+      if (error.response && error.response.data) {
+        errorMessage = error.response.data.message || errorMessage;
+        console.error("API Error Response Data:", error.response.data);
+      }
       
       if (error.status === 400) {
-        errorMessage = error.message || "Thông tin đặt lịch không hợp lệ";
+        errorMessage = errorMessage || "Thông tin đặt lịch không hợp lệ";
       } else if (error.status === 401) {
-        errorMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+        errorMessage = errorMessage || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
       } else if (error.status === 403) {
-        errorMessage = "Bạn không có quyền thực hiện hành động này";
+        errorMessage = errorMessage || "Bạn không có quyền thực hiện hành động này";
       } else if (error.status === 409) {
-        errorMessage = "Khung giờ này đã được đặt. Vui lòng chọn khung giờ khác.";
+        errorMessage = errorMessage || "Khung giờ này đã được đặt. Vui lòng chọn khung giờ khác.";
       } else if (error.status === 422) {
-        errorMessage = "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+        errorMessage = errorMessage || "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
       }
       
       setErrors({ general: errorMessage });
