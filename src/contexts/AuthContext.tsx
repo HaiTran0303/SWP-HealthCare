@@ -119,7 +119,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("[AuthContext] Checking auth...");
       const userData = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
       console.log("[AuthContext] Auth successful:", userData);
-      setUser(userData);
+      const userWithFullName = {
+        ...userData,
+        fullName: `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
+      };
+      setUser(userWithFullName);
       // Set cookie với token thật
       const accessToken = localStorage.getItem("accessToken");
       if (accessToken) {
@@ -134,7 +138,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await refreshToken();
           const userData = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
           console.log("[AuthContext] Auth successful after refresh:", userData);
-          setUser(userData);
+          const userWithFullNameAfterRefresh = {
+            ...userData,
+            fullName: `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
+          };
+          setUser(userWithFullNameAfterRefresh);
           const accessToken = localStorage.getItem("accessToken");
           if (accessToken) {
             document.cookie = `auth-token=${accessToken}; path=/; max-age=86400`;
@@ -171,7 +179,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         // Lấy lại user đầy đủ từ backend
         const freshUser = await apiClient.get<User>("/users/me");
-        setUser(freshUser);
+        const freshUserWithFullName = {
+          ...freshUser,
+          fullName: `${freshUser.firstName || ""} ${freshUser.lastName || ""}`.trim(),
+        };
+        setUser(freshUserWithFullName);
         localStorage.setItem("userId", freshUser.id);
         console.log("[AuthContext] Login successful:", freshUser);
       } else {

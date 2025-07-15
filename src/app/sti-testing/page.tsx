@@ -29,7 +29,8 @@ import StiStepper from "@/components/StiStepper";
 import StiServiceCard from "@/components/StiServiceCard";
 import StiSummarySidebar from "@/components/StiSummarySidebar";
 import { APIService, Service } from "@/services/service.service"; // Import APIService and Service
-import { STITestingService, STITestData, StiTestProcess } from "@/services/sti-testing.service"; // Import STITestingService
+import { STITestingService } from "@/services/sti-testing.service"; // Import STITestingService
+import { CreateStiAppointmentDto, Appointment, FindAvailableSlotsDto, AvailableSlotDto } from "@/types/sti-appointment.d"; // Import new DTOs and types
 
 const steps = [
   "Chọn dịch vụ",
@@ -154,12 +155,14 @@ export default function STITestingPage() {
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [bookingResult, setBookingResult] = useState<StiTestProcess[] | null>(null);
+  const [bookingResult, setBookingResult] = useState<Appointment[] | null>(null);
   const [error, setError] = useState("");
   const [estimatedCost, setEstimatedCost] = useState<number | null>(null);
   const [estimatedDuration, setEstimatedDuration] = useState<string | null>(
     null
   );
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlotDto[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<AvailableSlotDto | null>(null);
   const router = useRouter();
 
   // Lấy danh sách dịch vụ STI
@@ -212,6 +215,61 @@ export default function STITestingPage() {
     // eslint-disable-next-line
   }, [selectedServiceIds, user?.id]);
 
+  // Lấy các slot thời gian khả dụng
+  useEffect(() => {
+    if (!selectedDate || selectedServiceIds.length === 0) {
+      setAvailableSlots([]);
+      setSelectedSlot(null);
+      setSelectedTime("");
+      return;
+    }
+
+    const fetchAvailableSlots = async () => {
+      try {
+        const startDate = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const endDate = startDate; // Search for slots on the selected date only
+
+        const payload: FindAvailableSlotsDto = {
+          serviceIds: selectedServiceIds,
+          startDate: startDate,
+          endDate: endDate,
+          // Optionally add startTime/endTime if you want to filter by fixed hours
+          // startTime: "08:00",
+          // endTime: "17:00",
+        };
+
+        const response = await STITestingService.getAvailableAppointmentSlots(payload);
+        const slots = response.availableSlots.filter(slot => slot.remainingSlots > 0);
+        
+        // Sort slots by time
+        slots.sort((a, b) => {
+          const timeA = new Date(a.dateTime).getHours() * 60 + new Date(a.dateTime).getMinutes();
+          const timeB = new Date(b.dateTime).getHours() * 60 + new Date(b.dateTime).getMinutes();
+          return timeA - timeB;
+        });
+
+        setAvailableSlots(slots);
+        // Reset selected slot if current selected time is not in new available slots
+        if (selectedTime && !slots.find(s => new Date(s.dateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) === selectedTime)) {
+          setSelectedTime("");
+          setSelectedSlot(null);
+        }
+      } catch (error) {
+        console.error("Error fetching available slots:", error);
+        setAvailableSlots([]);
+        setSelectedSlot(null);
+        setSelectedTime("");
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải các slot thời gian khả dụng.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchAvailableSlots();
+  }, [selectedDate, selectedServiceIds, toast]);
+
   // Step 1: Chọn dịch vụ
   const handleSelectService = (id: string) => {
     setSelectedServiceIds((prev) =>
@@ -225,7 +283,7 @@ export default function STITestingPage() {
       !user?.id ||
       selectedServiceIds.length === 0 ||
       !selectedDate ||
-      !selectedTime
+      !selectedSlot // Changed from selectedTime to selectedSlot
     ) {
       setError("Vui lòng chọn đầy đủ thông tin");
       return;
@@ -233,22 +291,38 @@ export default function STITestingPage() {
     setBookingLoading(true);
     setError("");
     try {
-      const bookedResults: StiTestProcess[] = [];
-      for (const serviceId of selectedServiceIds) {
-        const sampleCollectionDateTime = new Date(selectedDate);
-        const [hours, minutes] = selectedTime.split(":").map(Number);
-        sampleCollectionDateTime.setHours(hours, minutes, 0, 0);
+      const bookedResults: Appointment[] = [];
+      // When using available slots, typically you book one appointment per selected slot.
+      // If multiple services are selected, and one slot, it implies all services are for that one slot.
+      // The backend API needs to support this. Assuming for now, one appointment per service.
+      // If the backend expects one appointment object for all services in one slot,
+      // the loop structure might be adjusted, and CreateStiAppointmentDto
+      // would need to accept an array of stiServiceIds.
+      // For simplicity, let's assume each service needs its own appointment booking for the selected slot.
 
-        const payload: STITestData = {
-          serviceId: serviceId,
-          patientId: user.id,
-          sampleType: "blood", // Default, ideally from UI
-          priority: "normal", // Default, ideally from UI
+      // However, the current CreateStiAppointmentDto only takes a single stiServiceId.
+      // If a single STI appointment can cover multiple services, the DTO and API call
+      // would need to be adjusted. For now, assuming each service is a separate appointment.
+      // But the original code was looping through serviceIds and calling createTest for each.
+      // If sti-appointments also works this way, then the loop is fine.
+
+      // The swagger definition for /sti-appointments POST only takes one stiServiceId.
+      // So if multiple services are selected, it means multiple appointments.
+      // We should pass the consultantId from the selected slot if available.
+
+      const sampleCollectionDateTime = new Date(selectedSlot.dateTime);
+      // The `selectedSlot.dateTime` is already an ISO string or Date object.
+      // No need to parse time separately.
+
+      for (const serviceId of selectedServiceIds) {
+        const payload: CreateStiAppointmentDto = {
+          stiServiceId: serviceId,
+          sampleCollectionDate: sampleCollectionDateTime.toISOString(),
           sampleCollectionLocation: "office", // Default, ideally from UI
-          processNotes: notes,
-          estimatedResultDate: sampleCollectionDateTime.toISOString(), // Use collection date for estimation
+          notes: notes,
+          consultantId: selectedSlot.consultant?.id, // Pass consultantId from selected slot
         };
-        const response = await STITestingService.createTest(payload);
+        const response = await STITestingService.createStiAppointment(payload);
         bookedResults.push(response);
       }
 
@@ -340,22 +414,32 @@ export default function STITestingPage() {
             <div className="mb-4">
               <label className="font-medium block mb-2">Chọn giờ</label>
               <div className="flex gap-2 flex-wrap">
-                {["09:00", "10:00", "11:00", "14:00", "15:00"].map((time) => (
-                  <Button
-                    key={time}
-                    variant={selectedTime === time ? "default" : "outline"}
-                    onClick={() => setSelectedTime(time)}
-                  >
-                    {time}
-                  </Button>
-                ))}
+                {availableSlots.length > 0 ? (
+                  availableSlots.map((slot) => {
+                    const time = new Date(slot.dateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <Button
+                        key={slot.availabilityId} // Use availabilityId as key
+                        variant={selectedSlot?.availabilityId === slot.availabilityId ? "default" : "outline"}
+                        onClick={() => {
+                          setSelectedTime(time);
+                          setSelectedSlot(slot);
+                        }}
+                      >
+                        {time} ({slot.remainingSlots} còn trống)
+                      </Button>
+                    );
+                  })
+                ) : (
+                  <p className="text-gray-500">Không có slot khả dụng cho ngày đã chọn.</p>
+                )}
               </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button onClick={() => setStep(1)}>Quay lại</Button>
               <Button
                 onClick={() => setStep(3)}
-                disabled={!selectedDate || !selectedTime}
+                disabled={!selectedDate || !selectedSlot} // Changed from selectedTime to selectedSlot
                 className="btn-primary"
               >
                 Tiếp tục
@@ -395,13 +479,13 @@ export default function STITestingPage() {
               Đặt lịch thành công!
             </h2>
             <div className="mb-2">
-              Mã xét nghiệm:{" "}
+              ID lịch hẹn:{" "}
               <span className="font-mono font-bold">
-                {bookingResult?.[0]?.testCode || "N/A"}
+                {bookingResult?.[0]?.id || "N/A"}
               </span>
             </div>
             <div className="mb-2">
-              Số lượng xét nghiệm đã đặt:{" "}
+              Số lượng lịch hẹn đã đặt:{" "}
               <span className="font-medium">{bookingResult.length}</span>
             </div>
             <div className="mb-2">

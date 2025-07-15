@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
   // Appointments
   APPOINTMENTS: {
     BASE: "/appointments",
+    AVAILABLE_SLOTS: "/appointments/available-slots",
     STATUS: (id: string) => `/appointments/${id}/status`,
     CANCEL: (id: string) => `/appointments/${id}/cancel`,
     CHAT_ROOM: (id: string) => `/appointments/${id}/chat-room`,
@@ -55,6 +56,7 @@ export const API_ENDPOINTS = {
   // STI Testing
   STI_TESTING: {
     BASE: "/sti-test-processes",
+    CREATE_STI_APPOINTMENT: "/sti-appointments",
     RESULTS: "/test-results",
     TEMPLATES: "/test-results/templates",
   },

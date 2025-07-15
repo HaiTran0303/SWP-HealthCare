@@ -1,5 +1,6 @@
 import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
+import { CreateStiAppointmentDto, Appointment, FindAvailableSlotsDto, FindAvailableSlotsResponseDto } from "@/types/sti-appointment.d";
 
 export type SampleType = "blood" | "urine" | "swab" | "saliva" | "other";
 export type Priority = "normal" | "high" | "urgent";
@@ -97,6 +98,21 @@ export const STITestingService = {
     return apiClient.post<StiTestProcess>(API_ENDPOINTS.STI_TESTING.BASE, payload);
   },
 
+  async createStiAppointment(
+    data: CreateStiAppointmentDto
+  ): Promise<Appointment> {
+    const payload = {
+      ...data,
+      sampleCollectionDate: data.sampleCollectionDate
+        ? new Date(data.sampleCollectionDate).toISOString()
+        : undefined,
+    };
+    return apiClient.post<Appointment>(
+      API_ENDPOINTS.STI_TESTING.CREATE_STI_APPOINTMENT,
+      payload
+    );
+  },
+
   async getAllTests(filters: TestFilters = {}) {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
@@ -154,9 +170,22 @@ export const STITestingService = {
     return apiClient.get(`${API_ENDPOINTS.STI_TESTING.RESULTS}/${testId}`);
   },
 
+  async getUserStiAppointments() {
+    return apiClient.get(API_ENDPOINTS.STI_TESTING.CREATE_STI_APPOINTMENT);
+  },
+
   async getTestTemplate(serviceType: string) {
     return apiClient.get(
       `${API_ENDPOINTS.STI_TESTING.TEMPLATES}/${serviceType}`
+    );
+  },
+
+  async getAvailableAppointmentSlots(
+    data: FindAvailableSlotsDto
+  ): Promise<FindAvailableSlotsResponseDto> {
+    return apiClient.post<FindAvailableSlotsResponseDto>(
+      API_ENDPOINTS.APPOINTMENTS.AVAILABLE_SLOTS,
+      data
     );
   },
 
