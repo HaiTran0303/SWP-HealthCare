@@ -24,7 +24,6 @@ import {
   MapPin,
   Phone,
   Video,
-  MessageSquare,
   Star,
   User,
   FileText,
@@ -35,12 +34,14 @@ import {
   Loader2,
   Ban,
   Eye,
+  MessageSquare,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppointmentService, AppointmentStatus } from "@/services/appointment.service";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { useRouter } from "next/navigation";
 
 interface AppointmentDetails {
   id: string;
@@ -68,6 +69,7 @@ interface AppointmentDetails {
     name: string;
     description?: string;
   }>;
+  questionId?: string; // Add questionId here
 }
 
 interface CancelDialogProps {
@@ -142,9 +144,10 @@ const AppointmentCard: React.FC<{
   appointment: AppointmentDetails;
   onCancel: (appointment: AppointmentDetails) => void;
   onViewDetails: (appointment: AppointmentDetails) => void;
+  onEnterChat: (appointment: AppointmentDetails) => void; // Add new prop
   getStatusIcon: (status: AppointmentStatus) => JSX.Element;
   getStatusColor: (status: AppointmentStatus) => string;
-}> = ({ appointment, onCancel, onViewDetails, getStatusIcon, getStatusColor }) => {
+}> = ({ appointment, onCancel, onViewDetails, onEnterChat, getStatusIcon, getStatusColor }) => { // Update props
 
   const canCancel = AppointmentService.canCancel(appointment.status);
   const isPastAppointment = AppointmentService.isPastAppointment(appointment.appointmentDate);
@@ -250,6 +253,19 @@ const AppointmentCard: React.FC<{
               Tham gia
             </Button>
           )}
+          
+          {/* Add Chat Button */}
+          {appointment.questionId && ( // Only show if questionId exists
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onEnterChat(appointment)}
+              className="flex items-center gap-2"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Vào chat
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -259,6 +275,7 @@ const AppointmentCard: React.FC<{
 const UserAppointmentManagement: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const router = useRouter(); // Add useRouter
   const [appointments, setAppointments] = useState<AppointmentDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -347,6 +364,7 @@ const UserAppointmentManagement: React.FC = () => {
               name: s.name,
               description: s.description,
             })),
+            questionId: apt.questionId, // Add questionId from API response
           }))
         : [];
       setAppointments(fetchedAppointments);
@@ -360,6 +378,34 @@ const UserAppointmentManagement: React.FC = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // New handler for chat button
+  const handleEnterChat = async (appointment: AppointmentDetails) => {
+    if (appointment.questionId) {
+      router.push(`/chat/${appointment.questionId}`);
+    } else {
+      // If questionId is not directly in appointment, try fetching it
+      try {
+        const chatRoom = await AppointmentService.getAppointmentChatRoom(appointment.id);
+        if (chatRoom && chatRoom.id) { // Assuming chatRoom has an 'id' property for the question
+          router.push(`/chat/${chatRoom.id}`);
+        } else {
+          toast({
+            title: "Lỗi",
+            description: "Không tìm thấy phòng chat cho lịch hẹn này.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching chat room for appointment:", error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể truy cập phòng chat. Vui lòng thử lại.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -475,6 +521,7 @@ const UserAppointmentManagement: React.FC = () => {
                   appointment={appointment}
                   onCancel={handleCancelAppointment}
                   onViewDetails={handleViewDetails}
+                  onEnterChat={handleEnterChat} // Pass new prop
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />
@@ -502,6 +549,7 @@ const UserAppointmentManagement: React.FC = () => {
                   appointment={appointment}
                   onCancel={handleCancelAppointment}
                   onViewDetails={handleViewDetails}
+                  onEnterChat={handleEnterChat} // Pass new prop
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />
@@ -532,6 +580,7 @@ const UserAppointmentManagement: React.FC = () => {
                   appointment={appointment}
                   onCancel={handleCancelAppointment}
                   onViewDetails={handleViewDetails}
+                  onEnterChat={handleEnterChat} // Pass new prop
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />

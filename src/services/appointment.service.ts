@@ -171,7 +171,7 @@ export const AppointmentService = {
   cancelAppointment: async (id: string, reason?: string): Promise<void> => {
     try {
       console.log("[AppointmentService] Cancelling appointment:", id, reason);
-      await apiClient.post(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), {
+      await apiClient.patch(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), {
         cancellationReason: reason,
       });
     } catch (error) {
