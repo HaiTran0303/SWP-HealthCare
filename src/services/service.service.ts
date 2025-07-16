@@ -5,7 +5,8 @@ export interface Service {
   id: string;
   name: string;
   description: string;
-  price: number;
+  htmlDescription?: string;
+  price: number | null;
   duration: number;
   categoryId: string;
   requiresConsultant: boolean;
@@ -15,6 +16,7 @@ export interface Service {
   postInstructions?: string;
   featured?: boolean;
   location?: "online" | "office";
+  type?: string; // Added type property
 }
 
 export const APIService = {
@@ -27,13 +29,13 @@ export const APIService = {
     console.log("[APIService] getAll processed data:", resultData); // Added log
     return Array.isArray(resultData) ? resultData : [];
   },
-  async getById(id: string) {
+  async getById(id: string): Promise<Service> { // Added return type
     try {
-      const response = await axios.get<Service>(buildApiUrl(API_ENDPOINTS.SERVICES.BY_ID(id)));
-      console.log("[APIService] getById raw response:", response); // Added log
-      return response.data; // Return the actual service data
+      const response = await axios.get<any>(buildApiUrl(API_ENDPOINTS.SERVICES.BY_ID(id))); // Changed generic type to any
+      console.log("[APIService] getById response.data:", response.data); // Log response.data explicitly
+      return response.data.data; // Return the actual service data nested inside 'data'
     } catch (error) {
-      console.error("[APIService] Error in getById:", error); // Added error log
+      console.error("[APIService] Error in getById:", error);
       throw error;
     }
   },
