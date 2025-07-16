@@ -16,6 +16,7 @@ export interface Service {
   postInstructions?: string;
   featured?: boolean;
   location?: "online" | "office";
+  type?: string; // Added type property
 }
 
 export const APIService = {

@@ -15,21 +15,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
-import { PackageServiceService } from "@/services/package-service.service";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AppointmentService } from "@/services/appointment.service";
 import { STITestingService } from "@/services/sti-testing.service"; // Import STITestingService
+import { APIService, Service } from "@/services/service.service"; // Import APIService and Service interface
 import { useSearchParams, useRouter } from "next/navigation";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 // import { AuthContext } from "@/contexts/AuthContext"; // Uncomment if you have AuthContext
 
-type PackageService = {
-  id: string;
-  service: any;
-  package: any;
-  [key: string]: any;
-};
+// Using Service type directly from service.service.ts
+// The previous PackageService type and related imports are no longer needed.
 
 // API: Get available slots (for consultant-required services)
 async function getAvailableSlots({
@@ -75,7 +71,7 @@ async function getAvailableSlots({
 export default function AppointmentsPage() {
   // const { user } = useContext(AuthContext); // Uncomment if you have AuthContext
   const [step, setStep] = useState(1);
-  const [services, setServices] = useState<PackageService[]>([]);
+  const [services, setServices] = useState<Service[]>([]); // Changed from PackageService[] to Service[]
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [loadingServices, setLoadingServices] = useState<boolean>(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -93,42 +89,57 @@ export default function AppointmentsPage() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log("[AppointmentsPage] Fetching services from APIService.getAll()");
     setLoadingServices(true);
-    PackageServiceService.getAll()
-      .then((res: any) => { // Using res: any to match original code's data extraction logic
-        // Robustly extract the array from possible response shapes
-        const data = res?.data || res; // Adjusting data extraction to match previous
-        if (Array.isArray(data)) {
-          setServices(data);
-        } else if (Array.isArray(data?.data)) { // This might be redundant now but keeping for robustness
-          setServices(data.data);
-        } else if (Array.isArray(data?.services)) { // This might be redundant now but keeping for robustness
-          setServices(data.services);
+    APIService.getAll() // Changed from PackageServiceService.getAll() to APIService.getAll()
+      .then((res: Service[]) => { // Expected type is now Service[]
+        console.log("[AppointmentsPage] Received response from APIService.getAll():", res);
+        if (Array.isArray(res)) {
+          setServices(res);
         } else {
+          console.error("[AppointmentsPage] Expected an array from APIService.getAll(), but received:", res);
           setServices([]);
         }
       })
-      .catch(() => setServices([]))
-      .finally(() => setLoadingServices(false));
+      .catch((error) => {
+        console.error("[AppointmentsPage] Error fetching services:", error);
+        setServices([]);
+      })
+      .finally(() => {
+        setLoadingServices(false);
+        console.log("[AppointmentsPage] Finished fetching services.");
+      });
   }, []);
 
   useEffect(() => {
     if (!loadingServices && services.length > 0) {
-      const id = searchParams.get("id");
-      if (id) {
-        const found = services.find((s) => s.service?.id === id);
-        if (found) {
-          setSelectedServiceIds((prev) =>
-            prev.includes(found.id) ? prev : [...prev, found.id]
-          );
+      const serviceIdFromUrl = searchParams.get("serviceId"); // Use "serviceId" as parameter name
+      if (serviceIdFromUrl) {
+        // Find Service directly by its ID
+        const foundService = services.find((s) => s.id === serviceIdFromUrl);
+        if (foundService) {
+          // Add service ID to selectedServiceIds
+          setSelectedServiceIds((prev) => {
+            if (!prev.includes(foundService.id)) {
+              return [...prev, foundService.id];
+            }
+            return prev;
+          });
+          setStep(2); // Automatically advance to step 2
+        } else {
+          toast({
+            title: "Dịch vụ không khả dụng",
+            description: "Dịch vụ bạn chọn không thể tải hoặc không còn khả dụng. Vui lòng chọn dịch vụ khác.",
+            variant: "destructive",
+          });
         }
       }
     }
-  }, [loadingServices, services, searchParams]);
+  }, [loadingServices, services, searchParams, toast]);
 
   const selectedServices = services
-    .filter((s) => selectedServiceIds.includes(s.id))
-    .map((s) => s.service);
+    .filter((s) => selectedServiceIds.includes(s.id)); // No longer need to map s.service
+
   const needsConsultant = selectedServices.some((s) => s.requiresConsultant);
 
   // Lấy slot nếu cần tư vấn viên
@@ -149,12 +160,8 @@ export default function AppointmentsPage() {
         });
         return;
       }
-      const mappedServiceIds = selectedServiceIds
-        .map((id) => {
-          const found = services.find((s) => s.id === id);
-          return found?.service?.id;
-        })
-        .filter(Boolean);
+      // mappedServiceIds directly uses selectedServiceIds since they are already service IDs
+      const mappedServiceIds = selectedServiceIds;
 
       console.log("serviceIds gửi lên:", mappedServiceIds);
 
@@ -232,8 +239,8 @@ export default function AppointmentsPage() {
     }
 
     try {
-      const selectedService = services.find((s) => selectedServiceIds.includes(s.id))?.service;
-      const isStiService = selectedService?.type === 'STI_TEST'; // Giả định có trường `type` để phân biệt dịch vụ STI
+      const firstSelectedService = services.find((s) => selectedServiceIds.includes(s.id));
+      const isStiService = firstSelectedService?.type === 'STI_TEST'; // Giả định có trường `type` để phân biệt dịch vụ STI
 
       if (isStiService) {
         // Handle STI Appointment
@@ -262,7 +269,7 @@ export default function AppointmentsPage() {
         const sampleCollectionLocation: "office" = "office"; // STI tests are typically at an office
 
         const stiAppointmentData = {
-          stiServiceId: selectedService.id,
+          stiServiceId: firstSelectedService.id, // Use id directly from Service
           consultantId: selectedSlot?.consultant?.id, // Có thể có tư vấn viên cho STI
           sampleCollectionDate,
           sampleCollectionLocation,
@@ -304,10 +311,7 @@ export default function AppointmentsPage() {
         }
 
         const generalAppointmentData = {
-          serviceIds: selectedServiceIds.map((id) => {
-            const found = services.find((s) => s.id === id);
-            return found?.service?.id || id;
-          }),
+          serviceIds: selectedServiceIds, // selectedServiceIds now directly holds Service IDs
           consultantId,
           appointmentDate,
           appointmentLocation,
@@ -363,7 +367,7 @@ export default function AppointmentsPage() {
                   <span className="ml-2 text-green-700">
                     ({service.price} VNĐ)
                   </span>
-                )}
+                  )}
                 {service.requiresConsultant && (
                   <span className="ml-2 text-xs text-blue-600">
                     [Cần tư vấn viên]
@@ -433,11 +437,29 @@ export default function AppointmentsPage() {
                           key={item.id}
                           className={`rounded-xl border p-4 flex flex-col gap-2 shadow-sm transition cursor-pointer hover:border-primary ${selectedServiceIds.includes(item.id) ? "border-primary bg-primary/5" : ""}`}
                           onClick={() => {
-                            setSelectedServiceIds((prev) =>
-                              prev.includes(item.id)
-                                ? prev.filter((id) => id !== item.id)
-                                : [...prev, item.id]
-                            );
+                            const isStiServiceType = item.type === 'STI_TEST'; // Access type directly from Service
+                            const hasStiServiceSelected = selectedServices.some(s => s.type === 'STI_TEST');
+
+                            if (isStiServiceType) {
+                              // If it's an STI service, only allow selecting this one
+                              setSelectedServiceIds(prev =>
+                                prev.includes(item.id) ? [] : [item.id]
+                              );
+                            } else if (hasStiServiceSelected) {
+                              // If an STI service is already selected, don't allow selecting other services
+                              toast({
+                                title: "Lưu ý",
+                                description: "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
+                                variant: "default",
+                              });
+                            } else {
+                              // For non-STI services, allow multiple selections
+                              setSelectedServiceIds((prev) =>
+                                prev.includes(item.id)
+                                  ? prev.filter((id) => id !== item.id)
+                                  : [...prev, item.id]
+                              );
+                            }
                           }}
                         >
                           <div className="flex items-center gap-2">
@@ -445,9 +467,9 @@ export default function AppointmentsPage() {
                               checked={selectedServiceIds.includes(item.id)}
                             />
                             <span className="font-semibold text-lg text-primary">
-                              {item.service?.name}
+                              {item.name} {/* Access name directly from Service */}
                             </span>
-                            {item.service?.requiresConsultant && (
+                            {item.requiresConsultant && (
                               <Badge
                                 variant="outline"
                                 className="ml-2 text-xs text-blue-600 border-blue-300"
@@ -457,13 +479,13 @@ export default function AppointmentsPage() {
                             )}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {item.service?.description}
+                            {item.description} {/* Access description directly from Service */}
                           </div>
                           <div className="flex flex-wrap gap-2 text-xs mt-1">
                             <span className="inline-block bg-green-100 text-green-800 px-2 py-0.5 rounded">
                               Giá:{" "}
-                              {item.service?.price
-                                ? `${item.service.price} VNĐ`
+                              {item.price
+                                ? `${item.price} VNĐ`
                                 : "Miễn phí"}
                             </span>
                           </div>
