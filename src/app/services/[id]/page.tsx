@@ -109,7 +109,7 @@ export default function ServiceDetailPage() {
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Giá:</span>
                 <span className="text-2xl font-bold text-green-700">
-                  {typeof service.price === 'number' ? service.price.toLocaleString() : "N/A"} VNĐ
+                  {service.price !== null && !isNaN(Number(service.price)) ? Number(service.price).toLocaleString() : "N/A"} VNĐ
                 </span>
               </div>
               <div className="flex items-center gap-3">

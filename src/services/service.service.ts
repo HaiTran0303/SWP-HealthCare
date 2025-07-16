@@ -6,7 +6,7 @@ export interface Service {
   name: string;
   description: string;
   htmlDescription?: string;
-  price: number;
+  price: number | null;
   duration: number;
   categoryId: string;
   requiresConsultant: boolean;
