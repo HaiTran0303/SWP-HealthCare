@@ -6,23 +6,25 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { CategoryService, Category } from "@/services/category.service";
 import { useAuth } from "@/contexts/AuthContext";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 export default function BlogNewPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [tags, setTags] = useState("");
-  const [autoPublish, setAutoPublish] = useState(false); // Chỉ Admin/Manager mới thấy
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const { user } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadedImageId, setUploadedImageId] = useState<string | null>(null);
+  const [publishOption, setPublishOption] = useState<string>("draft"); // 'draft', 'publish', 'review'
 
-  // TODO: Lấy role từ AuthContext
-  const canAutoPublish = true; // Thay bằng kiểm tra role thực tế
+  const userRole = typeof user?.role === "object" ? user.role.name : user?.role;
+  const isAdminOrManager = userRole === "admin" || userRole === "manager";
+  const isConsultant = userRole === "consultant";
 
   useEffect(() => {
     CategoryService.getAllCategories()
@@ -50,23 +52,25 @@ export default function BlogNewPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+
     if (!user?.id) {
       setError("Không xác định được người dùng. Vui lòng đăng nhập lại.");
       setLoading(false);
       return;
     }
+
     try {
       let featuredImageId: string | null = null;
       if (selectedFile) {
-        // Upload image first
         const uploadResponse = await BlogService.uploadBlogImage(selectedFile, user.id);
-        featuredImageId = uploadResponse.id; // Assuming the response contains the ID of the uploaded image
+        featuredImageId = uploadResponse.id;
       }
 
       const tagArr = tags
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
+
       if (!categoryId) {
         setError("Bạn phải chọn chủ đề.");
         setLoading(false);
@@ -77,24 +81,54 @@ export default function BlogNewPage() {
         setLoading(false);
         return;
       }
+
+      let status: "draft" | "published" | "pending_review" = "draft";
+      let autoPublish = false;
+
+      if (isAdminOrManager) {
+        if (publishOption === "publish") {
+          status = "published";
+          autoPublish = true; // For "Tạo blog với autoPublish=true"
+        } else if (publishOption === "draft_then_publish") {
+          status = "published"; // For "Tạo blog (DRAFT) & Xuất bản trực tiếp"
+          autoPublish = false;
+        } else if (publishOption === "review") {
+          status = "pending_review"; // For "Tạo blog (DRAFT) & Gửi để xem xét (workflow review)"
+        } else if (publishOption === "draft") {
+          status = "draft"; // For "Tạo blog (DRAFT)"
+        }
+      } else if (isConsultant) {
+        if (publishOption === "review") {
+          status = "pending_review"; // For "Tạo blog (DRAFT) & Gửi để xem xét"
+        } else {
+          status = "draft"; // Default for consultant if not submitting for review
+        }
+      }
+
       const payload: any = {
         authorId: user.id,
         title: title.trim(),
         content: content.trim(),
         categoryId,
         tags: tagArr,
-        status: "draft",
+        status: status,
       };
+
       if (featuredImageId) {
         payload.featuredImage = featuredImageId;
       }
-      if (canAutoPublish && autoPublish) payload.autoPublish = true;
+
+      if (autoPublish) {
+        payload.autoPublish = true;
+      }
+
       Object.keys(payload).forEach(
         (key) =>
           (payload[key] === undefined || payload[key] === "") &&
           key !== "tags" &&
           delete payload[key]
       );
+
       console.log("Blog create payload:", payload);
       await BlogService.create(payload);
       router.push("/blog");
@@ -113,8 +147,9 @@ export default function BlogNewPage() {
       <h1 className="text-2xl font-bold mb-6">Tạo blog mới</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="font-medium">Tiêu đề</label>
+          <Label htmlFor="title" className="font-medium">Tiêu đề</Label>
           <input
+            id="title"
             className="w-full border rounded px-2 py-1 mt-1"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -122,8 +157,9 @@ export default function BlogNewPage() {
           />
         </div>
         <div>
-          <label className="font-medium">Nội dung</label>
+          <Label htmlFor="content" className="font-medium">Nội dung</Label>
           <textarea
+            id="content"
             className="w-full border rounded px-2 py-1 mt-1 min-h-[120px]"
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -131,8 +167,9 @@ export default function BlogNewPage() {
           />
         </div>
         <div>
-          <label className="font-medium">Chủ đề</label>
+          <Label htmlFor="category" className="font-medium">Chủ đề</Label>
           <select
+            id="category"
             className="w-full border rounded px-2 py-1 mt-1"
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
@@ -147,37 +184,68 @@ export default function BlogNewPage() {
           </select>
         </div>
         <div>
-          <label className="font-medium">Tags (phân tách bởi dấu phẩy)</label>
+          <Label htmlFor="tags" className="font-medium">Tags (phân tách bởi dấu phẩy)</Label>
           <input
+            id="tags"
             className="w-full border rounded px-2 py-1 mt-1"
             value={tags}
             onChange={(e) => setTags(e.target.value)}
             placeholder="giới tính, sức khỏe, tư vấn"
           />
         </div>
-        {canAutoPublish && (
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={autoPublish}
-              onChange={(e) => setAutoPublish(e.target.checked)}
-              id="autoPublish"
-            />
-            <label htmlFor="autoPublish">
-              Tự động xuất bản (chỉ Admin/Manager)
-            </label>
-          </div>
-        )}
-        {error && <div className="text-red-500 text-sm">{error}</div>}
         <div>
-          <label className="font-medium">Ảnh nổi bật</label>
+          <Label htmlFor="featuredImage" className="font-medium">Ảnh nổi bật</Label>
           <input
+            id="featuredImage"
             type="file"
             className="w-full border rounded px-2 py-1 mt-1"
             accept="image/*"
             onChange={handleFileChange}
           />
         </div>
+
+        {(isAdminOrManager || isConsultant) && (
+          <div className="space-y-2">
+            <Label className="font-medium">Tùy chọn xuất bản</Label>
+            <RadioGroup
+              value={publishOption}
+              onValueChange={setPublishOption}
+              className="flex flex-col space-y-1"
+            >
+              {isAdminOrManager && (
+                <>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="publish" id="option-publish" />
+                    <Label htmlFor="option-publish">
+                      Tạo blog với autoPublish=true (Xuất bản ngay lập tức)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="draft_then_publish" id="option-draft-publish" />
+                    <Label htmlFor="option-draft-publish">
+                      Tạo blog (DRAFT) & Xuất bản trực tiếp
+                    </Label>
+                  </div>
+                </>
+              )}
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="review" id="option-review" />
+                <Label htmlFor="option-review">
+                  {isConsultant ? "Tạo blog (DRAFT) & Gửi để xem xét" : "Tạo blog (DRAFT) & Gửi để xem xét (nếu muốn theo workflow review)"}
+                </Label>
+              </div>
+              {!isConsultant && (
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="draft" id="option-draft" />
+                  <Label htmlFor="option-draft">
+                    Tạo blog (DRAFT)
+                  </Label>
+                </div>
+              )}
+            </RadioGroup>
+          </div>
+        )}
+
         {error && <div className="text-red-500 text-sm">{error}</div>}
         <div className="flex justify-end">
           <Button type="submit" disabled={loading}>
