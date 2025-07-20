@@ -158,7 +158,7 @@ export default function ConsultantManagementTable() {
               <SelectValue placeholder="Lọc theo trạng thái" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả trạng thái</SelectItem>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
               <SelectItem value="active">Đang hoạt động</SelectItem>
               <SelectItem value="on_leave">Nghỉ phép</SelectItem>
               <SelectItem value="training">Đang đào tạo</SelectItem>
@@ -172,7 +172,7 @@ export default function ConsultantManagementTable() {
               <SelectValue placeholder="Lọc theo chuyên môn" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả chuyên môn</SelectItem>
+              <SelectItem value="all">Tất cả chuyên môn</SelectItem>
               <SelectItem value="STIs">STIs</SelectItem>
               <SelectItem value="Nutrition">Dinh dưỡng</SelectItem>
               <SelectItem value="Mental Health">Sức khỏe tâm thần</SelectItem>
@@ -184,7 +184,7 @@ export default function ConsultantManagementTable() {
               <SelectValue placeholder="Lọc theo hình thức" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả hình thức</SelectItem>
+              <SelectItem value="all">Tất cả hình thức</SelectItem>
               <SelectItem value="online">Trực tuyến</SelectItem>
               <SelectItem value="office">Tại văn phòng</SelectItem>
             </SelectContent>

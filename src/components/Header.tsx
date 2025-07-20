@@ -70,6 +70,14 @@ export default function Header() {
                           Lịch tư vấn của tôi
                         </Link>
                       </DropdownMenuItem>
+                      {user.gender === "F" && (
+                        <DropdownMenuItem asChild>
+                          <Link href="/menstrual-tracker" className="w-full">
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Theo dõi chu kỳ
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
                     </>
                   )}
                   {((typeof user?.role === "string" && user.role === "admin") ||

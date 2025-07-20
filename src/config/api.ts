@@ -6,6 +6,9 @@ export const API_BASE_URL =
 
 // API Endpoints
 export const API_ENDPOINTS = {
+  // Feedbacks
+  FEEDBACKS: "/feedbacks",
+
   // Auth
   AUTH: {
     LOGIN: "/auth/login",
@@ -134,6 +137,11 @@ export const API_ENDPOINTS = {
     ADD_IMAGE: "/services/image",
     REMOVE_IMAGE: "/services/image",
     SYNC_IMAGES: (id: string) => `/services/image/${id}`,
+  },
+
+  // Symptoms
+  SYMPTOMS: {
+    BASE: "/symptoms",
   },
 
   // User Dashboard

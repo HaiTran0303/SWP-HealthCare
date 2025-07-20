@@ -25,6 +25,7 @@ export interface User {
   phone?: string;
   address?: string;
   gender?: "M" | "F" | "O" | string;
+  healthDataConsent?: boolean; // Add healthDataConsent to User interface
 }
 
 interface LoginResponse {
@@ -44,7 +45,7 @@ interface RefreshTokenResponse {
   refreshToken: string;
 }
 
-interface RegisterDto {
+export interface RegisterDto { // Export the interface
   email: string;
   password: string;
   firstName: string;
@@ -225,11 +226,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       router.push("/auth/verify-email");
     } catch (error: any) {
-      console.error("[AuthContext] Registration error:", error);
+      console.error("[AuthContext] Registration error:", error); // Log the full error object
       let errorMessage = "Có lỗi xảy ra";
       if (error.response && error.response.data && error.response.data.message) {
         errorMessage = error.response.data.message;
-      } else if (error instanceof Error) {
+      } else if (error.message) { // Use error.message for generic errors
         errorMessage = error.message;
       }
       toast({

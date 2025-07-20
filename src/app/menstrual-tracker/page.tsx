@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiClient } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +20,17 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
+import {
+  MenstrualService,
+  CycleData,
+  SymptomData,
+  Prediction,
+  Symptom,
+} from "@/services/menstrual.service";
+import { ApiResponse, UpdateHealthDataConsentDto } from "@/types/api.d"; // Import UpdateHealthDataConsentDto
+import { apiClient } from "@/services/api"; // Import apiClient
+import { API_ENDPOINTS } from "@/config/api"; // Import API_ENDPOINTS
 
 export default function MenstrualTrackerPage() {
   const { user } = useAuth();
@@ -42,27 +52,36 @@ export default function MenstrualTrackerPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [filterYear, setFilterYear] = useState<string>("");
   const [filterMonth, setFilterMonth] = useState<string>("");
-  // Triệu chứng & mood
-  const [symptoms, setSymptoms] = useState<any[]>([]);
-  const [moods, setMoods] = useState<any[]>([]);
+  // Triệu chứng
+  const [symptoms, setSymptoms] = useState<Symptom[]>([]);
   const [selectedSymptom, setSelectedSymptom] = useState("");
-  const [selectedMood, setSelectedMood] = useState("");
   const [symptomNotes, setSymptomNotes] = useState("");
-  const [moodNotes, setMoodNotes] = useState("");
   const [symptomIntensity, setSymptomIntensity] = useState(3);
-  const [moodIntensity, setMoodIntensity] = useState(3);
   const [savingSymptom, setSavingSymptom] = useState(false);
-  const [savingMood, setSavingMood] = useState(false);
-  const [cycleSymptoms, setCycleSymptoms] = useState<any[]>([]);
-  const [cycleMoods, setCycleMoods] = useState<any[]>([]);
+  const [cycleSymptoms, setCycleSymptoms] = useState<SymptomData[]>([]);
+  const [menstrualTrackingConsent, setMenstrualTrackingConsent] = useState(false);
+  const [userHealthDataConsent, setUserHealthDataConsent] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      setUserHealthDataConsent(user.healthDataConsent || false);
+      // Initialize menstrualTrackingConsent based on user's existing healthDataConsent
+      if (user.gender === 'F' && (user.healthDataConsent === null || user.healthDataConsent === undefined)) {
+        setMenstrualTrackingConsent(true); // Default checked if no prior choice
+      } else {
+        setMenstrualTrackingConsent(user.healthDataConsent || false); // Use existing consent
+      }
+    }
+  }, [user]);
 
   // Lấy lịch sử chu kỳ
   const fetchCycles = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get("/menstrual-cycles");
-      setCycles((res as any).data || res);
-    } catch {
+      const res: ApiResponse<CycleData[]> = await MenstrualService.getAllCycles();
+      setCycles(res.data || []);
+    } catch (e: any) { // Catch error here
+      console.error("Error fetching cycles:", e);
       setCycles([]);
     } finally {
       setLoading(false);
@@ -72,52 +91,73 @@ export default function MenstrualTrackerPage() {
   // Lấy dự đoán kỳ tiếp theo
   const fetchPrediction = async () => {
     try {
-      const res = await apiClient.get("/menstrual-predictions/me");
-      setPrediction((res as any).data || res);
+      const res: Prediction = await MenstrualService.getPredictions();
+      setPrediction(res);
     } catch {
       setPrediction(null);
     }
   };
 
-  // Lấy danh sách triệu chứng & mood
-  const fetchSymptomsAndMoods = async () => {
+  // Lấy danh sách triệu chứng
+  const fetchSymptoms = async () => {
     try {
-      const [symRes, moodRes] = await Promise.all([
-        apiClient.get("/symptoms"),
-        apiClient.get("/moods"),
-      ]);
-      setSymptoms((symRes as any).data || symRes);
-      setMoods((moodRes as any).data || moodRes);
+      const symRes: ApiResponse<Symptom[]> = await MenstrualService.getAllSymptoms();
+      setSymptoms(symRes.data || []);
     } catch {
       setSymptoms([]);
-      setMoods([]);
     }
   };
 
-  // Lấy triệu chứng & mood của chu kỳ đang chọn
-  const fetchCycleSymptomsAndMoods = async (cycleId: string) => {
+  // Lấy triệu chứng của chu kỳ đang chọn
+  const fetchCycleSymptoms = async (cycleId: string) => {
     try {
-      const [symRes, moodRes] = await Promise.all([
-        apiClient.get(`/cycle-symptoms?cycleId=${cycleId}`),
-        apiClient.get(`/cycle-moods?cycleId=${cycleId}`),
-      ]);
-      setCycleSymptoms((symRes as any).data || symRes);
-      setCycleMoods((moodRes as any).data || moodRes);
+      const symRes: ApiResponse<SymptomData[]> = await MenstrualService.getSymptomsByCycleId(cycleId);
+      setCycleSymptoms(symRes.data || []);
     } catch {
       setCycleSymptoms([]);
-      setCycleMoods([]);
     }
   };
 
   useEffect(() => {
     fetchCycles();
     fetchPrediction();
-    fetchSymptomsAndMoods();
-  }, []);
+    fetchSymptoms();
+  }, [user]); // Re-run if user changes
+
+  // Function to update health data consent
+  const handleUpdateHealthDataConsent = async (consent: boolean) => {
+    try {
+      await apiClient.patch(API_ENDPOINTS.USERS.PROFILE + "/health-data-consent", {
+        healthDataConsent: consent,
+      } as UpdateHealthDataConsentDto);
+      setUserHealthDataConsent(consent);
+      toast({
+        title: "Thành công",
+        description: "Đã cập nhật quyền thu thập dữ liệu sức khỏe.",
+      });
+    } catch (e: any) {
+      toast({
+        title: "Lỗi",
+        description: e?.message || "Không thể cập nhật quyền thu thập dữ liệu sức khỏe.",
+        variant: "destructive",
+      });
+      throw e; // Re-throw to stop further execution if critical
+    }
+  };
 
   // Tạo mới chu kỳ
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      toast({
+        title: "Lỗi",
+        description: "Bạn cần đăng nhập để tạo chu kỳ mới.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!startDate || !endDate) {
       toast({
         title: "Lỗi",
@@ -126,17 +166,33 @@ export default function MenstrualTrackerPage() {
       });
       return;
     }
+
+    if (user?.gender === 'F' && !userHealthDataConsent && !menstrualTrackingConsent) {
+      toast({
+        title: "Lỗi",
+        description: "Bạn cần đồng ý cho phép thu thập dữ liệu sức khỏe để theo dõi chu kỳ kinh nguyệt.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setCreating(true);
     try {
-      await apiClient.post("/menstrual-cycles", {
+      // If user is female and consent is given but not yet recorded in profile
+      if (user?.gender === 'F' && !userHealthDataConsent && menstrualTrackingConsent) {
+        await handleUpdateHealthDataConsent(true);
+      }
+
+      await MenstrualService.createCycle({
         cycleStartDate: startDate,
         cycleEndDate: endDate,
-        notes,
+        notes: notes,
       });
       toast({ title: "Thành công", description: "Đã tạo chu kỳ mới!" });
       setStartDate("");
       setEndDate("");
       setNotes("");
+      setMenstrualTrackingConsent(false); // Reset consent checkbox
       fetchCycles();
       fetchPrediction();
     } catch (e: any) {
@@ -172,7 +228,7 @@ export default function MenstrualTrackerPage() {
     setEditStart(cycle.cycleStartDate?.slice(0, 10) || "");
     setEditEnd(cycle.cycleEndDate?.slice(0, 10) || "");
     setEditNotes(cycle.notes || "");
-    fetchCycleSymptomsAndMoods(cycle.id);
+    fetchCycleSymptoms(cycle.id);
   };
 
   // Sửa chu kỳ
@@ -180,7 +236,7 @@ export default function MenstrualTrackerPage() {
     if (!selectedCycle) return;
     setEditLoading(true);
     try {
-      await apiClient.patch(`/menstrual-cycles/${selectedCycle.id}`, {
+      await MenstrualService.updateCycle(selectedCycle.id, {
         cycleStartDate: editStart,
         cycleEndDate: editEnd,
         notes: editNotes,
@@ -205,7 +261,7 @@ export default function MenstrualTrackerPage() {
     if (!selectedCycle) return;
     setDeleteLoading(true);
     try {
-      await apiClient.delete(`/menstrual-cycles/${selectedCycle.id}`);
+      await MenstrualService.deleteCycle(selectedCycle.id);
       toast({ title: "Thành công", description: "Đã xoá chu kỳ!" });
       setShowDetail(false);
       fetchCycles();
@@ -226,7 +282,7 @@ export default function MenstrualTrackerPage() {
     if (!selectedCycle || !selectedSymptom) return;
     setSavingSymptom(true);
     try {
-      await apiClient.post("/cycle-symptoms", {
+      await MenstrualService.addSymptom({
         cycleId: selectedCycle.id,
         symptomId: selectedSymptom,
         intensity: symptomIntensity,
@@ -236,7 +292,7 @@ export default function MenstrualTrackerPage() {
       setSelectedSymptom("");
       setSymptomNotes("");
       setSymptomIntensity(3);
-      fetchCycleSymptomsAndMoods(selectedCycle.id);
+      fetchCycleSymptoms(selectedCycle.id);
     } catch (e: any) {
       toast({
         title: "Lỗi",
@@ -245,33 +301,6 @@ export default function MenstrualTrackerPage() {
       });
     } finally {
       setSavingSymptom(false);
-    }
-  };
-
-  // Lưu mood cho chu kỳ
-  const handleSaveMood = async () => {
-    if (!selectedCycle || !selectedMood) return;
-    setSavingMood(true);
-    try {
-      await apiClient.post("/cycle-moods", {
-        cycleId: selectedCycle.id,
-        moodId: selectedMood,
-        intensity: moodIntensity,
-        notes: moodNotes,
-      });
-      toast({ title: "Thành công", description: "Đã lưu tâm trạng!" });
-      setSelectedMood("");
-      setMoodNotes("");
-      setMoodIntensity(3);
-      fetchCycleSymptomsAndMoods(selectedCycle.id);
-    } catch (e: any) {
-      toast({
-        title: "Lỗi",
-        description: e?.message || "Không thể lưu tâm trạng",
-        variant: "destructive",
-      });
-    } finally {
-      setSavingMood(false);
     }
   };
 
@@ -349,6 +378,21 @@ export default function MenstrualTrackerPage() {
                 rows={2}
               />
             </div>
+            {user?.gender === 'F' && (
+              <div className="flex items-center space-x-2 mb-4">
+                <Checkbox
+                  id="menstrual-tracking-consent"
+                  checked={menstrualTrackingConsent}
+                  onCheckedChange={(checked: boolean) => setMenstrualTrackingConsent(checked)}
+                />
+                <Label
+                  htmlFor="menstrual-tracking-consent"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Cho phép thu thập thông tin để theo dõi chu kỳ kinh nguyệt
+                </Label>
+              </div>
+            )}
             <Button type="submit" disabled={creating}>
               {creating ? "Đang lưu..." : "Lưu chu kỳ"}
             </Button>
@@ -363,6 +407,7 @@ export default function MenstrualTrackerPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả</SelectItem>
+            {/* The years array is generated dynamically, ensure it's not empty */}
             {[
               ...Array.from(
                 new Set(
@@ -384,6 +429,7 @@ export default function MenstrualTrackerPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả</SelectItem>
+            {/* Months are 1-indexed, so add 1 to the index */}
             {[...Array(12)].map((_, i) => (
               <SelectItem key={i + 1} value={String(i + 1).padStart(2, "0")}>
                 {i + 1}
@@ -437,7 +483,7 @@ export default function MenstrualTrackerPage() {
                           setSelectedCycle(c);
                           setShowDetail(true);
                           setEditMode(true);
-                          fetchCycleSymptomsAndMoods(c.id);
+                          fetchCycleSymptoms(c.id);
                         }}
                       >
                         Sửa
@@ -451,7 +497,7 @@ export default function MenstrualTrackerPage() {
                           setSelectedCycle(c);
                           setShowDetail(true);
                           setEditMode(false);
-                          fetchCycleSymptomsAndMoods(c.id);
+                          fetchCycleSymptoms(c.id);
                         }}
                       >
                         Xoá
@@ -464,12 +510,12 @@ export default function MenstrualTrackerPage() {
           )}
         </CardContent>
       </Card>
-      {/* Block triệu chứng/tâm trạng cho chu kỳ đã chọn */}
+      {/* Block triệu chứng cho chu kỳ đã chọn */}
       {selectedCycle && (
         <Card className="mt-6">
           <CardHeader>
             <CardTitle>
-              Ghi chú triệu chứng & tâm trạng cho chu kỳ:{" "}
+              Ghi chú triệu chứng cho chu kỳ:{" "}
               {selectedCycle.cycleStartDate?.slice(0, 10)} -{" "}
               {selectedCycle.cycleEndDate?.slice(0, 10)}
             </CardTitle>
@@ -537,81 +583,12 @@ export default function MenstrualTrackerPage() {
               {/* Danh sách triệu chứng đã ghi */}
               <ul className="list-disc pl-5 text-sm mt-2">
                 {cycleSymptoms.map((s) => (
-                  <li key={s.id}>
+                  <li key={s.symptomId}>
                     <b>
                       {symptoms.find((sym) => sym.id === s.symptomId)?.name ||
                         s.symptomId}
                     </b>
                     {" - "}Mức độ: {s.intensity} {s.notes && `- ${s.notes}`}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="mb-2">
-              <h4 className="font-semibold mb-3">Ghi chú tâm trạng</h4>
-              <div className="bg-gray-50 rounded-lg p-4 flex flex-col gap-2 border">
-                <div className="flex flex-wrap gap-4 items-end justify-center">
-                  <div className="flex flex-col w-48">
-                    <label className="text-xs text-gray-500 mb-1">
-                      Tâm trạng
-                    </label>
-                    <Select
-                      value={selectedMood}
-                      onValueChange={setSelectedMood}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Chọn tâm trạng" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {moods.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col w-24">
-                    <label className="text-xs text-gray-500 mb-1">
-                      Mức độ (1-5)
-                    </label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={5}
-                      value={moodIntensity}
-                      onChange={(e) => setMoodIntensity(Number(e.target.value))}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col w-56">
-                    <label className="text-xs text-gray-500 mb-1">
-                      Ghi chú
-                    </label>
-                    <Input
-                      value={moodNotes}
-                      onChange={(e) => setMoodNotes(e.target.value)}
-                      placeholder="Ghi chú"
-                      className="w-full"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleSaveMood}
-                    disabled={savingMood || !selectedMood}
-                    className="bg-primary text-white font-semibold rounded-full h-10 px-6 mt-5"
-                  >
-                    {savingMood ? "Đang lưu..." : "Lưu"}
-                  </Button>
-                </div>
-              </div>
-              {/* Danh sách mood đã ghi */}
-              <ul className="list-disc pl-5 text-sm mt-2">
-                {cycleMoods.map((m) => (
-                  <li key={m.id}>
-                    <b>
-                      {moods.find((md) => md.id === m.moodId)?.name || m.moodId}
-                    </b>
-                    {" - "}Mức độ: {m.intensity} {m.notes && `- ${m.notes}`}
                   </li>
                 ))}
               </ul>

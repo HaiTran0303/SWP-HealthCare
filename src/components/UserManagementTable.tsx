@@ -32,8 +32,8 @@ export default function UserManagementTable() {
   const [currentPage, setCurrentPage] = useState(API_FEATURES.PAGINATION.DEFAULT_PAGE);
   const [totalUsers, setTotalUsers] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterRole, setFilterRole] = useState("");
-  const [filterStatus, setFilterStatus] = useState(""); // "active", "inactive", ""
+  const [filterRole, setFilterRole] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all"); // "active", "inactive", ""
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
 
@@ -55,10 +55,10 @@ export default function UserManagementTable() {
         query.firstName = searchQuery;
         query.lastName = searchQuery;
       }
-      if (filterRole) {
-        query.roleId = filterRole; // Assuming roleId can be filtered
+      if (filterRole && filterRole !== "all") {
+        query.roleId = filterRole;
       }
-      if (filterStatus) {
+      if (filterStatus && filterStatus !== "all") {
         query.isActive = filterStatus === "active" ? true : false;
       }
 
@@ -153,7 +153,7 @@ export default function UserManagementTable() {
               <SelectValue placeholder="Lọc theo vai trò" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả vai trò</SelectItem>
+              <SelectItem value="all">Tất cả vai trò</SelectItem>
               <SelectItem value="customer">Khách hàng</SelectItem>
               <SelectItem value="consultant">Tư vấn viên</SelectItem>
               <SelectItem value="staff">Nhân viên</SelectItem>
@@ -166,7 +166,7 @@ export default function UserManagementTable() {
               <SelectValue placeholder="Lọc theo trạng thái" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả trạng thái</SelectItem>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
               <SelectItem value="active">Đang hoạt động</SelectItem>
               <SelectItem value="inactive">Không hoạt động</SelectItem>
             </SelectContent>
@@ -200,7 +200,7 @@ export default function UserManagementTable() {
                   <TableCell>{user.firstName} {user.lastName}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.phone || "N/A"}</TableCell>
-                  <TableCell>{user.role.name}</TableCell>
+                  <TableCell>{user.role?.name || "N/A"}</TableCell>
                   <TableCell>
                     <Badge variant={user.isActive ? "default" : "secondary"}>
                       {user.isActive ? "Đang hoạt động" : "Không hoạt động"}

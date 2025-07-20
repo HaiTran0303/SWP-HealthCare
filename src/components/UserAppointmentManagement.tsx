@@ -24,7 +24,8 @@ import {
   MapPin,
   Phone,
   Video,
-  Star,
+  Star, // Keep Star for display
+  StarIcon, // Use StarIcon for rating input
   User,
   FileText,
   AlertCircle,
@@ -40,9 +41,13 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppointmentService, AppointmentStatus, Appointment as GeneralAppointmentType } from "@/services/appointment.service";
 import { STITestingService, StiTestProcess as StiAppointmentType } from "@/services/sti-testing.service";
+import { FeedbackService } from "@/services/feedback.service"; // Import FeedbackService
+import { Feedback, CreateFeedbackDto } from "@/types/feedback"; // Import Feedback types
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useRouter } from "next/navigation";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // For star rating
+import { DialogClose } from "@/components/ui/dialog"; // For closing dialogs
 
 interface ConsultantDetails {
   id: string;
@@ -82,6 +87,8 @@ interface AppointmentDetails {
   sampleCollectionLocation?: "online" | "office";
   stiServiceId?: string;
   testCode?: string;
+  feedbackId?: string; // Add feedback ID
+  feedback?: Feedback; // Add feedback object
 }
 
 interface CancelDialogProps {
@@ -91,6 +98,101 @@ interface CancelDialogProps {
   onConfirm: (reason: string) => void;
   isLoading: boolean;
 }
+
+interface RatingDialogProps {
+  appointment: AppointmentDetails;
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (rating: number, comment: string, isAnonymous: boolean) => void;
+  isLoading: boolean;
+}
+
+const RatingDialog: React.FC<RatingDialogProps> = ({
+  appointment,
+  isOpen,
+  onClose,
+  onConfirm,
+  isLoading,
+}) => {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(false);
+
+  const handleConfirm = () => {
+    if (rating > 0) {
+      onConfirm(rating, comment, isAnonymous);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Đánh giá lịch hẹn</DialogTitle>
+          <DialogDescription>
+            Vui lòng chia sẻ trải nghiệm của bạn về lịch hẹn với {appointment.consultant?.firstName} {appointment.consultant?.lastName}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="rating">Đánh giá sao:</Label>
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <StarIcon
+                  key={star}
+                  className={`w-8 h-8 cursor-pointer ${
+                    star <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                  }`}
+                  onClick={() => setRating(star)}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="comment">Bình luận:</Label>
+            <Textarea
+              id="comment"
+              placeholder="Chia sẻ thêm về trải nghiệm của bạn..."
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="min-h-[100px]"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="anonymous"
+              checked={isAnonymous}
+              onChange={(e) => setIsAnonymous(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <Label htmlFor="anonymous">Gửi ẩn danh</Label>
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={isLoading}>
+              Đóng
+            </Button>
+          </DialogClose>
+          <Button
+            onClick={handleConfirm}
+            disabled={rating === 0 || isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Đang gửi...
+              </>
+            ) : (
+              "Gửi phản hồi"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const CancelDialog: React.FC<CancelDialogProps> = ({
   appointment,
@@ -156,13 +258,16 @@ const AppointmentCard: React.FC<{
   appointment: AppointmentDetails;
   onCancel: (appointment: AppointmentDetails) => void;
   onViewDetails: (appointment: AppointmentDetails) => void;
-  onEnterChat: (appointment: AppointmentDetails) => void; // Add new prop
+  onEnterChat: (appointment: AppointmentDetails) => void;
+  onRateAppointment: (appointment: AppointmentDetails) => void; // New prop for rating
   getStatusIcon: (status: AppointmentStatus) => JSX.Element;
   getStatusColor: (status: AppointmentStatus) => string;
-}> = ({ appointment, onCancel, onViewDetails, onEnterChat, getStatusIcon, getStatusColor }) => { // Update props
+}> = ({ appointment, onCancel, onViewDetails, onEnterChat, onRateAppointment, getStatusIcon, getStatusColor }) => {
 
   const canCancel = AppointmentService.canCancel(appointment.status);
   const isPastAppointment = AppointmentService.isPastAppointment(appointment.appointmentDate);
+  const isCompletedAndPast = appointment.status === "completed" && isPastAppointment;
+  const hasFeedback = !!appointment.feedbackId;
 
   const appointmentDateObj = new Date(appointment.appointmentDate);
   const isDateValid = !isNaN(appointmentDateObj.getTime());
@@ -284,6 +389,30 @@ const AppointmentCard: React.FC<{
               Vào chat
             </Button>
           )}
+
+          {isCompletedAndPast && !hasFeedback && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onRateAppointment(appointment)}
+              className="flex items-center gap-2"
+            >
+              <StarIcon className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+              Gửi phản hồi
+            </Button>
+          )}
+
+          {isCompletedAndPast && hasFeedback && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onViewDetails(appointment)} // Re-use onViewDetails to show feedback in dialog
+              className="flex items-center gap-2"
+            >
+              <StarIcon className="w-4 h-4" />
+              Xem phản hồi
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -300,8 +429,8 @@ const UserAppointmentManagement: React.FC = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentDetails | null>(null);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-
-
+  const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false); // New state for rating dialog
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false); // New state for feedback submission
 
   const getStatusIcon = (status: AppointmentStatus) => {
     switch (status) {
@@ -343,62 +472,79 @@ const UserAppointmentManagement: React.FC = () => {
 
   const fetchAppointments = async () => {
     if (!user) {
-    console.log("User not logged in.");
-    setIsLoading(false);
-    return;
-  }
-  
-  setIsLoading(true);
-  try {
-    console.log("Fetching appointments for user:", user.id);
-    const [generalAppointmentsResponse, stiAppointmentsResponse] = await Promise.all([
-      AppointmentService.getUserAppointments(),
-      STITestingService.getUserStiAppointments(),
-    ]) as [
-      { data: GeneralAppointmentType[]; total: number },
-      { data: StiAppointmentType[]; total: number }
-    ];
+      console.log("User not logged in.");
+      setIsLoading(false);
+      return;
+    }
 
-    console.log("Raw General Appointments Response:", generalAppointmentsResponse);
-    console.log("Raw STI Appointments Response:", stiAppointmentsResponse);
+    setIsLoading(true);
+    try {
+      console.log("Fetching appointments for user:", user.id);
+      const [generalAppointmentsResponse, stiAppointmentsResponse] = await Promise.all([
+        AppointmentService.getUserAppointments(),
+        STITestingService.getUserStiAppointments(),
+      ]) as [
+          { data: GeneralAppointmentType[]; total: number },
+          { data: StiAppointmentType[]; total: number }
+        ];
 
-    const generalAppointments: AppointmentDetails[] = Array.isArray(generalAppointmentsResponse.data)
-      ? generalAppointmentsResponse.data.map((apt: any) => ({
-          id: apt.id,
-          consultantId: apt.consultant?.id,
-          consultant: apt.consultant ? {
-            id: apt.consultant.id,
-            firstName: apt.consultant.firstName || '',
-            lastName: apt.consultant.lastName || '',
-            profilePicture: apt.consultant.profilePicture || apt.consultant.avatar,
-            specialties: apt.consultant.specialties || [],
-            qualification: apt.consultant.qualification,
-            experience: apt.consultant.experience,
-            rating: apt.consultant.rating,
-          } : undefined,
-          appointmentDate: apt.appointmentDate,
-          status: apt.status as AppointmentStatus,
-          notes: apt.notes,
-          meetingLink: apt.meetingLink,
-          location: apt.location,
-          createdAt: apt.createdAt,
-          updatedAt: apt.updatedAt,
-          cancellationReason: apt.cancellationReason,
-          services: apt.services?.map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            description: s.description,
-            price: s.price,
-            type: s.type,
-          })),
-          questionId: apt.questionId,
-          type: "consultation", // Mark as consultation appointment
-        }))
-      : [];
-    console.log("Mapped General Appointments:", generalAppointments);
+      console.log("Raw General Appointments Response:", generalAppointmentsResponse);
+      console.log("Raw STI Appointments Response:", stiAppointmentsResponse);
 
-    const stiAppointments: AppointmentDetails[] = Array.isArray(stiAppointmentsResponse.data)
-      ? stiAppointmentsResponse.data.map((apt: any) => ({
+      const generalAppointments: AppointmentDetails[] = await Promise.all(
+        Array.isArray(generalAppointmentsResponse.data)
+          ? generalAppointmentsResponse.data.map(async (apt: any) => {
+            const appointmentDetails: AppointmentDetails = {
+              id: apt.id,
+              consultantId: apt.consultant?.id,
+              consultant: apt.consultant ? {
+                id: apt.consultant.id,
+                firstName: apt.consultant.firstName || '',
+                lastName: apt.consultant.lastName || '',
+                profilePicture: apt.consultant.profilePicture || apt.consultant.avatar,
+                specialties: apt.consultant.specialties || [],
+                qualification: apt.consultant.qualification,
+                experience: apt.consultant.experience,
+                rating: apt.consultant.rating,
+              } : undefined,
+              appointmentDate: apt.appointmentDate,
+              status: apt.status as AppointmentStatus,
+              notes: apt.notes,
+              meetingLink: apt.meetingLink,
+              location: apt.location,
+              createdAt: apt.createdAt,
+              updatedAt: apt.updatedAt,
+              cancellationReason: apt.cancellationReason,
+              services: apt.services?.map((s: any) => ({
+                id: s.id,
+                name: s.name,
+                description: s.description,
+                price: s.price,
+                type: s.type,
+              })),
+              questionId: apt.questionId,
+              type: "consultation", // Mark as consultation appointment
+              feedbackId: apt.feedbackId, // Populate feedbackId
+              feedback: undefined, // Initialize feedback as undefined
+            };
+
+            // Fetch feedback if feedbackId exists
+            if (appointmentDetails.feedbackId) {
+              try {
+                const feedbackResponse = await FeedbackService.getFeedbackById(appointmentDetails.feedbackId);
+                appointmentDetails.feedback = feedbackResponse;
+              } catch (feedbackError) {
+                console.error(`Error fetching feedback for appointment ${apt.id}:`, feedbackError);
+              }
+            }
+            return appointmentDetails;
+          })
+          : []
+      );
+      console.log("Mapped General Appointments:", generalAppointments);
+
+      const stiAppointments: AppointmentDetails[] = Array.isArray(stiAppointmentsResponse.data)
+        ? stiAppointmentsResponse.data.map((apt: any) => ({
           id: apt.id,
           consultantId: apt.consultantDoctor?.id,
           consultant: apt.consultantDoctor ? {
@@ -449,32 +595,32 @@ const UserAppointmentManagement: React.FC = () => {
           stiServiceId: apt.service?.id,
           testCode: apt.testCode,
         }))
-      : [];
-    console.log("Mapped STI Appointments:", stiAppointments);
-    
-    const combinedAppointments = [...generalAppointments, ...stiAppointments];
-    console.log("Combined Appointments before sort:", combinedAppointments);
+        : [];
+      console.log("Mapped STI Appointments:", stiAppointments);
 
-    combinedAppointments.sort((a, b) => {
-      const dateA = new Date(a.appointmentDate).getTime();
-      const dateB = new Date(b.appointmentDate).getTime();
-      return dateB - dateA;
-    });
-    console.log("Combined Appointments after sort:", combinedAppointments);
+      const combinedAppointments = [...generalAppointments, ...stiAppointments];
+      console.log("Combined Appointments before sort:", combinedAppointments);
 
-    setAppointments(combinedAppointments);
-  } catch (error: any) {
-    console.error("Error fetching appointments:", error);
-    setAppointments([]);
-    toast({
-      title: "Lỗi",
-      description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+      combinedAppointments.sort((a, b) => {
+        const dateA = new Date(a.appointmentDate).getTime();
+        const dateB = new Date(b.appointmentDate).getTime();
+        return dateB - dateA;
+      });
+      console.log("Combined Appointments after sort:", combinedAppointments);
+
+      setAppointments(combinedAppointments);
+    } catch (error: any) {
+      console.error("Error fetching appointments:", error);
+      setAppointments([]);
+      toast({
+        title: "Lỗi",
+        description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // New handler for chat button
   const handleEnterChat = async (appointment: AppointmentDetails) => {
@@ -515,11 +661,11 @@ const UserAppointmentManagement: React.FC = () => {
     setIsCancelling(true);
     try {
       await AppointmentService.cancelAppointment(selectedAppointment.id, { cancellationReason: reason });
-      
+
       // Update local state
-      setAppointments(prev => 
-        prev.map(apt => 
-          apt.id === selectedAppointment.id 
+      setAppointments(prev =>
+        prev.map(apt =>
+          apt.id === selectedAppointment.id
             ? { ...apt, status: "cancelled" as AppointmentStatus, cancellationReason: reason }
             : apt
         )
@@ -541,6 +687,60 @@ const UserAppointmentManagement: React.FC = () => {
       });
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleRateAppointment = (appointment: AppointmentDetails) => {
+    setSelectedAppointment(appointment);
+    setIsRatingDialogOpen(true);
+  };
+
+  const handleConfirmFeedback = async (
+    rating: number,
+    comment: string,
+    isAnonymous: boolean
+  ) => {
+    if (!selectedAppointment || !user) return;
+
+    setIsSubmittingFeedback(true);
+    try {
+      const feedbackData: CreateFeedbackDto = {
+        userId: user.id,
+        serviceId: selectedAppointment.services?.[0]?.id || '', // Assuming first service is primary
+        appointmentId: selectedAppointment.id,
+        consultantId: selectedAppointment.consultantId || '',
+        rating,
+        comment,
+        isAnonymous,
+      };
+
+      const response = await FeedbackService.createFeedback(feedbackData);
+      
+      // Update local state with new feedback
+      setAppointments(prev =>
+        prev.map(apt =>
+          apt.id === selectedAppointment.id
+            ? { ...apt, feedbackId: response.id, feedback: response }
+            : apt
+        )
+      );
+
+      toast({
+        title: "Gửi phản hồi thành công",
+        description: "Cảm ơn bạn đã chia sẻ trải nghiệm.",
+      });
+
+      setIsRatingDialogOpen(false);
+      setSelectedAppointment(null);
+    } catch (error: any) {
+      console.error("Error submitting feedback:", error);
+      toast({
+        title: "Lỗi",
+        description: `Không thể gửi phản hồi. Vui lòng thử lại. Lỗi: ${error.message || error}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingFeedback(false);
     }
   };
 
@@ -616,7 +816,8 @@ const UserAppointmentManagement: React.FC = () => {
                   appointment={appointment}
                   onCancel={handleCancelAppointment}
                   onViewDetails={handleViewDetails}
-                  onEnterChat={handleEnterChat} // Pass new prop
+                  onEnterChat={handleEnterChat}
+                  onRateAppointment={handleRateAppointment} // Pass the new handler
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />
@@ -644,7 +845,8 @@ const UserAppointmentManagement: React.FC = () => {
                   appointment={appointment}
                   onCancel={handleCancelAppointment}
                   onViewDetails={handleViewDetails}
-                  onEnterChat={handleEnterChat} // Pass new prop
+                  onEnterChat={handleEnterChat}
+                  onRateAppointment={handleRateAppointment} // Pass the new handler
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />
@@ -675,7 +877,8 @@ const UserAppointmentManagement: React.FC = () => {
                   appointment={appointment}
                   onCancel={handleCancelAppointment}
                   onViewDetails={handleViewDetails}
-                  onEnterChat={handleEnterChat} // Pass new prop
+                  onEnterChat={handleEnterChat}
+                  onRateAppointment={handleRateAppointment} // Pass the new handler
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />
@@ -696,6 +899,20 @@ const UserAppointmentManagement: React.FC = () => {
           }}
           onConfirm={handleConfirmCancel}
           isLoading={isCancelling}
+        />
+      )}
+
+      {/* Rating Dialog */}
+      {selectedAppointment && isRatingDialogOpen && (
+        <RatingDialog
+          appointment={selectedAppointment}
+          isOpen={isRatingDialogOpen}
+          onClose={() => {
+            setIsRatingDialogOpen(false);
+            setSelectedAppointment(null);
+          }}
+          onConfirm={handleConfirmFeedback}
+          isLoading={isSubmittingFeedback}
         />
       )}
 
@@ -786,6 +1003,45 @@ const UserAppointmentManagement: React.FC = () => {
                     {selectedAppointment.cancellationReason}
                   </div>
                 </div>
+              )}
+
+              {/* Display Feedback if available */}
+              {selectedAppointment.feedback && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">Phản hồi của bạn:</h4>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <StarIcon
+                          key={star}
+                          className={`w-5 h-5 ${
+                            star <= selectedAppointment.feedback!.rating
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-gray-300"
+                          }`}
+                        />
+                      ))}
+                      <span className="text-sm ml-2">({selectedAppointment.feedback.rating}/5)</span>
+                    </div>
+                    {selectedAppointment.feedback.comment && (
+                      <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                        {selectedAppointment.feedback.comment}
+                      </div>
+                    )}
+                    {selectedAppointment.feedback.isAnonymous && (
+                      <p className="text-xs text-muted-foreground"> (Phản hồi ẩn danh)</p>
+                    )}
+                  </div>
+                  {selectedAppointment.feedback.staffResponse && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold">Phản hồi từ nhân viên:</h4>
+                      <div className="text-sm text-muted-foreground bg-blue-50 p-3 rounded-lg border border-blue-200">
+                        {selectedAppointment.feedback.staffResponse}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             <DialogFooter>

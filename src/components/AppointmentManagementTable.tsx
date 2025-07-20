@@ -162,7 +162,7 @@ export default function AppointmentManagementTable() {
               <SelectValue placeholder="Lọc theo trạng thái" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả trạng thái</SelectItem>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
               <SelectItem value="pending">Chờ xác nhận</SelectItem>
               <SelectItem value="confirmed">Đã xác nhận</SelectItem>
               <SelectItem value="checked_in">Đã check-in</SelectItem>
@@ -178,7 +178,7 @@ export default function AppointmentManagementTable() {
               <SelectValue placeholder="Lọc theo tư vấn viên" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả tư vấn viên</SelectItem>
+              <SelectItem value="all">Tất cả tư vấn viên</SelectItem>
               {/* Map actual consultants here }
             </SelectContent>
           </Select>
@@ -187,7 +187,7 @@ export default function AppointmentManagementTable() {
               <SelectValue placeholder="Lọc theo khách hàng" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả khách hàng</SelectItem>
+              <SelectItem value="all">Tất cả khách hàng</SelectItem>
               {/* Map actual users here }
             </SelectContent>
           </Select> */}

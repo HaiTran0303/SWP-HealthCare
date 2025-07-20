@@ -118,3 +118,4 @@ export {
   DialogTitle,
   DialogDescription,
 };
+export const DialogClose = DialogPrimitive.Close;

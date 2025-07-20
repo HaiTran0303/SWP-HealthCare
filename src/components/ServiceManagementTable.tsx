@@ -144,7 +144,7 @@ export default function ServiceManagementTable() {
               <SelectValue placeholder="Lọc theo danh mục" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả danh mục</SelectItem>
+              <SelectItem value="all">Tất cả danh mục</SelectItem>
               {/* Add dynamic categories here */}
             </SelectContent>
           </Select>
@@ -153,7 +153,7 @@ export default function ServiceManagementTable() {
               <SelectValue placeholder="Lọc theo trạng thái" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả</SelectItem>
+              <SelectItem value="all">Tất cả</SelectItem>
               <SelectItem value="active">Đang hoạt động</SelectItem>
               <SelectItem value="inactive">Không hoạt động</SelectItem>
             </SelectContent>

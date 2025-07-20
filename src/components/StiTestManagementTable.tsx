@@ -40,9 +40,9 @@ export default function StiTestManagementTable() {
   const [currentPage, setCurrentPage] = useState(API_FEATURES.PAGINATION.DEFAULT_PAGE);
   const [totalTests, setTotalTests] = useState(0);
   const [searchQuery, setSearchQuery] = useState(""); // For testCode, patient name/email
-  const [filterStatus, setFilterStatus] = useState<string>("");
-  const [filterSampleType, setFilterSampleType] = useState<string>("");
-  const [filterPriority, setFilterPriority] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterSampleType, setFilterSampleType] = useState<string>("all");
+  const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterPatientId, setFilterPatientId] = useState<string>(""); // Need to fetch patient list
   const [filterConsultantId, setFilterConsultantId] = useState<string>(""); // Need to fetch consultant list
 
@@ -63,19 +63,19 @@ export default function StiTestManagementTable() {
         filters.testCode = searchQuery;
         // Assuming search by patient name/email would be handled by backend or a separate filter
       }
-      if (filterStatus) {
+      if (filterStatus && filterStatus !== "all") {
         filters.status = filterStatus as TestStatus;
       }
-      if (filterSampleType) {
+      if (filterSampleType && filterSampleType !== "all") {
         filters.sampleType = filterSampleType as SampleType;
       }
-      if (filterPriority) {
+      if (filterPriority && filterPriority !== "all") {
         filters.priority = filterPriority as Priority;
       }
-      if (filterPatientId) {
+      if (filterPatientId && filterPatientId !== "all") {
         filters.patientId = filterPatientId;
       }
-      if (filterConsultantId) {
+      if (filterConsultantId && filterConsultantId !== "all") {
         filters.consultantDoctorId = filterConsultantId;
       }
 
@@ -153,7 +153,7 @@ export default function StiTestManagementTable() {
               <SelectValue placeholder="Lọc theo trạng thái" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả trạng thái</SelectItem>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
               <SelectItem value="ordered">Đã đặt lịch</SelectItem>
               <SelectItem value="sample_collection_scheduled">Lên lịch lấy mẫu</SelectItem>
               <SelectItem value="sample_collected">Đã lấy mẫu</SelectItem>
@@ -171,7 +171,7 @@ export default function StiTestManagementTable() {
               <SelectValue placeholder="Lọc theo loại mẫu" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả loại mẫu</SelectItem>
+              <SelectItem value="all">Tất cả loại mẫu</SelectItem>
               <SelectItem value="blood">Máu</SelectItem>
               <SelectItem value="urine">Nước tiểu</SelectItem>
               <SelectItem value="swab">Dịch phết</SelectItem>
@@ -184,7 +184,7 @@ export default function StiTestManagementTable() {
               <SelectValue placeholder="Lọc theo độ ưu tiên" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả ưu tiên</SelectItem>
+              <SelectItem value="all">Tất cả ưu tiên</SelectItem>
               <SelectItem value="normal">Bình thường</SelectItem>
               <SelectItem value="high">Cao</SelectItem>
               <SelectItem value="urgent">Khẩn cấp</SelectItem>
