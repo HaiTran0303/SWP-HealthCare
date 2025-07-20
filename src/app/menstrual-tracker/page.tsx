@@ -39,7 +39,6 @@ export default function MenstrualTrackerPage() {
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  const [notes, setNotes] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
   const [selectedCycle, setSelectedCycle] = useState<any>(null);
@@ -47,7 +46,6 @@ export default function MenstrualTrackerPage() {
   const [editMode, setEditMode] = useState(false);
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
-  const [editNotes, setEditNotes] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [filterYear, setFilterYear] = useState<string>("");
@@ -161,12 +159,22 @@ export default function MenstrualTrackerPage() {
     if (!startDate || !endDate) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng chọn ngày bắt đầu và kết thúc",
+        description: "Vui lòng chọn ngày bắt đầu và kết thúc.",
         variant: "destructive",
       });
       return;
     }
 
+    if (new Date(startDate) > new Date(endDate)) {
+      toast({
+        title: "Lỗi",
+        description: "Ngày bắt đầu không thể sau ngày kết thúc.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check for health data consent before proceeding, only if user is female
     if (user?.gender === 'F' && !userHealthDataConsent && !menstrualTrackingConsent) {
       toast({
         title: "Lỗi",
@@ -178,23 +186,34 @@ export default function MenstrualTrackerPage() {
 
     setCreating(true);
     try {
-      // If user is female and consent is given but not yet recorded in profile
+      // If user is female and consent is given but not yet recorded in profile, update consent first
       if (user?.gender === 'F' && !userHealthDataConsent && menstrualTrackingConsent) {
         await handleUpdateHealthDataConsent(true);
       }
 
-      await MenstrualService.createCycle({
-        cycleStartDate: startDate,
-        cycleEndDate: endDate,
-        notes: notes,
-      });
-      toast({ title: "Thành công", description: "Đã tạo chu kỳ mới!" });
-      setStartDate("");
-      setEndDate("");
-      setNotes("");
-      setMenstrualTrackingConsent(false); // Reset consent checkbox
-      fetchCycles();
-      fetchPrediction();
+      // Proceed with creating the cycle only if consent is given or user is not female
+      if (user?.gender !== 'F' || userHealthDataConsent || menstrualTrackingConsent) {
+        await MenstrualService.createCycle({
+          cycleStartDate: startDate,
+          cycleEndDate: endDate,
+        });
+        toast({ title: "Thành công", description: "Đã tạo chu kỳ mới!" });
+        setStartDate("");
+        setEndDate("");
+        // Only reset menstrualTrackingConsent if it was explicitly checked for this action
+        if (menstrualTrackingConsent) {
+          setMenstrualTrackingConsent(false);
+        }
+        fetchCycles();
+        fetchPrediction();
+      } else {
+        // This case should ideally be caught by the prior toast, but as a fallback:
+        toast({
+          title: "Lỗi",
+          description: "Không có sự đồng ý thu thập dữ liệu sức khỏe.",
+          variant: "destructive",
+        });
+      }
     } catch (e: any) {
       toast({
         title: "Lỗi",
@@ -227,7 +246,6 @@ export default function MenstrualTrackerPage() {
     setEditMode(false);
     setEditStart(cycle.cycleStartDate?.slice(0, 10) || "");
     setEditEnd(cycle.cycleEndDate?.slice(0, 10) || "");
-    setEditNotes(cycle.notes || "");
     fetchCycleSymptoms(cycle.id);
   };
 
@@ -239,7 +257,6 @@ export default function MenstrualTrackerPage() {
       await MenstrualService.updateCycle(selectedCycle.id, {
         cycleStartDate: editStart,
         cycleEndDate: editEnd,
-        notes: editNotes,
       });
       toast({ title: "Thành công", description: "Đã cập nhật chu kỳ!" });
       setShowDetail(false);
@@ -369,15 +386,6 @@ export default function MenstrualTrackerPage() {
                 required
               />
             </div>
-            <div>
-              <label className="block font-medium mb-1">Ghi chú</label>
-              <textarea
-                className="border rounded px-2 py-1 w-full"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-              />
-            </div>
             {user?.gender === 'F' && (
               <div className="flex items-center space-x-2 mb-4">
                 <Checkbox
@@ -454,7 +462,6 @@ export default function MenstrualTrackerPage() {
                 <tr className="bg-gray-100">
                   <th className="p-2 border text-center">Ngày bắt đầu</th>
                   <th className="p-2 border text-center">Ngày kết thúc</th>
-                  <th className="p-2 border text-center">Ghi chú</th>
                   <th className="p-2 border text-center">Thao tác</th>
                 </tr>
               </thead>
@@ -470,9 +477,6 @@ export default function MenstrualTrackerPage() {
                     </td>
                     <td className="p-2 border text-center align-middle">
                       {c.cycleEndDate?.slice(0, 10)}
-                    </td>
-                    <td className="p-2 border text-center align-middle">
-                      {c.notes}
                     </td>
                     <td className="p-2 border text-center align-middle">
                       <Button
@@ -613,9 +617,6 @@ export default function MenstrualTrackerPage() {
               <div>
                 <b>Ngày kết thúc:</b> {selectedCycle.cycleEndDate?.slice(0, 10)}
               </div>
-              <div>
-                <b>Ghi chú:</b> {selectedCycle.notes}
-              </div>
               {editMode && (
                 <form
                   className="space-y-2"
@@ -635,10 +636,6 @@ export default function MenstrualTrackerPage() {
                     value={editEnd}
                     onChange={(e) => setEditEnd(e.target.value)}
                     required
-                  />
-                  <Input
-                    value={editNotes}
-                    onChange={(e) => setEditNotes(e.target.value)}
                   />
                   <DialogFooter>
                     <Button type="submit" disabled={editLoading}>
