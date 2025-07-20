@@ -65,7 +65,7 @@ interface TimeSlot {
   consultantExperience?: string; // Keep this for display purposes
   consultantSpecialties?: string[]; // Keep this for display purposes
   consultationFee?: number; // Keep this for display purposes
-  serviceId: string; // Add serviceId
+  serviceId?: string; // Add serviceId, make it optional as it might not always be present for every slot
   meetingLink?: string; // Add meetingLink
 }
 
@@ -145,8 +145,9 @@ const OnlineConsultationBooking: React.FC = () => {
   const fetchConsultants = async () => {
     setIsLoadingConsultants(true);
     try {
-      const consultantsData: ConsultantProfile[] = await ConsultantService.getAll();
-      console.log("Consultants API Response:", consultantsData); // Log the full response
+      const response = await ConsultantService.getAll();
+      const consultantsData: ConsultantProfile[] = response.data; // Access the 'data' property
+      console.log("Consultants API Response:", consultantsData);
       setConsultants(consultantsData);
     } catch (error: any) {
       console.error("Error fetching consultants in fetchConsultants:", error);
@@ -189,8 +190,8 @@ const OnlineConsultationBooking: React.FC = () => {
             consultantExperience: slot.consultantProfile.experience,
             consultantSpecialties: slot.consultantProfile.specialties,
             consultationFee: slot.consultantProfile.consultationFee,
-            serviceId: slot.serviceId, // Extract serviceId from the slot
-            meetingLink: slot.meetingLink, // Extract meetingLink from the slot
+            serviceId: slot.serviceId || undefined, // Extract serviceId from the slot, ensure it's optional
+            meetingLink: slot.meetingLink || undefined, // Extract meetingLink from the slot, ensure it's optional
           }))
         : [];
       console.log("Mapped Available Slots:", availableSlotsData); // Log the mapped data
@@ -210,6 +211,7 @@ const OnlineConsultationBooking: React.FC = () => {
 
   const handleConsultantSelect = (consultant: ConsultantProfile) => {
     setSelectedConsultant(consultant);
+    console.log("Selected Consultant Object:", consultant); // Add this log
     console.log("Selected Consultant ID:", consultant.id);
     console.log("Selected Consultant User ID:", consultant.userId);
     setCurrentStep(2);
@@ -267,7 +269,7 @@ const OnlineConsultationBooking: React.FC = () => {
         additionalNotes,
         preferredContactMethod,
       },
-      selectedSlot.serviceId ? [selectedSlot.serviceId] : [], // Pass serviceIds as an array
+      selectedSlot.serviceId, // Pass serviceId directly
       selectedSlot.meetingLink || "https://meet.google.com/default-meeting-link" // Use meetingLink from slot, or a default
     );
 
@@ -345,7 +347,7 @@ const OnlineConsultationBooking: React.FC = () => {
             >
               <CardHeader className="text-center">
                 <Avatar className="w-20 h-20 mx-auto mb-4">
-                  <AvatarImage src={consultant.user?.profilePicture || consultant.avatar} alt={`${consultant.user?.firstName} ${consultant.user?.lastName}`} />
+                  <AvatarImage src={consultant.user?.profilePicture} alt={`${consultant.user?.firstName} ${consultant.user?.lastName}`} />
                   <AvatarFallback>
                     {`${consultant.user?.firstName ? consultant.user.firstName[0] : ""}${consultant.user?.lastName ? consultant.user.lastName[0] : ""}`}
                   </AvatarFallback>
@@ -589,7 +591,7 @@ const OnlineConsultationBooking: React.FC = () => {
         <CardContent className="space-y-6 pt-6">
           <div className="flex items-center gap-4">
               <Avatar className="w-16 h-16">
-                <AvatarImage src={selectedConsultant?.user?.profilePicture || selectedConsultant?.avatar} alt={`${selectedConsultant?.user?.firstName} ${selectedConsultant?.user?.lastName}`} />
+                <AvatarImage src={selectedConsultant?.user?.profilePicture} alt={`${selectedConsultant?.user?.firstName} ${selectedConsultant?.user?.lastName}`} />
                 <AvatarFallback>
                   {`${selectedConsultant?.user?.firstName ? selectedConsultant.user.firstName[0] : ""}${selectedConsultant?.user?.lastName ? selectedConsultant.user.lastName[0] : ""}`}
                 </AvatarFallback>

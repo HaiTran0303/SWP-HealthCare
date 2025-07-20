@@ -55,7 +55,7 @@ export function useConsultationBooking() {
     selectedDate: Date,
     selectedTime: string,
     formData: BookingFormData,
-    serviceIds: string[], // Accept serviceIds as an array
+    serviceId: string | undefined, // Accept serviceId as a single string or undefined
     meetingLink: string // Accept meetingLink directly
   ) => {
     setIsLoading(true);
@@ -100,10 +100,10 @@ export function useConsultationBooking() {
 
       // Prepare appointment data
       const appointmentData: CreateAppointmentRequest = {
-        consultantId: consultant.userId, // Use consultant.userId
+        consultantId: consultant.user.id, // Use consultant.user.id
         appointmentDate: formattedAppointmentDate, // Use the locally formatted date and time
         notes: buildNotesString(formData),
-        serviceIds: serviceIds,
+        serviceIds: serviceId ? [serviceId] : [], // Convert single serviceId to an array if it exists
         meetingLink: meetingLink,
         appointmentLocation: "online",
       };

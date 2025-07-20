@@ -38,8 +38,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { AppointmentService, AppointmentStatus } from "@/services/appointment.service";
-import { STITestingService } from "@/services/sti-testing.service";
+import { AppointmentService, AppointmentStatus, Appointment as GeneralAppointmentType } from "@/services/appointment.service";
+import { STITestingService, StiTestProcess as StiAppointmentType } from "@/services/sti-testing.service";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useRouter } from "next/navigation";
@@ -343,108 +343,138 @@ const UserAppointmentManagement: React.FC = () => {
 
   const fetchAppointments = async () => {
     if (!user) {
-      console.log("User not logged in.");
-      setIsLoading(false);
-      return;
-    }
+    console.log("User not logged in.");
+    setIsLoading(false);
+    return;
+  }
+  
+  setIsLoading(true);
+  try {
+    console.log("Fetching appointments for user:", user.id);
+    const [generalAppointmentsResponse, stiAppointmentsResponse] = await Promise.all([
+      AppointmentService.getUserAppointments(),
+      STITestingService.getUserStiAppointments(),
+    ]) as [
+      { data: GeneralAppointmentType[]; total: number },
+      { data: StiAppointmentType[]; total: number }
+    ];
+
+    console.log("Raw General Appointments Response:", generalAppointmentsResponse);
+    console.log("Raw STI Appointments Response:", stiAppointmentsResponse);
+
+    const generalAppointments: AppointmentDetails[] = Array.isArray(generalAppointmentsResponse.data)
+      ? generalAppointmentsResponse.data.map((apt: any) => ({
+          id: apt.id,
+          consultantId: apt.consultant?.id,
+          consultant: apt.consultant ? {
+            id: apt.consultant.id,
+            firstName: apt.consultant.firstName || '',
+            lastName: apt.consultant.lastName || '',
+            profilePicture: apt.consultant.profilePicture || apt.consultant.avatar,
+            specialties: apt.consultant.specialties || [],
+            qualification: apt.consultant.qualification,
+            experience: apt.consultant.experience,
+            rating: apt.consultant.rating,
+          } : undefined,
+          appointmentDate: apt.appointmentDate,
+          status: apt.status as AppointmentStatus,
+          notes: apt.notes,
+          meetingLink: apt.meetingLink,
+          location: apt.location,
+          createdAt: apt.createdAt,
+          updatedAt: apt.updatedAt,
+          cancellationReason: apt.cancellationReason,
+          services: apt.services?.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            description: s.description,
+            price: s.price,
+            type: s.type,
+          })),
+          questionId: apt.questionId,
+          type: "consultation", // Mark as consultation appointment
+        }))
+      : [];
+    console.log("Mapped General Appointments:", generalAppointments);
+
+    const stiAppointments: AppointmentDetails[] = Array.isArray(stiAppointmentsResponse.data)
+      ? stiAppointmentsResponse.data.map((apt: any) => ({
+          id: apt.id,
+          consultantId: apt.consultantDoctor?.id,
+          consultant: apt.consultantDoctor ? {
+            id: apt.consultantDoctor.id,
+            firstName: apt.consultantDoctor.firstName || '',
+            lastName: apt.consultantDoctor.lastName || '',
+            profilePicture: apt.consultantDoctor.profilePicture || apt.consultantDoctor.avatar,
+            specialties: apt.consultantDoctor.specialties || [],
+            qualification: apt.consultantDoctor.qualification,
+            experience: apt.consultantDoctor.experience,
+            rating: apt.consultantDoctor.rating,
+          } : undefined,
+          appointmentDate: apt.sampleCollectionDate,
+          status: (() => { // Map STI status to a general AppointmentStatus
+            switch (apt.status) {
+              case "ordered":
+              case "sample_collection_scheduled":
+                return "pending";
+              case "sample_collected":
+              case "processing":
+              case "result_ready":
+              case "result_delivered":
+              case "consultation_required":
+              case "follow_up_scheduled":
+                return "confirmed"; // Treat as confirmed/ongoing
+              case "completed":
+                return "completed";
+              case "cancelled":
+                return "cancelled";
+              default:
+                return "pending"; // Fallback
+            }
+          })() as AppointmentStatus,
+          notes: apt.processNotes,
+          location: apt.sampleCollectionLocation,
+          createdAt: apt.createdAt,
+          updatedAt: apt.updatedAt,
+          services: apt.service ? [{
+            id: apt.service.id,
+            name: apt.service.name,
+            description: apt.service.description,
+            price: apt.service.price,
+            type: apt.service.type,
+          }] : [],
+          type: "sti_test", // Mark as STI test appointment
+          sampleCollectionDate: apt.sampleCollectionDate,
+          sampleCollectionLocation: apt.sampleCollectionLocation,
+          stiServiceId: apt.service?.id,
+          testCode: apt.testCode,
+        }))
+      : [];
+    console.log("Mapped STI Appointments:", stiAppointments);
     
-    setIsLoading(true);
-    try {
-      const [generalAppointmentsResponse, stiAppointmentsResponse] = await Promise.all([
-        AppointmentService.getUserAppointments(),
-        STITestingService.getUserStiAppointments(),
-      ]);
+    const combinedAppointments = [...generalAppointments, ...stiAppointments];
+    console.log("Combined Appointments before sort:", combinedAppointments);
 
-      const generalAppointments: AppointmentDetails[] = Array.isArray(generalAppointmentsResponse)
-        ? generalAppointmentsResponse.map((apt: any) => ({
-            id: apt.id,
-            consultantId: apt.consultant?.id,
-            consultant: apt.consultant ? {
-              id: apt.consultant.id,
-              firstName: apt.consultant.firstName || '',
-              lastName: apt.consultant.lastName || '',
-              profilePicture: apt.consultant.profilePicture || apt.consultant.avatar,
-              specialties: apt.consultant.specialties || [],
-              qualification: apt.consultant.qualification,
-              experience: apt.consultant.experience,
-              rating: apt.consultant.rating,
-            } : undefined,
-            appointmentDate: apt.appointmentDate,
-            status: apt.status as AppointmentStatus,
-            notes: apt.notes,
-            meetingLink: apt.meetingLink,
-            location: apt.location,
-            createdAt: apt.createdAt,
-            updatedAt: apt.updatedAt,
-            cancellationReason: apt.cancellationReason,
-            services: apt.services?.map((s: any) => ({
-              id: s.id,
-              name: s.name,
-              description: s.description,
-              price: s.price,
-              type: s.type,
-            })),
-            questionId: apt.questionId,
-            type: "consultation", // Mark as consultation appointment
-          }))
-        : [];
+    combinedAppointments.sort((a, b) => {
+      const dateA = new Date(a.appointmentDate).getTime();
+      const dateB = new Date(b.appointmentDate).getTime();
+      return dateB - dateA;
+    });
+    console.log("Combined Appointments after sort:", combinedAppointments);
 
-      const stiAppointments: AppointmentDetails[] = Array.isArray(stiAppointmentsResponse)
-        ? stiAppointmentsResponse.map((apt: any) => ({
-            id: apt.id,
-            consultantId: apt.consultantDoctor?.id,
-            consultant: apt.consultantDoctor ? {
-              id: apt.consultantDoctor.id,
-              firstName: apt.consultantDoctor.firstName || '',
-              lastName: apt.consultantDoctor.lastName || '',
-              profilePicture: apt.consultantDoctor.profilePicture || apt.consultantDoctor.avatar,
-              specialties: apt.consultantDoctor.specialties || [],
-              qualification: apt.consultantDoctor.qualification,
-              experience: apt.consultantDoctor.experience,
-              rating: apt.consultantDoctor.rating,
-            } : undefined,
-            appointmentDate: apt.sampleCollectionDate,
-            status: apt.status as AppointmentStatus,
-            notes: apt.processNotes,
-            location: apt.sampleCollectionLocation,
-            createdAt: apt.createdAt,
-            updatedAt: apt.updatedAt,
-            services: apt.service ? [{
-              id: apt.service.id,
-              name: apt.service.name,
-              description: apt.service.description,
-              price: apt.service.price,
-              type: apt.service.type,
-            }] : [],
-            type: "sti_test", // Mark as STI test appointment
-            sampleCollectionDate: apt.sampleCollectionDate,
-            sampleCollectionLocation: apt.sampleCollectionLocation,
-            stiServiceId: apt.service?.id,
-            testCode: apt.testCode,
-          }))
-        : [];
-      
-      const combinedAppointments = [...generalAppointments, ...stiAppointments];
-
-      combinedAppointments.sort((a, b) => {
-        const dateA = new Date(a.appointmentDate).getTime();
-        const dateB = new Date(b.appointmentDate).getTime();
-        return dateB - dateA;
-      });
-
-      setAppointments(combinedAppointments);
-    } catch (error: any) {
-      console.error("Error fetching appointments:", error);
-      setAppointments([]);
-      toast({
-        title: "Lỗi",
-        description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    setAppointments(combinedAppointments);
+  } catch (error: any) {
+    console.error("Error fetching appointments:", error);
+    setAppointments([]);
+    toast({
+      title: "Lỗi",
+      description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // New handler for chat button
   const handleEnterChat = async (appointment: AppointmentDetails) => {
@@ -484,7 +514,7 @@ const UserAppointmentManagement: React.FC = () => {
 
     setIsCancelling(true);
     try {
-      await AppointmentService.cancelAppointment(selectedAppointment.id, reason);
+      await AppointmentService.cancelAppointment(selectedAppointment.id, { cancellationReason: reason });
       
       // Update local state
       setAppointments(prev => 

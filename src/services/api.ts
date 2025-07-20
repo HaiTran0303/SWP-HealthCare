@@ -2,6 +2,7 @@ import { API_CONFIG, API_ERROR_MESSAGES, buildApiUrl } from "@/config/api";
 
 interface RequestConfig extends RequestInit {
   timeout?: number;
+  params?: Record<string, any>; // Add params property for query parameters
 }
 
 class ApiError extends Error {
@@ -49,75 +50,70 @@ async function fetchWithTimeout(resource: string, config: RequestConfig = {}) {
   }
 }
 
-  async function handleResponse(response: Response) {
+  async function handleResponse<T>(response: Response): Promise<T> {
     const contentType = response.headers.get("content-type");
-    let data;
-    let rawResponseText; // Added to store raw text for debugging
+    let data: any;
+    let rawResponseText: string | undefined;
 
     try {
       if (contentType?.includes("application/json")) {
-        rawResponseText = await response.text(); // Read as text first
-        data = JSON.parse(rawResponseText); // Then parse as JSON
+        rawResponseText = await response.text();
+        data = JSON.parse(rawResponseText);
       } else {
         data = await response.text();
       }
     } catch (error) {
       console.error("[APIClient] Error parsing response JSON:", error);
-      console.error("[APIClient] Raw response text:", rawResponseText); // Log raw text
+      console.error("[APIClient] Raw response text:", rawResponseText);
       throw new ApiError(response.status, "Invalid response format from server", { rawResponse: rawResponseText, parseError: error });
     }
 
-  if (!response.ok) {
-    // Đảm bảo data luôn là object
-    const safeData = data && typeof data === "object" ? data : {};
+    if (!response.ok) {
+      const safeData = data && typeof data === "object" ? data : {};
 
-    switch (response.status) {
-      case 400:
-        throw new ApiError(
-          response.status,
-          safeData.message || "Dữ liệu không hợp lệ",
-          safeData
-        );
-      case 401:
-        throw new ApiError(
-          response.status,
-          safeData.message || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
-          safeData
-        );
-      case 403:
-        throw new ApiError(
-          response.status,
-          safeData.message || "Bạn không có quyền truy cập tài nguyên này.",
-          safeData
-        );
-      case 404:
-        throw new ApiError(
-          response.status,
-          safeData.message || "Không tìm thấy tài nguyên yêu cầu.",
-          safeData
-        );
-      default:
-        throw new ApiError(
-          response.status,
-          safeData.message || "Đã có lỗi xảy ra. Vui lòng thử lại sau.",
-          safeData
-        );
+      switch (response.status) {
+        case 400:
+          throw new ApiError(
+            response.status,
+            safeData.message || "Dữ liệu không hợp lệ",
+            safeData
+          );
+        case 401:
+          throw new ApiError(
+            response.status,
+            safeData.message || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+            safeData
+          );
+        case 403:
+          throw new ApiError(
+            response.status,
+            safeData.message || "Bạn không có quyền truy cập tài nguyên này.",
+            safeData
+          );
+        case 404:
+          throw new ApiError(
+            response.status,
+            safeData.message || "Không tìm thấy tài nguyên yêu cầu.",
+            safeData
+          );
+        default:
+          throw new ApiError(
+            response.status,
+            safeData.message || "Đã có lỗi xảy ra. Vui lòng thử lại sau.",
+            safeData
+          );
+      }
     }
-  }
 
-  // Ensure data is not null or undefined before accessing properties
-  if (data === null || typeof data === 'undefined') {
-    console.warn("[APIClient] API response data is null or undefined."); // Added warning
-    return null; // Or throw a specific error if appropriate for your API
+    if (data === null || typeof data === 'undefined') {
+      console.warn("[APIClient] API response data is null or undefined.");
+      // Depending on your API's expected behavior for empty successful responses,
+      // you might return a default empty object or null, or throw an error.
+      // For now, I'll return an empty object if T is expected to be an object, otherwise null.
+      return {} as T; // Assuming T is often an object, adjust if necessary
+    }
+    return data.data || data;
   }
-
-  // Check if the response object itself contains pagination metadata
-  if (typeof data === 'object' && data !== null && 'total' in data && 'page' in data && 'limit' in data) {
-    return data; // Return the full response object if it contains pagination data
-  }
-
-  return data.data || data; // Otherwise, return data.data or data as before
-}
 
 export const apiClient = {
   defaultHeaders: { ...defaultHeaders },
@@ -135,9 +131,27 @@ export const apiClient = {
 
   async request<T>(endpoint: string, config: RequestConfig = {}): Promise<T> {
     try {
-      const url = buildApiUrl(endpoint);
-      const response = await fetchWithTimeout(url, config);
-      return handleResponse(response);
+      let url = buildApiUrl(endpoint);
+
+      // Handle query parameters if `params` are provided
+      if (config.params) {
+        const queryParams = new URLSearchParams();
+        for (const key in config.params) {
+          if (config.params.hasOwnProperty(key) && config.params[key] !== undefined) {
+            queryParams.append(key, String(config.params[key]));
+          }
+        }
+        const queryString = queryParams.toString();
+        if (queryString) {
+          url = `${url}?${queryString}`;
+        }
+      }
+
+      // Remove params from config before passing to fetch (as fetch doesn't understand it)
+      const { params, ...fetchConfig } = config;
+
+      const response = await fetchWithTimeout(url, fetchConfig);
+      return handleResponse<T>(response);
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
@@ -147,21 +161,20 @@ export const apiClient = {
         if (error.name === "AbortError") {
           throw new ApiError(408, "Yêu cầu đã hết thời gian chờ. Vui lòng thử lại.");
         }
-        // Check for specific network errors
         if (error.message.includes("Failed to fetch")) {
           throw new ApiError(
             0,
             "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
           );
         }
-        throw new ApiError(0, "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.");
+        throw new ApiError(0, "Đã có lỗi xảy ra. Vui lòng thử lại sau.");
       }
 
       throw new ApiError(0, "Đã có lỗi xảy ra. Vui lòng thử lại sau.");
     }
   },
 
-  async get<T>(endpoint: string, config: RequestConfig = {}): Promise<T> {
+  async get<T>(endpoint: string, config?: RequestConfig): Promise<T> {
     return this.request(endpoint, {
       method: "GET",
       ...config,
@@ -171,11 +184,11 @@ export const apiClient = {
   async post<T>(
     endpoint: string,
     data?: any,
-    config: RequestConfig = {}
+    config?: RequestConfig
   ): Promise<T> {
     return this.request(endpoint, {
       method: "POST",
-      body: JSON.stringify(data),
+      body: data ? JSON.stringify(data) : undefined, // Handle undefined body
       ...config,
     });
   },
@@ -183,11 +196,11 @@ export const apiClient = {
   async put<T>(
     endpoint: string,
     data?: any,
-    config: RequestConfig = {}
+    config?: RequestConfig
   ): Promise<T> {
     return this.request(endpoint, {
       method: "PUT",
-      body: JSON.stringify(data),
+      body: data ? JSON.stringify(data) : undefined, // Handle undefined body
       ...config,
     });
   },
@@ -195,16 +208,16 @@ export const apiClient = {
   async patch<T>(
     endpoint: string,
     data?: any,
-    config: RequestConfig = {}
+    config?: RequestConfig
   ): Promise<T> {
     return this.request(endpoint, {
       method: "PATCH",
-      body: JSON.stringify(data),
+      body: data ? JSON.stringify(data) : undefined, // Handle undefined body
       ...config,
     });
   },
 
-  async delete<T>(endpoint: string, config: RequestConfig = {}): Promise<T> {
+  async delete<T>(endpoint: string, config?: RequestConfig): Promise<T> {
     return this.request(endpoint, {
       method: "DELETE",
       ...config,
@@ -214,7 +227,7 @@ export const apiClient = {
   async upload<T>(
     endpoint: string,
     file: File,
-    config: RequestConfig = {}
+    config?: RequestConfig
   ): Promise<T> {
     const formData = new FormData();
     formData.append("file", file);
@@ -222,7 +235,7 @@ export const apiClient = {
     return this.request(endpoint, {
       method: "POST",
       body: formData,
-      headers: {}, // Let browser set correct content type for FormData
+      headers: {}, // Let browser set correct content type for FormData for multipart/form-data
       ...config,
     });
   },

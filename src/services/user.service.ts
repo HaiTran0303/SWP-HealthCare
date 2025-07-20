@@ -1,4 +1,4 @@
-import { apiClient } from "@/services/api";
+import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
 
 export interface User {
@@ -6,57 +6,60 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
-  phone: string;
-  role: {
-    id: string;
-    name: string;
-  };
+  phone?: string;
+  address?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  profilePicture?: string;
+  role: { id: string; name: string };
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface GetUsersParams {
+export interface GetUsersQuery {
   page?: number;
   limit?: number;
   firstName?: string;
   lastName?: string;
   email?: string;
   phone?: string;
-  isActive?: boolean;
   roleId?: string;
+  isActive?: boolean;
   sortBy?: string;
   sortOrder?: "ASC" | "DESC";
 }
 
-export interface GetUsersResponse {
-  data: User[];
-  total: number;
-  page: number;
-  limit: number;
-}
-
-export const UserService = {
-  async getAll(params?: GetUsersParams): Promise<GetUsersResponse> {
+export class UserService {
+  static async getAllUsers(query?: GetUsersQuery): Promise<{ data: User[]; total: number }> {
     try {
-      const query = new URLSearchParams();
-      if (params) {
-        Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            query.append(key, String(value));
-          }
-        });
-      }
-      const queryString = query.toString();
-      const url = `${API_ENDPOINTS.USERS.BASE}${queryString ? `?${queryString}` : ""}`;
-      
-      const response = await apiClient.get<GetUsersResponse>(url);
-      return response; // apiClient.get now returns the full response with pagination metadata
+      const response = await apiClient.get<{ data: User[]; total: number }>(API_ENDPOINTS.USERS.GET_ALL, { params: query });
+      return response;
     } catch (error) {
       console.error("Error fetching users:", error);
       throw error;
     }
-  },
+  }
 
-  // You can add other user-related API calls here (e.g., createUser, updateUser, deleteUser)
-};
+  static async toggleUserActiveStatus(id: string): Promise<User> {
+    try {
+      const response = await apiClient.put<User>(API_ENDPOINTS.USERS.TOGGLE_ACTIVE(id));
+      return response;
+    } catch (error) {
+      console.error(`Error toggling user ${id} status:`, error);
+      throw error;
+    }
+  }
+
+  static async verifyUserEmail(id: string): Promise<User> {
+    try {
+      const response = await apiClient.put<User>(API_ENDPOINTS.USERS.VERIFY_EMAIL(id));
+      return response;
+    } catch (error) {
+      console.error(`Error verifying user ${id} email:`, error);
+      throw error;
+    }
+  }
+
+  // You can add more user-related methods here (e.g., getUserById, updateUser, deleteUser)
+}

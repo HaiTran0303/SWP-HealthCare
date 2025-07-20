@@ -1,25 +1,28 @@
-import { apiClient } from "@/services/api";
+import { apiClient } from "./api"; // Changed to apiClient
 import { API_ENDPOINTS } from "@/config/api";
 
 export interface Service {
   id: string;
   name: string;
   description: string;
-  price: number;
-  duration: number; // in minutes
-  isActive: boolean;
+  htmlDescription?: string;
+  price: number | null;
+  duration: number;
+  categoryId: string;
+  requiresConsultant: boolean;
+  imageUrl?: string;
   shortDescription?: string;
   prerequisites?: string;
   postInstructions?: string;
-  featured: boolean;
-  categoryId: string;
-  requiresConsultant: boolean;
-  location: "online" | "office";
-  createdAt: string;
-  updatedAt: string;
+  featured?: boolean;
+  location?: "online" | "office";
+  type?: string;
+  isActive?: boolean;
+  createdAt: string; // Add createdAt
+  updatedAt: string; // Add updatedAt
 }
 
-export interface GetServicesParams {
+export interface GetServicesQuery {
   page?: number;
   limit?: number;
   sortBy?: "name" | "price" | "duration" | "createdAt" | "updatedAt";
@@ -34,34 +37,93 @@ export interface GetServicesParams {
   location?: "online" | "office";
 }
 
-export interface GetServicesResponse {
-  data: Service[];
-  total: number;
-  page: number;
-  limit: number;
+export interface CreateServiceDto {
+  name: string;
+  description: string;
+  price: number;
+  duration: number;
+  categoryId: string;
+  isActive?: boolean;
+  shortDescription?: string;
+  prerequisites?: string;
+  postInstructions?: string;
+  featured?: boolean;
+  requiresConsultant?: boolean;
+  location?: "online" | "office";
 }
 
-export const ServiceService = {
-  async getAll(params?: GetServicesParams): Promise<GetServicesResponse> {
+export interface UpdateServiceDto {
+  name?: string;
+  description?: string;
+  price?: number;
+  duration?: number;
+  categoryId?: string;
+  isActive?: boolean;
+  shortDescription?: string;
+  prerequisites?: string;
+  postInstructions?: string;
+  featured?: boolean;
+  requiresConsultant?: boolean;
+  location?: "online" | "office";
+}
+
+export const APIService = { 
+  async getAll(query?: GetServicesQuery): Promise<{ data: Service[]; total: number }> {
     try {
-      const query = new URLSearchParams();
-      if (params) {
-        Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            query.append(key, String(value));
-          }
-        });
-      }
-      const queryString = query.toString();
-      const url = `${API_ENDPOINTS.SERVICES.BASE}${queryString ? `?${queryString}` : ""}`;
-      
-      const response = await apiClient.get<GetServicesResponse>(url);
+      const response = await apiClient.get<{ data: Service[]; total: number }>(API_ENDPOINTS.SERVICES.GET_ALL, { params: query });
       return response;
     } catch (error) {
-      console.error("Error fetching services:", error);
+      console.error("[APIService] Error fetching services:", error);
       throw error;
     }
   },
 
-  // You can add other service-related API calls here (e.g., create, update, delete)
+  async getById(id: string): Promise<Service> {
+    try {
+      const response = await apiClient.get<Service>(API_ENDPOINTS.SERVICES.BY_ID(id));
+      return response;
+    } catch (error) {
+      console.error("[APIService] Error in getById:", error);
+      throw error;
+    }
+  },
+
+  async getStiServices(): Promise<Service[]> {
+    try {
+      const response = await apiClient.get<{ data: Service[] }>(API_ENDPOINTS.SERVICES.STI);
+      return response.data || []; // Ensure it always returns an array, even if data is undefined
+    } catch (error) {
+      console.error("[APIService] Error in getStiServices:", error);
+      throw error;
+    }
+  },
+
+  async createService(data: CreateServiceDto): Promise<Service> {
+    try {
+      const response = await apiClient.post<Service>(API_ENDPOINTS.SERVICES.BASE, data);
+      return response;
+    } catch (error) {
+      console.error("[APIService] Error creating service:", error);
+      throw error;
+    }
+  },
+
+  async updateService(id: string, data: UpdateServiceDto): Promise<Service> {
+    try {
+      const response = await apiClient.patch<Service>(API_ENDPOINTS.SERVICES.BY_ID(id), data);
+      return response;
+    } catch (error) {
+      console.error("[APIService] Error updating service:", error);
+      throw error;
+    }
+  },
+
+  async deleteService(id: string): Promise<void> {
+    try {
+      await apiClient.delete<void>(API_ENDPOINTS.SERVICES.BY_ID(id));
+    } catch (error) {
+      console.error("[APIService] Error deleting service:", error);
+      throw error;
+    }
+  },
 };
