@@ -1,72 +1,70 @@
-import { apiClient } from "./api";
+import { apiClient } from "@/services/api";
 import { API_ENDPOINTS } from "@/config/api";
 
-export interface UserProfile {
+export interface Consultant {
   id: string;
+  userId: string;
   firstName: string;
   lastName: string;
   email: string;
-  profilePicture?: string; // Added profilePicture based on API response
-  // Add other user fields as needed from the API response
-}
-
-export interface ConsultantProfile {
-  id: string;
-  userId: string;
-  firstName: string; // Keep for direct access if needed, but primary source is user.firstName
-  lastName: string;  // Keep for direct access if needed, but primary source is user.lastName
   specialties: string[];
   qualification: string;
   experience: string;
   bio: string;
   consultationFee: number;
+  consultationFeeType: "hourly" | "per_session" | "per_service";
+  sessionDurationMinutes: number;
   isAvailable: boolean;
-  rating: number;
-  avatar: string; // This might be consultantProfile.user.profilePicture or similar
-  availability: ConsultantAvailability[];
-  user: UserProfile; // Added user profile
-}
-
-export interface ConsultantAvailability {
-  id: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  isAvailable: boolean;
-  maxAppointments: number;
-  location: string;
-  recurring: boolean;
-  specificDate: string;
+  profileStatus: "active" | "on_leave" | "training" | "inactive" | "pending_approval" | "rejected";
+  languages: string[];
+  consultationTypes: ("online" | "office")[];
   createdAt: string;
   updatedAt: string;
-  deletedAt: string | null;
-  consultantProfile: ConsultantProfile;
+}
+
+export interface GetConsultantsParams {
+  page?: number;
+  limit?: number;
+  search?: string; // Search by consultant name
+  specialties?: string; // Comma-separated list
+  minConsultationFee?: number;
+  maxConsultationFee?: number;
+  consultationTypes?: "online" | "office";
+  status?: "active" | "on_leave" | "training" | "inactive" | "pending_approval" | "rejected";
+  isAvailable?: boolean;
+  minRating?: number;
+  sortBy?: string;
+  sortOrder?: "ASC" | "DESC";
+}
+
+export interface GetConsultantsResponse {
+  data: Consultant[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export const ConsultantService = {
-  async getAll(): Promise<ConsultantProfile[]> {
-    // apiClient.get returns the data directly, which might be an object with a 'data' property
-    const apiResponse = await apiClient.get<any>(API_ENDPOINTS.CONSULTANTS.AVAILABILITY);
-    const availabilityData: ConsultantAvailability[] = Array.isArray(apiResponse.data) ? apiResponse.data : [];
-
-    const uniqueConsultantsMap = new Map<string, ConsultantProfile>();
-    availabilityData.forEach((availability: ConsultantAvailability) => {
-      if (availability.consultantProfile && availability.consultantProfile.user) {
-        // Ensure userId is correctly set from user.id
-        const consultant = {
-          ...availability.consultantProfile,
-          userId: availability.consultantProfile.user.id,
-        };
-        uniqueConsultantsMap.set(consultant.id, consultant);
+  async getAll(params?: GetConsultantsParams): Promise<GetConsultantsResponse> {
+    try {
+      const query = new URLSearchParams();
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            query.append(key, String(value));
+          }
+        });
       }
-    });
-    return Array.from(uniqueConsultantsMap.values());
+      const queryString = query.toString();
+      const url = `${API_ENDPOINTS.CONSULTANTS.BASE}${queryString ? `?${queryString}` : ""}`;
+      
+      const response = await apiClient.get<GetConsultantsResponse>(url);
+      return response;
+    } catch (error) {
+      console.error("Error fetching consultants:", error);
+      throw error;
+    }
   },
-  async getAvailability(consultantId: string, date: Date) {
-    const dayOfWeek = date.getDay(); // 0 for Sunday, 1 for Monday, etc.
-    let endpoint = `${API_ENDPOINTS.CONSULTANTS.AVAILABILITY}?consultantId=${consultantId}&dayOfWeek=${dayOfWeek}`;
-    const response = await apiClient.get<ConsultantAvailability[]>(endpoint);
-    console.log("ConsultantService.getAvailability Raw Response:", response); // Added log
-    return response;
-  },
+
+  // You can add other consultant-related API calls here (e.g., approve, reject, update)
 };

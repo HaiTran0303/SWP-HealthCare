@@ -1,56 +1,67 @@
-import axios from "axios"; // Import Axios
-import { API_ENDPOINTS, buildApiUrl } from "@/config/api";
+import { apiClient } from "@/services/api";
+import { API_ENDPOINTS } from "@/config/api";
 
 export interface Service {
   id: string;
   name: string;
   description: string;
-  htmlDescription?: string;
-  price: number | null;
-  duration: number;
-  categoryId: string;
-  requiresConsultant: boolean;
-  imageUrl?: string;
+  price: number;
+  duration: number; // in minutes
+  isActive: boolean;
   shortDescription?: string;
   prerequisites?: string;
   postInstructions?: string;
-  featured?: boolean;
-  location?: "online" | "office";
-  type?: string; // Added type property
+  featured: boolean;
+  categoryId: string;
+  requiresConsultant: boolean;
+  location: "online" | "office";
+  createdAt: string;
+  updatedAt: string;
 }
 
-export const APIService = {
-  async getAll(params: Record<string, any> = {}): Promise<Service[]> {
-    const query = new URLSearchParams(params).toString();
-    const endpoint = `${API_ENDPOINTS.SERVICES.BASE}${query ? `?${query}` : ""}`;
-    const response = await axios.get<any>(buildApiUrl(endpoint));
-    console.log("[APIService] getAll raw response:", response); // Added log
-    const resultData = response.data?.data?.data || response.data?.data || response.data;
-    console.log("[APIService] getAll processed data:", resultData); // Added log
-    return Array.isArray(resultData) ? resultData : [];
-  },
-  async getById(id: string): Promise<Service> { // Added return type
+export interface GetServicesParams {
+  page?: number;
+  limit?: number;
+  sortBy?: "name" | "price" | "duration" | "createdAt" | "updatedAt";
+  sortOrder?: "ASC" | "DESC";
+  search?: string;
+  categoryId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  isActive?: boolean;
+  featured?: boolean;
+  requiresConsultant?: boolean;
+  location?: "online" | "office";
+}
+
+export interface GetServicesResponse {
+  data: Service[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export const ServiceService = {
+  async getAll(params?: GetServicesParams): Promise<GetServicesResponse> {
     try {
-      const response = await axios.get<any>(buildApiUrl(API_ENDPOINTS.SERVICES.BY_ID(id))); // Changed generic type to any
-      console.log("[APIService] getById response.data:", response.data); // Log response.data explicitly
-      return response.data.data; // Return the actual service data nested inside 'data'
+      const query = new URLSearchParams();
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            query.append(key, String(value));
+          }
+        });
+      }
+      const queryString = query.toString();
+      const url = `${API_ENDPOINTS.SERVICES.BASE}${queryString ? `?${queryString}` : ""}`;
+      
+      const response = await apiClient.get<GetServicesResponse>(url);
+      return response;
     } catch (error) {
-      console.error("[APIService] Error in getById:", error);
+      console.error("Error fetching services:", error);
       throw error;
     }
   },
-  async getStiServices(): Promise<Service[]> {
-    const url = buildApiUrl(API_ENDPOINTS.SERVICES.STI);
-    console.log("[APIService] Fetching STI services from URL:", url);
-    try {
-      const response = await axios.get<any>(url);
-      console.log("[APIService] getStiServices raw response:", response);
-      const data = response.data && Array.isArray(response.data.data) ? response.data.data : (Array.isArray(response.data) ? response.data : []);
-      console.log("[APIService] getStiServices processed data:", data);
-      return data;
-    } catch (error) {
-      console.error("[APIService] Error in getStiServices:", error); // Added error log
-      throw error;
-    }
-  },
+
+  // You can add other service-related API calls here (e.g., create, update, delete)
 };

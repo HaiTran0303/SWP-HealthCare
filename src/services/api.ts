@@ -110,7 +110,13 @@ async function fetchWithTimeout(resource: string, config: RequestConfig = {}) {
     console.warn("[APIClient] API response data is null or undefined."); // Added warning
     return null; // Or throw a specific error if appropriate for your API
   }
-  return data.data || data;
+
+  // Check if the response object itself contains pagination metadata
+  if (typeof data === 'object' && data !== null && 'total' in data && 'page' in data && 'limit' in data) {
+    return data; // Return the full response object if it contains pagination data
+  }
+
+  return data.data || data; // Otherwise, return data.data or data as before
 }
 
 export const apiClient = {
