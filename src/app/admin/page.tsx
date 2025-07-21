@@ -35,6 +35,7 @@ import AppointmentManagementTable from "@/components/AppointmentManagementTable"
 import StiTestManagementTable from "@/components/StiTestManagementTable"; // Import StiTestManagementTable
 import ConsultantManagementTable from "@/components/ConsultantManagementTable"; // Import ConsultantManagementTable
 import ServiceManagementTable from "@/components/ServiceManagementTable"; // Import ServiceManagementTable
+import StiProcessTable from "@/components/StiProcessTable"; // Import StiProcessTable
 
 interface UserOverviewResponse {
   totalUsers: number;
@@ -279,6 +280,8 @@ export default function AdminDashboard() {
           <TabsTrigger value="consultants">Tư vấn viên</TabsTrigger>
           <TabsTrigger value="services">Dịch vụ</TabsTrigger>
           <TabsTrigger value="blogs">Bài viết</TabsTrigger>
+          <TabsTrigger value="feedback">Đánh giá & Phản hồi</TabsTrigger>
+          <TabsTrigger value="sti-processes">Quy trình xét nghiệm STI</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -332,6 +335,35 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <ServiceManagementTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="feedback">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý Đánh giá & Phản hồi</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/feedback">
+                <Button>Đi đến trang quản lý Đánh giá & Phản hồi</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="sti-processes">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý Quy trình Xét nghiệm STI</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* StiProcessTable requires 'processes' prop. Need to fetch data.
+                  For now, I'll put a placeholder or a link to the dedicated page if it exists.
+                  Looking at the file structure, there is src/app/admin/sti-processes/page.tsx */}
+              <Link href="/admin/sti-processes">
+                <Button>Đi đến trang quản lý Quy trình Xét nghiệm STI</Button>
+              </Link>
             </CardContent>
           </Card>
         </TabsContent>

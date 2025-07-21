@@ -47,8 +47,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ questionId }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const fetchQuestionAndMessages = useCallback(async () => {
-    setIsLoading(true);
+  const fetchQuestionAndMessages = useCallback(async (retriesRemaining = 3) => {
+    setIsLoading(true); // Always show loading initially
     try {
       const [questionResponse, messagesResponse] = await Promise.all([
         ChatService.getQuestionById(questionId),
@@ -56,20 +56,34 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ questionId }) => {
       ]);
       setQuestion(questionResponse);
       setMessages(messagesResponse.data.reverse()); // Reverse for chronological order
-      await ChatService.markAllMessagesAsRead(questionId); // Mark all messages as read on load
-    } catch (error) {
+      await ChatService.markAllMessagesAsRead(questionId);
+      setIsLoading(false); // Only set false on success
+    } catch (error: any) {
       console.error("Error fetching chat data:", error);
-      toast({
-        title: "Lỗi",
-        description: "Không thể tải dữ liệu chat. Vui lòng thử lại.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+      if (error.response?.status === 404 && retriesRemaining > 0) {
+        console.log(`Retrying fetch for questionId ${questionId}, retries left: ${retriesRemaining}`);
+        // Use a promise to delay and then re-call, but don't set isLoading to false yet
+        setTimeout(() => fetchQuestionAndMessages(retriesRemaining - 1), 1000);
+      } else {
+        // No more retries or it's not a 404, so show error and stop loading
+        toast({
+          title: "Lỗi",
+          description: error.response?.status === 404 ? "Không tìm thấy phòng chat. Vui lòng thử lại sau." : "Không thể tải dữ liệu chat. Vui lòng thử lại.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+      }
     }
-  }, [questionId, toast]);
+  }, [questionId, toast]); // Dependencies: questionId, toast
 
   useEffect(() => {
+    if (!questionId) {
+      // If questionId is not available, do not proceed with fetching or socket setup
+      setIsLoading(false);
+      return;
+    }
+
+    // Call fetchQuestionAndMessages without retriesRemaining as it's handled internally
     fetchQuestionAndMessages();
 
     const socket = initializeSocket();
@@ -132,13 +146,19 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ questionId }) => {
 
     setIsSending(true);
     try {
-      await ChatService.sendMessage(questionId, {
+      const sentMessage = await ChatService.sendMessage(questionId, {
         content: newMessage,
         type: "text",
       });
+      setMessages((prevMessages) => {
+        // Avoid duplicates if the message was already added by the socket listener (less likely for self-sent)
+        if (prevMessages.some((msg) => msg.id === sentMessage.id)) {
+          return prevMessages;
+        }
+        return [...prevMessages, sentMessage];
+      });
       setNewMessage("");
       ChatService.setTyping(questionId, false); // Stop typing after sending
-      // Messages are added via socket listener, no need to refetch
     } catch (error) {
       console.error("Error sending message:", error);
       toast({
@@ -172,12 +192,18 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ questionId }) => {
 
     setIsSending(true);
     try {
-      await ChatService.sendFile(questionId, formData);
+      const sentFileMessage = await ChatService.sendFile(questionId, formData);
+      setMessages((prevMessages) => {
+        // Avoid duplicates if the message was already added by the socket listener (less likely for self-sent)
+        if (prevMessages.some((msg) => msg.id === sentFileMessage.id)) {
+          return prevMessages;
+        }
+        return [...prevMessages, sentFileMessage];
+      });
       toast({
         title: "Thành công",
         description: "Tệp đã được gửi.",
       });
-      // Messages are added via socket listener, no need to refetch
     } catch (error) {
       console.error("Error sending file:", error);
       toast({
