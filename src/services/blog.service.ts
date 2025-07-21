@@ -19,7 +19,12 @@ export interface Blog {
   imageUrl?: string; // Add imageUrl to the Blog interface
   rejectionReason?: string;
   revisionNotes?: string;
-  // ... các trường khác nếu cần
+  autoPublish?: boolean; // Add autoPublish property
+  views?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  relatedServiceIds?: string[];
+  excerpt?: string;
 }
 
 interface UploadImageResponse {
@@ -39,7 +44,7 @@ export const BlogService = {
     return apiClient.get<Blog>(`${API_ENDPOINTS.BLOG.BASE}/${id}`);
   },
   async create(data: Partial<Blog>) {
-    return apiClient.post(API_ENDPOINTS.BLOG.BASE, data);
+    return apiClient.post<Blog>(API_ENDPOINTS.BLOG.BASE, data);
   },
   async update(id: string, data: Partial<Blog>) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}`, data);
@@ -98,10 +103,14 @@ export const BlogService = {
     formData.append("file", file);
     formData.append("entityType", "blog"); // Or "user" if it's a user profile image
     formData.append("entityId", userId); // The user ID who is uploading the image
+    formData.append("generateThumbnails", "true"); // Add this field as per Postman screenshot
+    formData.append("isPublic", "true"); // Add this field as per Postman screenshot
 
     return apiClient.post<UploadImageResponse>(API_ENDPOINTS.FILES.UPLOAD_IMAGE, formData, {
+      // The browser automatically sets the 'Content-Type' header with the correct boundary when FormData is used.
+      // Manually setting it can cause 'Multipart: Boundary not found' errors.
       headers: {
-        "Content-Type": "multipart/form-data", // Important for FormData
+        // "Content-Type": "multipart/form-data",
       },
     });
   },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BlogService } from "@/services/blog.service";
+import { BlogService, Blog } from "@/services/blog.service";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { CategoryService, Category } from "@/services/category.service";
@@ -60,12 +60,6 @@ export default function BlogNewPage() {
     }
 
     try {
-      let featuredImageId: string | null = null;
-      if (selectedFile) {
-        const uploadResponse = await BlogService.uploadBlogImage(selectedFile, user.id);
-        featuredImageId = uploadResponse.id;
-      }
-
       const tagArr = tags
         .split(",")
         .map((t) => t.trim())
@@ -81,56 +75,59 @@ export default function BlogNewPage() {
         setLoading(false);
         return;
       }
-
-      let status: "draft" | "published" | "pending_review" = "draft";
-      let autoPublish = false;
-
-      if (isAdminOrManager) {
-        if (publishOption === "publish") {
-          status = "published";
-          autoPublish = true; // For "Tạo blog với autoPublish=true"
-        } else if (publishOption === "draft_then_publish") {
-          status = "published"; // For "Tạo blog (DRAFT) & Xuất bản trực tiếp"
-          autoPublish = false;
-        } else if (publishOption === "review") {
-          status = "pending_review"; // For "Tạo blog (DRAFT) & Gửi để xem xét (workflow review)"
-        } else if (publishOption === "draft") {
-          status = "draft"; // For "Tạo blog (DRAFT)"
-        }
-      } else if (isConsultant) {
-        if (publishOption === "review") {
-          status = "pending_review"; // For "Tạo blog (DRAFT) & Gửi để xem xét"
-        } else {
-          status = "draft"; // Default for consultant if not submitting for review
-        }
+      if (tagArr.length === 0) { // New validation for tags
+        setError("Tags không được để trống.");
+        setLoading(false);
+        return;
       }
 
-      const payload: any = {
+      const isAutoPublish = isAdminOrManager && (publishOption === 'publish' || publishOption === 'draft_then_publish');
+
+      const blogPayload: any = {
         authorId: user.id,
         title: title.trim(),
         content: content.trim(),
         categoryId,
         tags: tagArr,
-        status: status,
+        status: "draft", 
       };
 
-      if (featuredImageId) {
-        payload.featuredImage = featuredImageId;
+      if (isAutoPublish) {
+        blogPayload.autoPublish = true;
       }
 
-      if (autoPublish) {
-        payload.autoPublish = true;
+      // Ensure all fields are present; rely on backend to handle empty strings/arrays if optional.
+      // The previous loop that removed undefined or empty string fields is removed,
+      // as the backend might expect them to be present in the payload.
+
+      console.log("Blog create payload (initial):", blogPayload);
+      const newBlog = await BlogService.create(blogPayload); // Create blog first
+
+      let featuredImageId: string | null = null;
+      if (selectedFile && newBlog?.id) { // If image selected and blog created successfully
+        const uploadResponse = await BlogService.uploadBlogImage(selectedFile, newBlog.id); // Use new blog's ID as entityId
+        featuredImageId = uploadResponse.id;
+
+        if (featuredImageId) {
+          // Update the blog with the featured image ID
+          await BlogService.update(newBlog.id, { featuredImage: featuredImageId });
+        }
       }
 
-      Object.keys(payload).forEach(
-        (key) =>
-          (payload[key] === undefined || payload[key] === "") &&
-          key !== "tags" &&
-          delete payload[key]
-      );
+      if (newBlog?.id) {
+        if (isConsultant && publishOption === 'review') {
+          await BlogService.submitReview(newBlog.id);
+        } else if (isAdminOrManager) {
+          if (publishOption === 'review') {
+            await BlogService.submitReview(newBlog.id);
+          } else if (publishOption === 'publish') {
+            await BlogService.publish(newBlog.id);
+          } else if (publishOption === 'draft_then_publish') {
+            await BlogService.directPublish(newBlog.id);
+          }
+        }
+      }
 
-      console.log("Blog create payload:", payload);
-      await BlogService.create(payload);
       router.push("/blog");
     } catch (err: any) {
       const detail = Array.isArray(err?.error?.message)
@@ -217,13 +214,13 @@ export default function BlogNewPage() {
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="publish" id="option-publish" />
                     <Label htmlFor="option-publish">
-                      Tạo blog với autoPublish=true (Xuất bản ngay lập tức)
+                      Tạo blog và Xuất bản ngay lập tức
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="draft_then_publish" id="option-draft-publish" />
                     <Label htmlFor="option-draft-publish">
-                      Tạo blog (DRAFT) & Xuất bản trực tiếp
+                      Tạo blog Nháp & Xuất bản trực tiếp
                     </Label>
                   </div>
                 </>
@@ -231,14 +228,14 @@ export default function BlogNewPage() {
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="review" id="option-review" />
                 <Label htmlFor="option-review">
-                  {isConsultant ? "Tạo blog (DRAFT) & Gửi để xem xét" : "Tạo blog (DRAFT) & Gửi để xem xét (nếu muốn theo workflow review)"}
+                  {isConsultant ? "Tạo blog Nháp & Gửi duyệt" : "Tạo blog Nháp & Gửi duyệt (theo quy trình duyệt)"}
                 </Label>
               </div>
               {!isConsultant && (
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="draft" id="option-draft" />
                   <Label htmlFor="option-draft">
-                    Tạo blog (DRAFT)
+                    Tạo blog Nháp
                   </Label>
                 </div>
               )}

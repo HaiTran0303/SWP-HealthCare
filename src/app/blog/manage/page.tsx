@@ -34,10 +34,17 @@ export default function BlogManagePage() {
   });
   const router = useRouter();
 
-  useEffect(() => {
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+
+  const fetchBlogs = () => {
     if (!canCreate) return;
     setLoading(true);
-    BlogService.getAll()
+    const params: any = {};
+    if (search) params.title = search;
+    if (status) params.status = status;
+
+    BlogService.getAll(params)
       .then((data: any) => {
         if (Array.isArray(data)) {
           setBlogs(data);
@@ -49,7 +56,10 @@ export default function BlogManagePage() {
       })
       .catch(() => setBlogs([]))
       .finally(() => setLoading(false));
-    // Fetch all users for author name mapping
+  };
+
+  useEffect(() => {
+    fetchBlogs();
     fetchAllUsers()
       .then((res) => {
         if (Array.isArray(res?.data)) setUsers(res.data);
@@ -57,7 +67,7 @@ export default function BlogManagePage() {
         else setUsers([]);
       })
       .catch(() => setUsers([]));
-  }, [canCreate]);
+  }, [canCreate, search, status]);
 
   // Helper to get author full name
   function getAuthorName(authorId: string) {
@@ -87,11 +97,32 @@ export default function BlogManagePage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Quản lý Blog</h1>
+        <h1 className="text-3xl font-bold">Quản lý bài viết</h1>
         {canCreate && (
           <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Tìm kiếm bài viết..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="border rounded px-2 py-1"
+            />
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="border rounded px-2 py-1"
+            >
+              <option value="">Trạng thái</option>
+              <option value="draft">Draft</option>
+              <option value="pending_review">Pending Review</option>
+              <option value="needs_revision">Needs Revision</option>
+              <option value="rejected">Rejected</option>
+              <option value="approved">Approved</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </select>
             <Link href="/blog/new">
-              <Button>Tạo blog mới</Button>
+              <Button>Thêm bài viết</Button>
             </Link>
             <Link href="/blog/review">
               <Button variant="outline">Review Blog</Button>
