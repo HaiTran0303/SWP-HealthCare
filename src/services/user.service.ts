@@ -61,5 +61,13 @@ export class UserService {
     }
   }
 
-  // You can add more user-related methods here (e.g., getUserById, updateUser, deleteUser)
+  static async getUserById(id: string): Promise<User> {
+    try {
+      const response = await apiClient.get<User>(`${API_ENDPOINTS.USERS.BASE}/${id}`);
+      return response;
+    } catch (error) {
+      console.error(`Error fetching user ${id}:`, error);
+      throw error;
+    }
+  }
 }

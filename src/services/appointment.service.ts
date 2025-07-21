@@ -1,5 +1,6 @@
 import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
+import { User } from "./user.service";
 
 export interface Appointment {
   id: string;
@@ -30,8 +31,9 @@ export interface Appointment {
   cancellationReason?: string;
   // Thêm các trường khác từ API thực tế
   userId?: string;
+  user?: User; // New field for user details
   type?: string;
-  location?: string;
+  appointmentLocation?: string; // Corrected field name to match backend
   duration?: number;
 }
 

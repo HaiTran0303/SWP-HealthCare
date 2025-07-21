@@ -19,6 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RefreshCcw, Calendar as CalendarIcon } from "lucide-react";
+import { DateRange } from "react-day-picker";
+import DatePickerWithRange from "@/components/ui/date-picker-with-range";
 import {
   StiTestProcess,
   STITestingService,
@@ -45,6 +48,10 @@ export default function StiTestManagementTable() {
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterPatientId, setFilterPatientId] = useState<string>(""); // Need to fetch patient list
   const [filterConsultantId, setFilterConsultantId] = useState<string>(""); // Need to fetch consultant list
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined); // New state for date range filter
+  const [filterRequiresConsultation, setFilterRequiresConsultation] = useState<string>("all");
+  const [filterPatientNotified, setFilterPatientNotified] = useState<string>("all");
+  const [filterHasResults, setFilterHasResults] = useState<string>("all");
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
 
@@ -78,13 +85,28 @@ export default function StiTestManagementTable() {
       if (filterConsultantId && filterConsultantId !== "all") {
         filters.consultantDoctorId = filterConsultantId;
       }
+      if (dateRange?.from) {
+        filters.startDate = format(dateRange.from, "yyyy-MM-dd");
+      }
+      if (dateRange?.to) {
+        filters.endDate = format(dateRange.to, "yyyy-MM-dd");
+      }
+      if (filterRequiresConsultation !== "all") {
+        filters.requiresConsultation = filterRequiresConsultation === "true";
+      }
+      if (filterPatientNotified !== "all") {
+        filters.patientNotified = filterPatientNotified === "true";
+      }
+      if (filterHasResults !== "all") {
+        filters.hasResults = filterHasResults === "true";
+      }
 
       const response = await STITestingService.getAllTests(filters);
       setTests(response.data);
       setTotalTests(response.total);
     } catch (err: any) {
       console.error("Error fetching STI tests:", err);
-      setError(err?.message || "Lỗi khi tải danh sách xét nghiệm STI.");
+      setError(err.message || "Lỗi khi tải danh sách xét nghiệm STI. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -92,7 +114,7 @@ export default function StiTestManagementTable() {
 
   useEffect(() => {
     fetchTests();
-  }, [currentPage, searchQuery, filterStatus, filterSampleType, filterPriority, filterPatientId, filterConsultantId]);
+  }, [currentPage, searchQuery, filterStatus, filterSampleType, filterPriority, filterPatientId, filterConsultantId, dateRange, filterRequiresConsultation, filterPatientNotified, filterHasResults]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -140,56 +162,97 @@ export default function StiTestManagementTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="flex gap-4">
+        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap gap-4 mb-4">
           <Input
             placeholder="Tìm kiếm mã xét nghiệm..."
             className="w-[250px]"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Lọc theo trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả trạng thái</SelectItem>
-              <SelectItem value="ordered">Đã đặt lịch</SelectItem>
-              <SelectItem value="sample_collection_scheduled">Lên lịch lấy mẫu</SelectItem>
-              <SelectItem value="sample_collected">Đã lấy mẫu</SelectItem>
-              <SelectItem value="processing">Đang xử lý</SelectItem>
-              <SelectItem value="result_ready">Có kết quả</SelectItem>
-              <SelectItem value="result_delivered">Đã gửi kết quả</SelectItem>
-              <SelectItem value="consultation_required">Yêu cầu tư vấn</SelectItem>
-              <SelectItem value="follow_up_scheduled">Lên lịch tái khám</SelectItem>
-              <SelectItem value="completed">Hoàn thành</SelectItem>
-              <SelectItem value="cancelled">Đã hủy</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filterSampleType} onValueChange={setFilterSampleType}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Lọc theo loại mẫu" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả loại mẫu</SelectItem>
-              <SelectItem value="blood">Máu</SelectItem>
-              <SelectItem value="urine">Nước tiểu</SelectItem>
-              <SelectItem value="swab">Dịch phết</SelectItem>
-              <SelectItem value="saliva">Nước bọt</SelectItem>
-              <SelectItem value="other">Khác</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filterPriority} onValueChange={setFilterPriority}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Lọc theo độ ưu tiên" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả ưu tiên</SelectItem>
-              <SelectItem value="normal">Bình thường</SelectItem>
-              <SelectItem value="high">Cao</SelectItem>
-              <SelectItem value="urgent">Khẩn cấp</SelectItem>
-            </SelectContent>
-          </Select>
+          <Button
+            onClick={fetchTests}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <RefreshCcw className="h-4 w-4" /> Tải lại
+          </Button>
+          <DatePickerWithRange date={dateRange} setDate={setDateRange} />
+          <div className="flex flex-wrap gap-4">
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Lọc theo trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="ordered">Đã đặt lịch</SelectItem>
+                <SelectItem value="sample_collection_scheduled">Lên lịch lấy mẫu</SelectItem>
+                <SelectItem value="sample_collected">Đã lấy mẫu</SelectItem>
+                <SelectItem value="processing">Đang xử lý</SelectItem>
+                <SelectItem value="result_ready">Có kết quả</SelectItem>
+                <SelectItem value="result_delivered">Đã gửi kết quả</SelectItem>
+                <SelectItem value="consultation_required">Yêu cầu tư vấn</SelectItem>
+                <SelectItem value="follow_up_scheduled">Lên lịch tái khám</SelectItem>
+                <SelectItem value="completed">Hoàn thành</SelectItem>
+                <SelectItem value="cancelled">Đã hủy</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterSampleType} onValueChange={setFilterSampleType}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Lọc theo loại mẫu" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả loại mẫu</SelectItem>
+                <SelectItem value="blood">Máu</SelectItem>
+                <SelectItem value="urine">Nước tiểu</SelectItem>
+                <SelectItem value="swab">Dịch phết</SelectItem>
+                <SelectItem value="saliva">Nước bọt</SelectItem>
+                <SelectItem value="other">Khác</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterPriority} onValueChange={setFilterPriority}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Lọc theo độ ưu tiên" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả ưu tiên</SelectItem>
+                <SelectItem value="normal">Bình thường</SelectItem>
+                <SelectItem value="high">Cao</SelectItem>
+                <SelectItem value="urgent">Khẩn cấp</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterRequiresConsultation} onValueChange={setFilterRequiresConsultation}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Yêu cầu tư vấn?" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="true">Yêu cầu tư vấn</SelectItem>
+                <SelectItem value="false">Không yêu cầu tư vấn</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterPatientNotified} onValueChange={setFilterPatientNotified}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Đã thông báo BN?" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="true">Đã thông báo</SelectItem>
+                <SelectItem value="false">Chưa thông báo</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterHasResults} onValueChange={setFilterHasResults}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Có kết quả?" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="true">Có kết quả</SelectItem>
+                <SelectItem value="false">Chưa có kết quả</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {/* Add Select for Patient and Consultant if you have a list of them */}
         </div>
       </div>
@@ -197,7 +260,11 @@ export default function StiTestManagementTable() {
       {loading ? (
         <div className="text-center py-8">Đang tải xét nghiệm STI...</div>
       ) : error ? (
-        <div className="text-center py-8 text-red-500">{error}</div>
+        <div className="text-center py-8 text-red-500">
+          <p className="font-bold">Lỗi:</p>
+          <p>{error}</p>
+          <p className="mt-2">Vui lòng thử lại hoặc liên hệ quản trị viên nếu lỗi tiếp diễn.</p>
+        </div>
       ) : tests.length === 0 ? (
         <div className="text-center py-8 text-gray-500">Không có xét nghiệm STI nào.</div>
       ) : (

@@ -27,6 +27,7 @@ import {
   UpdateAppointmentDto,
   CancelAppointmentDto,
 } from "@/services/appointment.service";
+import { User, UserService } from "@/services/user.service"; // New import
 import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/use-toast";
@@ -43,6 +44,7 @@ export default function AppointmentManagementTable() {
   const [filterStatus, setFilterStatus] = useState<string>(""); // For filtering by appointment status
   const [filterConsultantId, setFilterConsultantId] = useState<string>(""); // For filtering by consultant
   const [filterUserId, setFilterUserId] = useState<string>(""); // For filtering by user/customer
+  const [usersMap, setUsersMap] = useState<Map<string, User>>(new Map()); // Cache for user details
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
 
@@ -71,7 +73,43 @@ export default function AppointmentManagementTable() {
       // For now, `searchQuery` will not be directly applied as a filter to the API call.
 
       const response = await AppointmentService.getAllAppointments(query);
-      setAppointments(response.data);
+      let fetchedAppointments = response.data;
+
+      // Collect all unique user IDs from fetched appointments that are not yet in usersMap
+      const userIdsToFetch = new Set<string>();
+      fetchedAppointments.forEach(app => {
+        if (app.userId && !usersMap.has(app.userId)) {
+          userIdsToFetch.add(app.userId);
+        }
+      });
+
+      // Fetch details for new users
+      const newUsersPromises = Array.from(userIdsToFetch).map(userId =>
+        UserService.getUserById(userId).catch(err => {
+          console.error(`Error fetching user details for ${userId}:`, err);
+          return null; // Return null for failed fetches
+        })
+      );
+      const fetchedNewUsers = (await Promise.all(newUsersPromises)).filter(Boolean) as User[];
+
+      // Update the usersMap with newly fetched users
+      const updatedUsersMap = new Map(usersMap);
+      fetchedNewUsers.forEach(user => updatedUsersMap.set(user.id, user));
+      setUsersMap(updatedUsersMap); // Update the state once
+
+      // Map user details into appointments
+      const appointmentsWithUserDetails = fetchedAppointments.map(app => {
+        if (app.userId && updatedUsersMap.has(app.userId)) {
+          return { ...app, user: updatedUsersMap.get(app.userId) };
+        }
+        // If user was already in map but not attached to appointment (e.g., initial load)
+        if (app.userId && usersMap.has(app.userId)) {
+          return { ...app, user: usersMap.get(app.userId) };
+        }
+        return app;
+      });
+
+      setAppointments(appointmentsWithUserDetails);
       setTotalAppointments(response.total);
     } catch (err: any) {
       console.error("Error fetching appointments:", err);
@@ -147,6 +185,20 @@ export default function AppointmentManagementTable() {
     setCurrentPage(totalPages);
   };
 
+  const getLocationText = (location: string | undefined): string => {
+    if (!location) {
+      return "Địa điểm không xác định";
+    }
+    switch (location) {
+      case "online":
+        return "Trực tuyến";
+      case "office":
+        return "Tại phòng khám";
+      default:
+        return location; // Trả về nguyên văn nếu không khớp
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -220,13 +272,15 @@ export default function AppointmentManagementTable() {
               {appointments.map((appointment) => (
                 <TableRow key={appointment.id}>
                   <TableCell>{appointment.id.substring(0, 8)}...</TableCell>
-                  <TableCell>{appointment.userId || "N/A"}</TableCell> {/* Need to fetch user details */}
+                  <TableCell>
+                    {appointment.user ? `${appointment.user.firstName} ${appointment.user.lastName}` : "N/A"}
+                  </TableCell>
                   <TableCell>{appointment.consultant?.firstName} {appointment.consultant?.lastName || "N/A"}</TableCell>
                   <TableCell>{appointment.service?.name || "Tư vấn chung"}</TableCell>
                   <TableCell>
                     {format(new Date(appointment.appointmentDate), "dd/MM/yyyy HH:mm")}
                   </TableCell>
-                  <TableCell>{appointment.location || "N/A"}</TableCell>
+                  <TableCell>{getLocationText(appointment.appointmentLocation)}</TableCell>
                   <TableCell>
                     <Badge variant={appointment.status === "completed" ? "default" : "secondary"}>
                       {AppointmentService.getStatusText(appointment.status as AppointmentStatus)}
