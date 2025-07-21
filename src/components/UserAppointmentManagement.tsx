@@ -543,59 +543,76 @@ const UserAppointmentManagement: React.FC = () => {
       );
       console.log("Mapped General Appointments:", generalAppointments);
 
-      const stiAppointments: AppointmentDetails[] = Array.isArray(stiAppointmentsResponse.data)
-        ? stiAppointmentsResponse.data.map((apt: any) => ({
-          id: apt.id,
-          consultantId: apt.consultantDoctor?.id,
-          consultant: apt.consultantDoctor ? {
-            id: apt.consultantDoctor.id,
-            firstName: apt.consultantDoctor.firstName || '',
-            lastName: apt.consultantDoctor.lastName || '',
-            profilePicture: apt.consultantDoctor.profilePicture || apt.consultantDoctor.avatar,
-            specialties: apt.consultantDoctor.specialties || [],
-            qualification: apt.consultantDoctor.qualification,
-            experience: apt.consultantDoctor.experience,
-            rating: apt.consultantDoctor.rating,
-          } : undefined,
-          appointmentDate: apt.sampleCollectionDate,
-          status: (() => { // Map STI status to a general AppointmentStatus
-            switch (apt.status) {
-              case "ordered":
-              case "sample_collection_scheduled":
-                return "pending";
-              case "sample_collected":
-              case "processing":
-              case "result_ready":
-              case "result_delivered":
-              case "consultation_required":
-              case "follow_up_scheduled":
-                return "confirmed"; // Treat as confirmed/ongoing
-              case "completed":
-                return "completed";
-              case "cancelled":
-                return "cancelled";
-              default:
-                return "pending"; // Fallback
+      const stiAppointments: AppointmentDetails[] = await Promise.all(
+        Array.isArray(stiAppointmentsResponse.data)
+          ? stiAppointmentsResponse.data.map(async (apt: any) => {
+            const appointmentDetails: AppointmentDetails = {
+              id: apt.id,
+              consultantId: apt.consultantDoctor?.id,
+              consultant: apt.consultantDoctor ? {
+                id: apt.consultantDoctor.id,
+                firstName: apt.consultantDoctor.firstName || '',
+                lastName: apt.consultantDoctor.lastName || '',
+                profilePicture: apt.consultantDoctor.profilePicture || apt.consultantDoctor.avatar,
+                specialties: apt.consultantDoctor.specialties || [],
+                qualification: apt.consultantDoctor.qualification,
+                experience: apt.consultantDoctor.experience,
+                rating: apt.consultantDoctor.rating,
+              } : undefined,
+              appointmentDate: apt.sampleCollectionDate,
+              status: (() => { // Map STI status to a general AppointmentStatus
+                switch (apt.status) {
+                  case "ordered":
+                  case "sample_collection_scheduled":
+                    return "pending";
+                  case "sample_collected":
+                  case "processing":
+                  case "result_ready":
+                  case "result_delivered":
+                  case "consultation_required":
+                  case "follow_up_scheduled":
+                    return "confirmed"; // Treat as confirmed/ongoing
+                  case "completed":
+                    return "completed";
+                  case "cancelled":
+                    return "cancelled";
+                  default:
+                    return "pending"; // Fallback
+                }
+              })() as AppointmentStatus,
+              notes: apt.processNotes,
+              location: apt.sampleCollectionLocation,
+              createdAt: apt.createdAt,
+              updatedAt: apt.updatedAt,
+              services: apt.service ? [{
+                id: apt.service.id,
+                name: apt.service.name,
+                description: apt.service.description,
+                price: apt.service.price,
+                type: apt.service.type,
+              }] : [],
+              type: "sti_test", // Mark as STI test appointment
+              sampleCollectionDate: apt.sampleCollectionDate,
+              sampleCollectionLocation: apt.sampleCollectionLocation,
+              stiServiceId: apt.service?.id,
+              testCode: apt.testCode,
+              feedbackId: apt.feedbackId, // Populate feedbackId for STI appointments
+              feedback: undefined, // Initialize feedback as undefined
+            };
+
+            // Fetch feedback if feedbackId exists for STI appointments
+            if (appointmentDetails.feedbackId) {
+              try {
+                const feedbackResponse = await FeedbackService.getFeedbackById(appointmentDetails.feedbackId);
+                appointmentDetails.feedback = feedbackResponse;
+              } catch (feedbackError) {
+                console.error(`Error fetching feedback for STI appointment ${apt.id}:`, feedbackError);
+              }
             }
-          })() as AppointmentStatus,
-          notes: apt.processNotes,
-          location: apt.sampleCollectionLocation,
-          createdAt: apt.createdAt,
-          updatedAt: apt.updatedAt,
-          services: apt.service ? [{
-            id: apt.service.id,
-            name: apt.service.name,
-            description: apt.service.description,
-            price: apt.service.price,
-            type: apt.service.type,
-          }] : [],
-          type: "sti_test", // Mark as STI test appointment
-          sampleCollectionDate: apt.sampleCollectionDate,
-          sampleCollectionLocation: apt.sampleCollectionLocation,
-          stiServiceId: apt.service?.id,
-          testCode: apt.testCode,
-        }))
-        : [];
+            return appointmentDetails;
+          })
+          : []
+      );
       console.log("Mapped STI Appointments:", stiAppointments);
 
       const combinedAppointments = [...generalAppointments, ...stiAppointments];

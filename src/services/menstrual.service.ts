@@ -37,6 +37,42 @@ export interface Prediction {
   };
 }
 
+// Interfaces for Contraceptive Reminders
+export interface ContraceptiveReminder {
+  id: string;
+  userId: string;
+  contraceptiveType: string;
+  reminderTime: string; // HH:mm
+  startDate: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  frequency: 'daily' | 'weekly' | 'monthly';
+  daysOfWeek?: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  reminderMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateContraceptiveReminderDto {
+  contraceptiveType: string;
+  reminderTime: string;
+  startDate: string;
+  endDate?: string;
+  frequency: 'daily' | 'weekly' | 'monthly';
+  daysOfWeek?: number[];
+  reminderMessage?: string;
+}
+
+export interface UpdateContraceptiveReminderDto {
+  contraceptiveType?: string;
+  reminderTime?: string;
+  startDate?: string;
+  endDate?: string;
+  frequency?: 'daily' | 'weekly' | 'monthly';
+  daysOfWeek?: number[];
+  reminderMessage?: string;
+}
+
+
 export const MenstrualService = {
   // Quản lý chu kỳ
   async createCycle(data: CycleData): Promise<ApiResponse<any>> {
@@ -98,6 +134,27 @@ export const MenstrualService = {
   async getPredictions(): Promise<Prediction> {
     const res: ApiResponse<Prediction> = (await apiClient.get(API_ENDPOINTS.CYCLES.PREDICTIONS)) as ApiResponse<Prediction>;
     return res.data || (res as unknown as Prediction); // Casting to Prediction if data is not directly available
+  },
+
+  // Quản lý nhắc nhở tránh thai
+  async createContraceptiveReminder(data: CreateContraceptiveReminderDto): Promise<ApiResponse<ContraceptiveReminder>> {
+    return (await apiClient.post(API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BASE, data)) as ApiResponse<ContraceptiveReminder>;
+  },
+
+  async getAllContraceptiveReminders(): Promise<ApiResponse<ContraceptiveReminder[]>> {
+    return (await apiClient.get(API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BASE)) as ApiResponse<ContraceptiveReminder[]>;
+  },
+
+  async getContraceptiveReminder(id: string): Promise<ApiResponse<ContraceptiveReminder>> {
+    return (await apiClient.get(API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BY_ID(id))) as ApiResponse<ContraceptiveReminder>;
+  },
+
+  async updateContraceptiveReminder(id: string, data: UpdateContraceptiveReminderDto): Promise<ApiResponse<ContraceptiveReminder>> {
+    return (await apiClient.put(API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BY_ID(id), data)) as ApiResponse<ContraceptiveReminder>;
+  },
+
+  async deleteContraceptiveReminder(id: string): Promise<ApiResponse<any>> {
+    return (await apiClient.delete(API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BY_ID(id))) as ApiResponse<any>;
   },
 
   // Các hàm tiện ích

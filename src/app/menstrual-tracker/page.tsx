@@ -20,17 +20,21 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   MenstrualService,
   CycleData,
   SymptomData,
   Prediction,
   Symptom,
+  ContraceptiveReminder,
+  CreateContraceptiveReminderDto,
+  UpdateContraceptiveReminderDto,
 } from "@/services/menstrual.service";
-import { ApiResponse, UpdateHealthDataConsentDto } from "@/types/api.d"; // Import UpdateHealthDataConsentDto
-import { apiClient } from "@/services/api"; // Import apiClient
-import { API_ENDPOINTS } from "@/config/api"; // Import API_ENDPOINTS
+import { ApiResponse, UpdateHealthDataConsentDto } from "@/types/api.d";
+import { apiClient } from "@/services/api";
+import { API_ENDPOINTS } from "@/config/api";
+import { format } from "date-fns";
 
 export default function MenstrualTrackerPage() {
   const { user } = useAuth();
@@ -60,15 +64,32 @@ export default function MenstrualTrackerPage() {
   const [menstrualTrackingConsent, setMenstrualTrackingConsent] = useState(false);
   const [userHealthDataConsent, setUserHealthDataConsent] = useState<boolean | null>(null);
 
+  // Nhắc nhở tránh thai
+  const [contraceptiveReminders, setContraceptiveReminders] = useState<ContraceptiveReminder[]>([]);
+  const [showContraceptiveReminderDialog, setShowContraceptiveReminderDialog] = useState(false);
+  const [currentReminder, setCurrentReminder] = useState<ContraceptiveReminder | null>(null);
+  const [newReminderForm, setNewReminderForm] = useState<CreateContraceptiveReminderDto>({
+    contraceptiveType: "",
+    reminderTime: "",
+    startDate: "",
+    frequency: "daily",
+    daysOfWeek: [],
+    reminderMessage: "",
+  });
+  const [savingReminder, setSavingReminder] = useState(false);
+
   useEffect(() => {
     if (user) {
       setUserHealthDataConsent(user.healthDataConsent || false);
-      // Initialize menstrualTrackingConsent based on user's existing healthDataConsent
       if (user.gender === 'F' && (user.healthDataConsent === null || user.healthDataConsent === undefined)) {
-        setMenstrualTrackingConsent(true); // Default checked if no prior choice
+        setMenstrualTrackingConsent(true);
       } else {
-        setMenstrualTrackingConsent(user.healthDataConsent || false); // Use existing consent
+        setMenstrualTrackingConsent(user.healthDataConsent || false);
       }
+      fetchCycles();
+      fetchPrediction();
+      fetchSymptoms();
+      fetchContraceptiveReminders();
     }
   }, [user]);
 
@@ -78,7 +99,7 @@ export default function MenstrualTrackerPage() {
     try {
       const res: ApiResponse<CycleData[]> = await MenstrualService.getAllCycles();
       setCycles(res.data || []);
-    } catch (e: any) { // Catch error here
+    } catch (e: any) {
       console.error("Error fetching cycles:", e);
       setCycles([]);
     } finally {
@@ -116,11 +137,16 @@ export default function MenstrualTrackerPage() {
     }
   };
 
-  useEffect(() => {
-    fetchCycles();
-    fetchPrediction();
-    fetchSymptoms();
-  }, [user]); // Re-run if user changes
+  // Lấy danh sách nhắc nhở tránh thai
+  const fetchContraceptiveReminders = async () => {
+    try {
+      const res: ApiResponse<ContraceptiveReminder[]> = await MenstrualService.getAllContraceptiveReminders();
+      setContraceptiveReminders(res.data || []);
+    } catch (e: any) {
+      console.error("Error fetching contraceptive reminders:", e);
+      setContraceptiveReminders([]);
+    }
+  };
 
   // Function to update health data consent
   const handleUpdateHealthDataConsent = async (consent: boolean) => {
@@ -139,7 +165,7 @@ export default function MenstrualTrackerPage() {
         description: e?.message || "Không thể cập nhật quyền thu thập dữ liệu sức khỏe.",
         variant: "destructive",
       });
-      throw e; // Re-throw to stop further execution if critical
+      throw e;
     }
   };
 
@@ -174,7 +200,6 @@ export default function MenstrualTrackerPage() {
       return;
     }
 
-    // Check for health data consent before proceeding, only if user is female
     if (user?.gender === 'F' && !userHealthDataConsent && !menstrualTrackingConsent) {
       toast({
         title: "Lỗi",
@@ -186,12 +211,10 @@ export default function MenstrualTrackerPage() {
 
     setCreating(true);
     try {
-      // If user is female and consent is given but not yet recorded in profile, update consent first
       if (user?.gender === 'F' && !userHealthDataConsent && menstrualTrackingConsent) {
         await handleUpdateHealthDataConsent(true);
       }
 
-      // Proceed with creating the cycle only if consent is given or user is not female
       if (user?.gender !== 'F' || userHealthDataConsent || menstrualTrackingConsent) {
         await MenstrualService.createCycle({
           cycleStartDate: startDate,
@@ -200,14 +223,12 @@ export default function MenstrualTrackerPage() {
         toast({ title: "Thành công", description: "Đã tạo chu kỳ mới!" });
         setStartDate("");
         setEndDate("");
-        // Only reset menstrualTrackingConsent if it was explicitly checked for this action
         if (menstrualTrackingConsent) {
           setMenstrualTrackingConsent(false);
         }
         fetchCycles();
         fetchPrediction();
       } else {
-        // This case should ideally be caught by the prior toast, but as a fallback:
         toast({
           title: "Lỗi",
           description: "Không có sự đồng ý thu thập dữ liệu sức khỏe.",
@@ -321,6 +342,75 @@ export default function MenstrualTrackerPage() {
     }
   };
 
+  // Xử lý mở dialog tạo nhắc nhở mới
+  const handleOpenCreateReminderDialog = () => {
+    setCurrentReminder(null);
+    setNewReminderForm({
+      contraceptiveType: "",
+      reminderTime: "",
+      startDate: "",
+      frequency: "daily",
+      daysOfWeek: [],
+      reminderMessage: "",
+    });
+    setShowContraceptiveReminderDialog(true);
+  };
+
+  // Xử lý mở dialog chỉnh sửa nhắc nhở
+  const handleOpenEditReminderDialog = (reminder: ContraceptiveReminder) => {
+    setCurrentReminder(reminder);
+    setNewReminderForm({
+      contraceptiveType: reminder.contraceptiveType,
+      reminderTime: reminder.reminderTime,
+      startDate: format(new Date(reminder.startDate), "yyyy-MM-dd"),
+      endDate: reminder.endDate ? format(new Date(reminder.endDate), "yyyy-MM-dd") : undefined,
+      frequency: reminder.frequency,
+      daysOfWeek: reminder.daysOfWeek || [],
+      reminderMessage: reminder.reminderMessage || "",
+    });
+    setShowContraceptiveReminderDialog(true);
+  };
+
+  // Xử lý lưu nhắc nhở (tạo mới hoặc cập nhật)
+  const handleSaveReminder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingReminder(true);
+    try {
+      if (currentReminder) {
+        await MenstrualService.updateContraceptiveReminder(currentReminder.id, newReminderForm);
+        toast({ title: "Thành công", description: "Đã cập nhật nhắc nhở tránh thai!" });
+      } else {
+        await MenstrualService.createContraceptiveReminder(newReminderForm);
+        toast({ title: "Thành công", description: "Đã tạo nhắc nhở tránh thai mới!" });
+      }
+      setShowContraceptiveReminderDialog(false);
+      fetchContraceptiveReminders();
+    } catch (e: any) {
+      toast({
+        title: "Lỗi",
+        description: e?.message || "Không thể lưu nhắc nhở tránh thai",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingReminder(false);
+    }
+  };
+
+  // Xử lý xóa nhắc nhở
+  const handleDeleteReminder = async (id: string) => {
+    try {
+      await MenstrualService.deleteContraceptiveReminder(id);
+      toast({ title: "Thành công", description: "Đã xóa nhắc nhở tránh thai!" });
+      fetchContraceptiveReminders();
+    } catch (e: any) {
+      toast({
+        title: "Lỗi",
+        description: e?.message || "Không thể xóa nhắc nhở tránh thai",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <h1 className="text-3xl font-bold mb-6">Theo dõi chu kỳ kinh nguyệt</h1>
@@ -334,26 +424,20 @@ export default function MenstrualTrackerPage() {
             <div className="space-y-1">
               <div>
                 <b>Ngày bắt đầu dự đoán:</b>{" "}
-                {prediction.predictedCycleStart ||
-                  prediction.data?.predictedCycleStart}
+                {prediction.predictedCycleStart ? format(new Date(prediction.predictedCycleStart), "dd/MM/yyyy") : "N/A"}
               </div>
               <div>
                 <b>Ngày kết thúc dự đoán:</b>{" "}
-                {prediction.predictedCycleEnd ||
-                  prediction.data?.predictedCycleEnd}
+                {prediction.predictedCycleEnd ? format(new Date(prediction.predictedCycleEnd), "dd/MM/yyyy") : "N/A"}
               </div>
               <div>
                 <b>Ngày rụng trứng dự đoán:</b>{" "}
-                {prediction.predictedOvulationDate ||
-                  prediction.data?.predictedOvulationDate}
+                {prediction.predictedOvulationDate ? format(new Date(prediction.predictedOvulationDate), "dd/MM/yyyy") : "N/A"}
               </div>
               <div>
                 <b>Khoảng thụ thai cao:</b>{" "}
-                {prediction.predictedFertileStart ||
-                  prediction.data?.predictedFertileStart}{" "}
-                -{" "}
-                {prediction.predictedFertileEnd ||
-                  prediction.data?.predictedFertileEnd}
+                {prediction.predictedFertileStart && prediction.predictedFertileEnd ?
+                  `${format(new Date(prediction.predictedFertileStart), "dd/MM/yyyy")} - ${format(new Date(prediction.predictedFertileEnd), "dd/MM/yyyy")}` : "N/A"}
               </div>
             </div>
           </CardContent>
@@ -415,7 +499,6 @@ export default function MenstrualTrackerPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả</SelectItem>
-            {/* The years array is generated dynamically, ensure it's not empty */}
             {[
               ...Array.from(
                 new Set(
@@ -437,7 +520,6 @@ export default function MenstrualTrackerPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả</SelectItem>
-            {/* Months are 1-indexed, so add 1 to the index */}
             {[...Array(12)].map((_, i) => (
               <SelectItem key={i + 1} value={String(i + 1).padStart(2, "0")}>
                 {i + 1}
@@ -473,10 +555,10 @@ export default function MenstrualTrackerPage() {
                     onClick={() => handleRowClick(c)}
                   >
                     <td className="p-2 border text-center align-middle">
-                      {c.cycleStartDate?.slice(0, 10)}
+                      {c.cycleStartDate ? format(new Date(c.cycleStartDate), "dd/MM/yyyy") : "N/A"}
                     </td>
                     <td className="p-2 border text-center align-middle">
-                      {c.cycleEndDate?.slice(0, 10)}
+                      {c.cycleEndDate ? format(new Date(c.cycleEndDate), "dd/MM/yyyy") : "N/A"}
                     </td>
                     <td className="p-2 border text-center align-middle">
                       <Button
@@ -520,8 +602,8 @@ export default function MenstrualTrackerPage() {
           <CardHeader>
             <CardTitle>
               Ghi chú triệu chứng cho chu kỳ:{" "}
-              {selectedCycle.cycleStartDate?.slice(0, 10)} -{" "}
-              {selectedCycle.cycleEndDate?.slice(0, 10)}
+              {selectedCycle.cycleStartDate ? format(new Date(selectedCycle.cycleStartDate), "dd/MM/yyyy") : "N/A"} -{" "}
+              {selectedCycle.cycleEndDate ? format(new Date(selectedCycle.cycleEndDate), "dd/MM/yyyy") : "N/A"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -600,7 +682,55 @@ export default function MenstrualTrackerPage() {
           </CardContent>
         </Card>
       )}
-      {/* Modal chi tiết/sửa/xoá */}
+
+      {/* Block Nhắc nhở tránh thai */}
+      <Card className="mt-6">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-xl font-bold">Nhắc nhở tránh thai</CardTitle>
+          <Button onClick={handleOpenCreateReminderDialog}>Thêm nhắc nhở</Button>
+        </CardHeader>
+        <CardContent>
+          {contraceptiveReminders.length === 0 ? (
+            <div className="text-center text-gray-500">Chưa có nhắc nhở nào.</div>
+          ) : (
+            <ul className="space-y-4">
+              {contraceptiveReminders.map((reminder) => (
+                <li key={reminder.id} className="border rounded-lg p-4 shadow-sm">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-semibold text-lg">{reminder.contraceptiveType}</h3>
+                    <div className="flex space-x-2">
+                      <Button size="sm" variant="outline" onClick={() => handleOpenEditReminderDialog(reminder)}>Sửa</Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDeleteReminder(reminder.id)}>Xóa</Button>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    Thời gian: {reminder.reminderTime} | Tần suất: {reminder.frequency}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    Từ ngày: {format(new Date(reminder.startDate), "dd/MM/yyyy")}
+                    {reminder.endDate && ` đến ${format(new Date(reminder.endDate), "dd/MM/yyyy")}`}
+                  </p>
+                  {reminder.frequency === "weekly" && reminder.daysOfWeek && reminder.daysOfWeek.length > 0 && (
+                    <p className="text-sm text-gray-700">
+                      Các ngày: {reminder.daysOfWeek.map(day => {
+                        const days = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+                        return days[day];
+                      }).join(", ")}
+                    </p>
+                  )}
+                  {reminder.reminderMessage && (
+                    <p className="text-sm text-gray-700 mt-1">
+                      Tin nhắn: {reminder.reminderMessage}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal chi tiết/sửa/xoá chu kỳ */}
       <Dialog open={showDetail} onOpenChange={setShowDetail}>
         <DialogContent>
           <DialogHeader>
@@ -612,10 +742,11 @@ export default function MenstrualTrackerPage() {
             <div className="space-y-3">
               <div>
                 <b>Ngày bắt đầu:</b>{" "}
-                {selectedCycle.cycleStartDate?.slice(0, 10)}
+                {selectedCycle.cycleStartDate ? format(new Date(selectedCycle.cycleStartDate), "dd/MM/yyyy") : "N/A"}
               </div>
               <div>
-                <b>Ngày kết thúc:</b> {selectedCycle.cycleEndDate?.slice(0, 10)}
+                <b>Ngày kết thúc:</b>{" "}
+                {selectedCycle.cycleEndDate ? format(new Date(selectedCycle.cycleEndDate), "dd/MM/yyyy") : "N/A"}
               </div>
               {editMode && (
                 <form
@@ -657,6 +788,106 @@ export default function MenstrualTrackerPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Thêm/Sửa nhắc nhở tránh thai */}
+      <Dialog open={showContraceptiveReminderDialog} onOpenChange={setShowContraceptiveReminderDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{currentReminder ? "Sửa nhắc nhở tránh thai" : "Thêm nhắc nhở tránh thai mới"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSaveReminder} className="space-y-4">
+            <div>
+              <Label htmlFor="contraceptiveType">Loại thuốc/phương pháp</Label>
+              <Input
+                id="contraceptiveType"
+                value={newReminderForm.contraceptiveType}
+                onChange={(e) => setNewReminderForm({ ...newReminderForm, contraceptiveType: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="reminderTime">Thời gian nhắc nhở (HH:mm)</Label>
+              <Input
+                id="reminderTime"
+                type="time"
+                value={newReminderForm.reminderTime}
+                onChange={(e) => setNewReminderForm({ ...newReminderForm, reminderTime: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="startDate">Ngày bắt đầu</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={newReminderForm.startDate}
+                onChange={(e) => setNewReminderForm({ ...newReminderForm, startDate: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="endDate">Ngày kết thúc (Không bắt buộc)</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={newReminderForm.endDate || ""}
+                onChange={(e) => setNewReminderForm({ ...newReminderForm, endDate: e.target.value || undefined })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="frequency">Tần suất</Label>
+              <Select
+                value={newReminderForm.frequency}
+                onValueChange={(value: "daily" | "weekly" | "monthly") => setNewReminderForm({ ...newReminderForm, frequency: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn tần suất" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Hàng ngày</SelectItem>
+                  <SelectItem value="weekly">Hàng tuần</SelectItem>
+                  <SelectItem value="monthly">Hàng tháng</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {newReminderForm.frequency === "weekly" && (
+              <div>
+                <Label>Các ngày trong tuần</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"].map((day, index) => (
+                    <div key={day} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`day-${index}`}
+                        checked={newReminderForm.daysOfWeek?.includes(index)}
+                        onCheckedChange={(checked) => {
+                          const updatedDays = checked
+                            ? [...(newReminderForm.daysOfWeek || []), index]
+                            : (newReminderForm.daysOfWeek || []).filter((d) => d !== index);
+                          setNewReminderForm({ ...newReminderForm, daysOfWeek: updatedDays.sort() });
+                        }}
+                      />
+                      <Label htmlFor={`day-${index}`}>{day}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="reminderMessage">Tin nhắn nhắc nhở (Không bắt buộc)</Label>
+              <Input
+                id="reminderMessage"
+                value={newReminderForm.reminderMessage || ""}
+                onChange={(e) => setNewReminderForm({ ...newReminderForm, reminderMessage: e.target.value })}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={savingReminder}>
+                {savingReminder ? "Đang lưu..." : "Lưu nhắc nhở"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

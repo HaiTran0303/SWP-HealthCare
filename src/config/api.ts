@@ -71,6 +71,12 @@ export const API_ENDPOINTS = {
     SYMPTOMS: "/cycle-symptoms",
   },
 
+  // Contraceptive Reminders
+  CONTRACEPTIVE_REMINDERS: {
+    BASE: "/contraceptive-reminders",
+    BY_ID: (id: string) => `/contraceptive-reminders/${id}`,
+  },
+
   // STI Testing
   STI_TESTING: {
     BASE: "/sti-test-processes",

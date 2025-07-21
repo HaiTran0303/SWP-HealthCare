@@ -63,7 +63,7 @@ export default function ServiceManagementTable() {
       if (filterActiveStatus) {
         query.isActive = filterActiveStatus === "active" ? true : false;
       }
-      if (filterRequiresConsultant) {
+      if (filterRequiresConsultant && filterRequiresConsultant !== "all") {
         query.requiresConsultant = filterRequiresConsultant === "true" ? true : false;
       }
 
@@ -163,7 +163,7 @@ export default function ServiceManagementTable() {
               <SelectValue placeholder="Yêu cầu tư vấn viên" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả</SelectItem>
+              <SelectItem value="all">Tất cả</SelectItem>
               <SelectItem value="true">Có</SelectItem>
               <SelectItem value="false">Không</SelectItem>
             </SelectContent>
