@@ -42,10 +42,10 @@ export default function HomePage() {
 
   useEffect(() => {
     APIService.getAll({ limit: 3, page: 1 })
-      .then((res: Service[]) => {
-        setServices(res);
+      .then(({ data }) => {
+        setServices(data);
       })
-      .catch((error) => {
+      .catch((error: any) => {
         console.error("Error fetching services:", error);
         setServices([]); // Set to empty array on error
       });
@@ -160,7 +160,7 @@ export default function HomePage() {
                 <span className="inline-block font-semibold text-lg text-green-700">
                   Giá:{" "}
                   <span className="text-2xl text-green-800">
-                    {service.price.toLocaleString()} VNĐ
+                    {service.price?.toLocaleString() || "Liên hệ"} VNĐ
                   </span>
                 </span>
                  <span className="inline-block text-sm text-blue-700 font-medium">

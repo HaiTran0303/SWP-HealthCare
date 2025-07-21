@@ -42,6 +42,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import FeedbackManagementTable from "../app/admin/feedback/page";
 
 interface DashboardStats {
   totalUsers: number;
@@ -160,12 +161,13 @@ export default function AdminDashboard({
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-5 mb-8">
+        <TabsList className="grid w-full max-w-3xl mx-auto grid-cols-6 mb-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="tests">Tests</TabsTrigger>
           <TabsTrigger value="consultations">Consultations</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="feedback">Feedback</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -312,6 +314,10 @@ export default function AdminDashboard({
           </div>
         </TabsContent>
 
+        <TabsContent value="feedback" className="space-y-6">
+          <FeedbackManagementTable />
+        </TabsContent>
+
         <TabsContent value="users" className="space-y-6">
           <Card>
             <CardHeader>
@@ -344,7 +350,7 @@ export default function AdminDashboard({
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="all">Tất cả trạng thái</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
                   </SelectContent>

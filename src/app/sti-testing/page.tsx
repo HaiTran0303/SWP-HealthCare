@@ -29,7 +29,7 @@ import StiStepper from "@/components/StiStepper";
 import StiServiceCard from "@/components/StiServiceCard";
 import StiSummarySidebar from "@/components/StiSummarySidebar";
 import AuthDialog from "@/components/AuthDialog"; // Import AuthDialog
-import { APIService, Service } from "@/services/service.service"; // Import APIService and Service
+import { APIService, Service } from "@/services/service.service"; // Import ServiceService and Service
 import { STITestingService } from "@/services/sti-testing.service"; // Import STITestingService
 import { CreateStiAppointmentDto, Appointment, FindAvailableSlotsDto, AvailableSlotDto } from "@/types/sti-appointment.d"; // Import new DTOs and types
 
@@ -170,15 +170,15 @@ export default function STITestingPage() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const fetchedServices = await APIService.getStiServices(); // Use new getStiServices
-        if (Array.isArray(fetchedServices)) {
-          setServices(fetchedServices);
-        } else {
-          console.error("Expected fetchedServices to be an array but got:", fetchedServices);
-          setServices([]);
-        }
+        const response = await APIService.getAll();
+        const allServices = response.data;
+        const stiServices = allServices.filter(service =>
+          service.name.toLowerCase().includes("sti") ||
+          (service.type && service.type.toLowerCase().includes("sti")) // Assuming a 'type' field might exist for service classification
+        );
+        setServices(stiServices);
       } catch (error: any) {
-        console.error("Error fetching STI services:", error);
+        console.error("Error fetching all services for STI page:", error);
         toast({
           title: "Lỗi",
           description: "Không thể tải danh sách dịch vụ xét nghiệm STI.",
@@ -361,14 +361,20 @@ export default function STITestingPage() {
               Chọn dịch vụ xét nghiệm STI
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-              {services.map((service) => (
-                <StiServiceCard
-                  key={service.id}
-                  service={service}
-                  selected={selectedServiceIds.includes(service.id)}
-                  onSelect={() => handleSelectService(service.id)}
-                />
-              ))}
+              {services.length > 0 ? (
+                services.map((service) => (
+                  <StiServiceCard
+                    key={service.id}
+                    service={service}
+                    selected={selectedServiceIds.includes(service.id)}
+                    onSelect={() => handleSelectService(service.id)}
+                  />
+                ))
+              ) : (
+                <p className="text-gray-500 col-span-full text-center">
+                  Không tìm thấy dịch vụ xét nghiệm STI nào.
+                </p>
+              )}
             </div>
             <div className="flex justify-end gap-4 mt-6">
               <Button disabled className="rounded-full px-8 py-3 text-lg">

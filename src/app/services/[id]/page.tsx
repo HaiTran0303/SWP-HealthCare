@@ -18,12 +18,12 @@ export default function ServiceDetailPage() {
     if (typeof id === 'string' && id) {
       setLoading(true);
       APIService.getById(id)
-        .then((data: any) => {
-          console.log("[ServiceDetailPage] Fetched service data:", data); // Add this line
+        .then((data: Service) => { // Changed type to Service directly
+          console.log("[ServiceDetailPage] Fetched service data:", data);
           setService(data);
           setError(null);
         })
-        .catch((err) => {
+        .catch((err: any) => { // Added type any for error
           console.error("[ServiceDetailPage] Error fetching service:", err);
           setError("Không thể tải chi tiết dịch vụ. Vui lòng thử lại.");
           setService(null);

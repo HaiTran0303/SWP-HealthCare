@@ -47,6 +47,26 @@ export interface StiTestProcess {
   status: TestStatus;
   createdAt: string;
   updatedAt: string;
+  patient?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  service?: {
+    id: string;
+    name: string;
+    description: string;
+  };
+  appointment?: {
+    id: string;
+    appointmentDate: string;
+  };
+  consultantDoctor?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
 }
 
 
@@ -113,16 +133,17 @@ export const STITestingService = {
     );
   },
 
-  async getAllTests(filters: TestFilters = {}) {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined) {
-        params.append(key, value.toString());
-      }
-    });
-    return apiClient.get(
-      `${API_ENDPOINTS.STI_TESTING.BASE}?${params.toString()}`
-    );
+  async getAllTests(filters: TestFilters = {}): Promise<{ data: StiTestProcess[]; total: number }> {
+    try {
+      const response = await apiClient.post<{ data: StiTestProcess[]; total: number }>(
+        API_ENDPOINTS.STI_TESTING.GET_ALL_PROCESSES,
+        filters
+      );
+      return response;
+    } catch (error) {
+      console.error("[STITestingService] Error fetching all tests:", error);
+      throw error;
+    }
   },
 
   async getTestById(id: string) {

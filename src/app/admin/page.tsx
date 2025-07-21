@@ -30,6 +30,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { apiClient } from "@/services/api"; // Import apiClient
 import { API_ENDPOINTS } from "@/config/api"; // Import API_ENDPOINTS
+import UserManagementTable from "@/components/UserManagementTable"; // Import UserManagementTable
+import AppointmentManagementTable from "@/components/AppointmentManagementTable"; // Import AppointmentManagementTable
+import StiTestManagementTable from "@/components/StiTestManagementTable"; // Import StiTestManagementTable
+import ConsultantManagementTable from "@/components/ConsultantManagementTable"; // Import ConsultantManagementTable
+import ServiceManagementTable from "@/components/ServiceManagementTable"; // Import ServiceManagementTable
 
 interface UserOverviewResponse {
   totalUsers: number;
@@ -282,52 +287,7 @@ export default function AdminDashboard() {
               <CardTitle>Quản lý người dùng</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex gap-4">
-                  <div className="w-[200px]">
-                    <Input placeholder="Tìm kiếm người dùng..." />
-                  </div>
-                  <Select>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Trạng thái" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Đang hoạt động</SelectItem>
-                      <SelectItem value="inactive">Không hoạt động</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button>Thêm người dùng</Button>
-              </div>
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Họ tên</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Số điện thoại</TableHead>
-                    <TableHead>Vai trò</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell>Nguyễn Văn A</TableCell>
-                    <TableCell>nguyenvana@example.com</TableCell>
-                    <TableCell>0123456789</TableCell>
-                    <TableCell>Khách hàng</TableCell>
-                    <TableCell>
-                      <Badge>Đang hoạt động</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">
-                        Chỉnh sửa
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              <UserManagementTable />
             </CardContent>
           </Card>
         </TabsContent>
@@ -338,64 +298,43 @@ export default function AdminDashboard() {
               <CardTitle>Quản lý cuộc hẹn</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex gap-4">
-                  <Input
-                    placeholder="Tìm kiếm cuộc hẹn..."
-                    className="w-[200px]"
-                  />
-                  <Select>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Trạng thái" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Chờ xác nhận</SelectItem>
-                      <SelectItem value="confirmed">Đã xác nhận</SelectItem>
-                      <SelectItem value="completed">Hoàn thành</SelectItem>
-                      <SelectItem value="cancelled">Đã hủy</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mã cuộc hẹn</TableHead>
-                    <TableHead>Khách hàng</TableHead>
-                    <TableHead>Tư vấn viên</TableHead>
-                    <TableHead>Ngày giờ</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell>APT-001</TableCell>
-                    <TableCell>Nguyễn Văn A</TableCell>
-                    <TableCell>Dr. Nguyễn Văn B</TableCell>
-                    <TableCell>23/06/2025 09:00</TableCell>
-                    <TableCell>
-                      <Badge>Chờ xác nhận</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          Xác nhận
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          Chi tiết
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              <AppointmentManagementTable />
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Add similar content for other tabs */}
+        <TabsContent value="tests">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý xét nghiệm</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <StiTestManagementTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="consultants">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý tư vấn viên</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ConsultantManagementTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="services">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý dịch vụ</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ServiceManagementTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="blogs">
           <Card>

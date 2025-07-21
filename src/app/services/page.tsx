@@ -9,17 +9,11 @@ export default function ServicesPage() {
   const router = useRouter();
 
   useEffect(() => {
-    APIService.getAll().then((res: any) => {
-      const arr = Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res)
-          ? res
-          : [];
-      arr.sort(
-        (a: any, b: any) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setServices(arr);
+    APIService.getAll().then(({ data }) => {
+      setServices(data);
+    }).catch((error: any) => {
+      console.error("Error fetching services:", error);
+      setServices([]);
     });
   }, []);
 
@@ -72,7 +66,7 @@ export default function ServicesPage() {
                 <span className="inline-block font-semibold text-lg text-green-700">
                   Giá:{" "}
                   <span className="text-2xl text-green-800">
-                    {item.price} VNĐ
+                    {item.price?.toLocaleString() || "Liên hệ"} VNĐ
                   </span>
                 </span>
                 {/* Removed package specific info as we are fetching services directly */}

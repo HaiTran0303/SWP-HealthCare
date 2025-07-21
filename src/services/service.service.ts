@@ -1,5 +1,5 @@
-import axios from "axios"; // Import Axios
-import { API_ENDPOINTS, buildApiUrl } from "@/config/api";
+import { apiClient } from "./api"; // Changed to apiClient
+import { API_ENDPOINTS } from "@/config/api";
 
 export interface Service {
   id: string;
@@ -16,40 +16,113 @@ export interface Service {
   postInstructions?: string;
   featured?: boolean;
   location?: "online" | "office";
-  type?: string; // Added type property
+  type?: string;
+  isActive?: boolean;
+  createdAt: string; // Add createdAt
+  updatedAt: string; // Add updatedAt
 }
 
-export const APIService = {
-  async getAll(params: Record<string, any> = {}): Promise<Service[]> {
-    const query = new URLSearchParams(params).toString();
-    const endpoint = `${API_ENDPOINTS.SERVICES.BASE}${query ? `?${query}` : ""}`;
-    const response = await axios.get<any>(buildApiUrl(endpoint));
-    console.log("[APIService] getAll raw response:", response); // Added log
-    const resultData = response.data?.data?.data || response.data?.data || response.data;
-    console.log("[APIService] getAll processed data:", resultData); // Added log
-    return Array.isArray(resultData) ? resultData : [];
-  },
-  async getById(id: string): Promise<Service> { // Added return type
+export interface GetServicesQuery {
+  page?: number;
+  limit?: number;
+  sortBy?: "name" | "price" | "duration" | "createdAt" | "updatedAt";
+  sortOrder?: "ASC" | "DESC";
+  search?: string;
+  categoryId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  isActive?: boolean;
+  featured?: boolean;
+  requiresConsultant?: boolean;
+  location?: "online" | "office";
+}
+
+export interface CreateServiceDto {
+  name: string;
+  description: string;
+  price: number;
+  duration: number;
+  categoryId: string;
+  isActive?: boolean;
+  shortDescription?: string;
+  prerequisites?: string;
+  postInstructions?: string;
+  featured?: boolean;
+  requiresConsultant?: boolean;
+  location?: "online" | "office";
+}
+
+export interface UpdateServiceDto {
+  name?: string;
+  description?: string;
+  price?: number;
+  duration?: number;
+  categoryId?: string;
+  isActive?: boolean;
+  shortDescription?: string;
+  prerequisites?: string;
+  postInstructions?: string;
+  featured?: boolean;
+  requiresConsultant?: boolean;
+  location?: "online" | "office";
+}
+
+export const APIService = { 
+  async getAll(query?: GetServicesQuery): Promise<{ data: Service[]; total: number }> {
     try {
-      const response = await axios.get<any>(buildApiUrl(API_ENDPOINTS.SERVICES.BY_ID(id))); // Changed generic type to any
-      console.log("[APIService] getById response.data:", response.data); // Log response.data explicitly
-      return response.data.data; // Return the actual service data nested inside 'data'
+      const response = await apiClient.get<{ data: Service[]; total: number }>(API_ENDPOINTS.SERVICES.GET_ALL, { params: query });
+      return response;
+    } catch (error) {
+      console.error("[APIService] Error fetching services:", error);
+      throw error;
+    }
+  },
+
+  async getById(id: string): Promise<Service> {
+    try {
+      const response = await apiClient.get<Service>(API_ENDPOINTS.SERVICES.BY_ID(id));
+      return response;
     } catch (error) {
       console.error("[APIService] Error in getById:", error);
       throw error;
     }
   },
+
   async getStiServices(): Promise<Service[]> {
-    const url = buildApiUrl(API_ENDPOINTS.SERVICES.STI);
-    console.log("[APIService] Fetching STI services from URL:", url);
     try {
-      const response = await axios.get<any>(url);
-      console.log("[APIService] getStiServices raw response:", response);
-      const data = response.data && Array.isArray(response.data.data) ? response.data.data : (Array.isArray(response.data) ? response.data : []);
-      console.log("[APIService] getStiServices processed data:", data);
-      return data;
+      const response = await apiClient.get<{ data: Service[] }>(API_ENDPOINTS.SERVICES.STI);
+      return response.data || []; // Ensure it always returns an array, even if data is undefined
     } catch (error) {
-      console.error("[APIService] Error in getStiServices:", error); // Added error log
+      console.error("[APIService] Error in getStiServices:", error);
+      throw error;
+    }
+  },
+
+  async createService(data: CreateServiceDto): Promise<Service> {
+    try {
+      const response = await apiClient.post<Service>(API_ENDPOINTS.SERVICES.BASE, data);
+      return response;
+    } catch (error) {
+      console.error("[APIService] Error creating service:", error);
+      throw error;
+    }
+  },
+
+  async updateService(id: string, data: UpdateServiceDto): Promise<Service> {
+    try {
+      const response = await apiClient.patch<Service>(API_ENDPOINTS.SERVICES.BY_ID(id), data);
+      return response;
+    } catch (error) {
+      console.error("[APIService] Error updating service:", error);
+      throw error;
+    }
+  },
+
+  async deleteService(id: string): Promise<void> {
+    try {
+      await apiClient.delete<void>(API_ENDPOINTS.SERVICES.BY_ID(id));
+    } catch (error) {
+      console.error("[APIService] Error deleting service:", error);
       throw error;
     }
   },

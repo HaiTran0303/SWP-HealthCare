@@ -92,12 +92,12 @@ export default function AppointmentsPage() {
     console.log("[AppointmentsPage] Fetching services from APIService.getAll()");
     setLoadingServices(true);
     APIService.getAll() // Changed from PackageServiceService.getAll() to APIService.getAll()
-      .then((res: Service[]) => { // Expected type is now Service[]
-        console.log("[AppointmentsPage] Received response from APIService.getAll():", res);
-        if (Array.isArray(res)) {
-          setServices(res);
+      .then(({ data }) => { // Expected type is now { data: Service[]; total: number }
+        console.log("[AppointmentsPage] Received response from APIService.getAll():", data);
+        if (Array.isArray(data)) {
+          setServices(data);
         } else {
-          console.error("[AppointmentsPage] Expected an array from APIService.getAll(), but received:", res);
+          console.error("[AppointmentsPage] Expected an array from APIService.getAll(), but received:", data);
           setServices([]);
         }
       })
@@ -363,11 +363,11 @@ export default function AppointmentsPage() {
             {selectedServices.map((service) => (
               <li key={service.id} className="mb-1">
                 <span className="text-primary font-medium">{service.name}</span>
-                {service.price && (
+                {service.price !== null && (
                   <span className="ml-2 text-green-700">
-                    ({service.price} VNĐ)
+                    ({service.price.toLocaleString()} VNĐ)
                   </span>
-                  )}
+                )}
                 {service.requiresConsultant && (
                   <span className="ml-2 text-xs text-blue-600">
                     [Cần tư vấn viên]
@@ -484,8 +484,8 @@ export default function AppointmentsPage() {
                           <div className="flex flex-wrap gap-2 text-xs mt-1">
                             <span className="inline-block bg-green-100 text-green-800 px-2 py-0.5 rounded">
                               Giá:{" "}
-                              {item.price
-                                ? `${item.price} VNĐ`
+                              {item.price !== null
+                                ? `${item.price.toLocaleString()} VNĐ`
                                 : "Miễn phí"}
                             </span>
                           </div>
