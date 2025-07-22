@@ -33,6 +33,22 @@ interface UploadImageResponse {
   // Add other properties if available in the API response
 }
 
+export interface CreateBlogData {
+  title: string;
+  content: string;
+  authorId: string;
+  categoryId: string;
+  tags?: string[];
+  status?: 'draft' | 'pending_review' | 'approved' | 'published' | 'rejected' | 'archived';
+  featuredImage?: string;
+  views?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  relatedServicesIds?: string[];
+  excerpt?: string;
+  autoPublish?: boolean;
+}
+
 export const BlogService = {
   async getAll(params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();
@@ -43,7 +59,8 @@ export const BlogService = {
   async getById(id: string) {
     return apiClient.get<Blog>(`${API_ENDPOINTS.BLOG.BASE}/${id}`);
   },
-  async create(data: Partial<Blog>) {
+  async create(data: CreateBlogData) {
+    console.log("Creating blog with data:", JSON.stringify(data, null, 2));
     return apiClient.post<Blog>(API_ENDPOINTS.BLOG.BASE, data);
   },
   async update(id: string, data: Partial<Blog>) {
