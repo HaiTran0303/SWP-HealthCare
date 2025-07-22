@@ -1,5 +1,5 @@
 import { apiClient } from "./api";
-import { API_ENDPOINTS } from "@/config/api";
+import { API_ENDPOINTS, API_BASE_URL } from "@/config/api";
 
 export interface Blog {
   id: string;
@@ -23,7 +23,7 @@ export interface Blog {
   views?: number;
   seoTitle?: string;
   seoDescription?: string;
-  relatedServiceIds?: string[];
+  relatedServicesIds?: string[];
   excerpt?: string;
 }
 
@@ -70,16 +70,31 @@ export const BlogService = {
   async getPublished() {
     return apiClient.get<Blog[]>(`${API_ENDPOINTS.BLOG.BASE}/published`);
   },
+  async attachImageToBlog(blogId: string, imageId: string) {
+    return apiClient.post(`${API_ENDPOINTS.BLOG.BASE}/image`, {
+      blogId,
+      imageId,
+    });
+  },
+  async getImageAccessUrl(imageId: string) {
+    return apiClient.get<{ url: string }>(API_ENDPOINTS.FILES.GET_IMAGE(imageId));
+  },
   async deleteImageFromBlog(blogId: string, imageId: string) {
     return apiClient.put(`${API_ENDPOINTS.BLOG.BASE}/image`, {
       blogId,
       imageId,
     });
   },
+
+  async synchronizeImageToBlog(imageId: string, data: Record<string, any>) {
+    return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/image/${imageId}`, data);
+  },
   async getPendingReview(params: Record<string, any> = {}) {
     const query = new URLSearchParams({
       ...params,
       status: "pending_review",
+      limit: String(params.limit || 1000), // Ensure all pending blogs are fetched
+      page: String(params.page || 1),     // Start from the first page
     }).toString();
     return apiClient.get<Blog[]>(
       `${API_ENDPOINTS.BLOG.BASE}${query ? `?${query}` : ""}`
@@ -98,36 +113,31 @@ export const BlogService = {
     return apiClient.delete(`${API_ENDPOINTS.BLOG.BASE}/${id}`);
   },
 
-  async uploadBlogImage(file: File, userId: string) {
+  async uploadBlogImage(file: File, blogId: string, altText?: string) {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("entityType", "blog"); // Or "user" if it's a user profile image
-    formData.append("entityId", userId); // The user ID who is uploading the image
-    formData.append("generateThumbnails", "true"); // Add this field as per Postman screenshot
-    formData.append("isPublic", "true"); // Add this field as per Postman screenshot
+    formData.append("entityType", "blog");
+    formData.append("entityId", blogId);
+    if (altText) {
+      formData.append("altText", altText);
+    }
+    formData.append("generateThumbnails", "true");
+    formData.append("isPublic", "true");
 
-    return apiClient.post<UploadImageResponse>(API_ENDPOINTS.FILES.UPLOAD_IMAGE, formData, {
-      // The browser automatically sets the 'Content-Type' header with the correct boundary when FormData is used.
-      // Manually setting it can cause 'Multipart: Boundary not found' errors.
+    const accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+
+    const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.FILES.UPLOAD_IMAGE}`, {
+      method: 'POST',
+      body: formData,
       headers: {
-        // "Content-Type": "multipart/form-data",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
     });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to upload image');
+    }
+    return data;
   },
 };
-
-export async function updateBlog(id: string, data: any) {
-  const accessToken =
-    typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-  const res = await fetch(`https://gender-healthcare.org/blogs/${id}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-    body: JSON.stringify(data),
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.message || "Cập nhật blog thất bại");
-  return result.data;
-}

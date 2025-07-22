@@ -14,6 +14,10 @@ export default function BlogNewPage() {
   const [content, setContent] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [tags, setTags] = useState("");
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
+  const [relatedServicesIds, setRelatedServicesIds] = useState<string>("");
+  const [excerpt, setExcerpt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -81,7 +85,37 @@ export default function BlogNewPage() {
         return;
       }
 
-      const isAutoPublish = isAdminOrManager && (publishOption === 'publish' || publishOption === 'draft_then_publish');
+      let initialStatusForCreate: string = "draft"; // Always create as draft initially unless directly published
+      let needsDirectPublish: boolean = false;
+      let needsExplicitPublish: boolean = false;
+      let needsSubmitReview: boolean = false;
+
+      if (isAdminOrManager) {
+        if (publishOption === 'publish') {
+          initialStatusForCreate = "approved"; // Create as approved, then explicitly publish
+          needsExplicitPublish = true;
+        } else if (publishOption === 'draft_then_publish') {
+          initialStatusForCreate = "draft";
+          needsDirectPublish = true; // Will call directPublish later
+        } else if (publishOption === 'review') {
+          initialStatusForCreate = "pending_review";
+          needsSubmitReview = true; // Will call submitReview later
+        } else if (publishOption === 'draft') {
+          initialStatusForCreate = "draft";
+        }
+      } else if (isConsultant) {
+        if (publishOption === 'review') {
+          initialStatusForCreate = "pending_review";
+          needsSubmitReview = true;
+        } else {
+          initialStatusForCreate = "draft";
+        }
+      }
+
+      const relatedServicesArr = relatedServicesIds
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
 
       const blogPayload: any = {
         authorId: user.id,
@@ -89,42 +123,40 @@ export default function BlogNewPage() {
         content: content.trim(),
         categoryId,
         tags: tagArr,
-        status: "draft", 
+        status: initialStatusForCreate, // Set initial status based on selected option
+        seoTitle: seoTitle.trim(),
+        seoDescription: seoDescription.trim(),
+        relatedServicesIds: relatedServicesArr,
+        excerpt: excerpt.trim(),
       };
 
-      if (isAutoPublish) {
-        blogPayload.autoPublish = true;
-      }
+      // Remove autoPublish from payload since we're handling transitions explicitly
+      // if (autoPublishFlag) {
+      //   blogPayload.autoPublish = true;
+      // }
 
-      // Ensure all fields are present; rely on backend to handle empty strings/arrays if optional.
-      // The previous loop that removed undefined or empty string fields is removed,
-      // as the backend might expect them to be present in the payload.
-
-      console.log("Blog create payload (initial):", blogPayload);
-      const newBlog = await BlogService.create(blogPayload); // Create blog first
+      console.log("Blog create payload:", blogPayload);
+      const newBlog = await BlogService.create(blogPayload); // Create blog
 
       let featuredImageId: string | null = null;
-      if (selectedFile && newBlog?.id) { // If image selected and blog created successfully
-        const uploadResponse = await BlogService.uploadBlogImage(selectedFile, newBlog.id); // Use new blog's ID as entityId
+      if (selectedFile && newBlog?.id) {
+        // Pass newBlog.id as blogId, and altText (empty string for now)
+        const uploadResponse = await BlogService.uploadBlogImage(selectedFile, newBlog.id, "");
         featuredImageId = uploadResponse.id;
 
         if (featuredImageId) {
-          // Update the blog with the featured image ID
           await BlogService.update(newBlog.id, { featuredImage: featuredImageId });
         }
       }
 
+      // Explicitly handle status transitions after creation
       if (newBlog?.id) {
-        if (isConsultant && publishOption === 'review') {
+        if (needsSubmitReview) {
           await BlogService.submitReview(newBlog.id);
-        } else if (isAdminOrManager) {
-          if (publishOption === 'review') {
-            await BlogService.submitReview(newBlog.id);
-          } else if (publishOption === 'publish') {
-            await BlogService.publish(newBlog.id);
-          } else if (publishOption === 'draft_then_publish') {
-            await BlogService.directPublish(newBlog.id);
-          }
+        } else if (needsDirectPublish) {
+          await BlogService.directPublish(newBlog.id);
+        } else if (needsExplicitPublish) {
+          await BlogService.publish(newBlog.id);
         }
       }
 
@@ -198,6 +230,46 @@ export default function BlogNewPage() {
             className="w-full border rounded px-2 py-1 mt-1"
             accept="image/*"
             onChange={handleFileChange}
+          />
+        </div>
+        <div>
+          <Label htmlFor="seoTitle" className="font-medium">SEO Title</Label>
+          <input
+            id="seoTitle"
+            className="w-full border rounded px-2 py-1 mt-1"
+            value={seoTitle}
+            onChange={(e) => setSeoTitle(e.target.value)}
+            placeholder="Tiêu đề SEO"
+          />
+        </div>
+        <div>
+          <Label htmlFor="seoDescription" className="font-medium">SEO Description</Label>
+          <textarea
+            id="seoDescription"
+            className="w-full border rounded px-2 py-1 mt-1 min-h-[80px]"
+            value={seoDescription}
+            onChange={(e) => setSeoDescription(e.target.value)}
+            placeholder="Mô tả SEO"
+          />
+        </div>
+        <div>
+          <Label htmlFor="relatedServicesIds" className="font-medium">Related Services IDs (phân tách bởi dấu phẩy)</Label>
+          <input
+            id="relatedServicesIds"
+            className="w-full border rounded px-2 py-1 mt-1"
+            value={relatedServicesIds}
+            onChange={(e) => setRelatedServicesIds(e.target.value)}
+            placeholder="service-id-1, service-id-2"
+          />
+        </div>
+        <div>
+          <Label htmlFor="excerpt" className="font-medium">Excerpt</Label>
+          <textarea
+            id="excerpt"
+            className="w-full border rounded px-2 py-1 mt-1 min-h-[80px]"
+            value={excerpt}
+            onChange={(e) => setExcerpt(e.target.value)}
+            placeholder="Tóm tắt ngắn gọn bài viết"
           />
         </div>
 

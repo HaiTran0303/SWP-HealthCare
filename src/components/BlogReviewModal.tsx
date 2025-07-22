@@ -32,24 +32,38 @@ export default function BlogReviewModal({
 
   const handleReview = async () => {
     if (!blog) return;
-    if (!reason.trim()) {
-      setError(
-        reviewStatus === "approved"
-          ? "Vui lòng nhập ghi chú chỉnh sửa!"
-          : "Vui lòng nhập lý do từ chối!"
-      );
-      return;
-    }
-
     setActionLoading(true);
     setError("");
     setSuccess("");
+
+    const reviewPayload: { status: string; rejectionReason?: string; revisionNotes?: string } = {
+      status: reviewStatus,
+    };
+
+    if (reviewStatus === "needs_revision") {
+      if (!reason.trim()) {
+        setError("Vui lòng nhập ghi chú chỉnh sửa!");
+        setActionLoading(false);
+        return;
+      }
+      reviewPayload.revisionNotes = reason;
+    } else if (reviewStatus === "rejected") {
+      if (!reason.trim()) {
+        setError("Vui lòng nhập lý do từ chối!");
+        setActionLoading(false);
+        return;
+      }
+      reviewPayload.rejectionReason = reason;
+    } else if (reviewStatus === "approved") {
+      // For 'approved' status, the 'reason' field is optional and maps to revisionNotes if provided.
+      // If there's a reason, include it as revisionNotes. Otherwise, do not send revisionNotes.
+      if (reason.trim()) {
+        reviewPayload.revisionNotes = reason;
+      }
+    }
+
     try {
-      await BlogService.review(blog.id, {
-        status: reviewStatus,
-        ...(reviewStatus === "approved" && { revisionNotes: reason }),
-        ...(reviewStatus === "rejected" && { rejectionReason: reason }),
-      });
+      await BlogService.review(blog.id, reviewPayload);
       setSuccess("Đã review thành công!");
       onReviewSuccess();
       onClose();
@@ -87,6 +101,7 @@ export default function BlogReviewModal({
             }}
           >
             <option value="approved">Duyệt (approved)</option>
+            <option value="needs_revision">Cần chỉnh sửa (needs_revision)</option>
             <option value="rejected">Từ chối (rejected)</option>
           </select>
         </div>
