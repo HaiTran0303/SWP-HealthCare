@@ -91,8 +91,12 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ questionId }) => {
     const cleanupNewMessage = ChatService.onNewMessage((message) => {
       if (message.questionId === questionId) {
         setMessages((prevMessages) => {
-          // Prevent duplicate messages if already received via REST API
-          if (prevMessages.some((msg) => msg.id === message.id)) {
+          // Prevent duplicate messages if already received via REST API or if it's a temporary message
+          if (prevMessages.some((msg) => msg.id === message.id || msg.id.startsWith("temp-"))) {
+            // If it's a temporary message, replace it with the real one
+            if (message.senderId === user?.id && prevMessages.some(msg => msg.content === message.content && msg.id.startsWith("temp-"))) {
+              return prevMessages.map(msg => msg.content === message.content && msg.id.startsWith("temp-") ? message : msg);
+            }
             return prevMessages;
           }
           return [...prevMessages, message];
@@ -146,19 +150,45 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ questionId }) => {
 
     setIsSending(true);
     try {
-      const sentMessage = await ChatService.sendMessage(questionId, {
+      const tempMessage: ChatMessage = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        questionId: questionId,
+        senderId: user?.id || "unknown",
+        senderName: user?.fullName || "Bạn",
         content: newMessage,
         type: "text",
-      });
-      setMessages((prevMessages) => {
-        // Avoid duplicates if the message was already added by the socket listener (less likely for self-sent)
-        if (prevMessages.some((msg) => msg.id === sentMessage.id)) {
-          return prevMessages;
-        }
-        return [...prevMessages, sentMessage];
-      });
+        createdAt: new Date().toISOString(), // Use current time
+        isRead: false, // Assume not read initially
+      };
+
+      setMessages((prevMessages) => [...prevMessages, tempMessage]);
       setNewMessage("");
-      ChatService.setTyping(questionId, false); // Stop typing after sending
+      ChatService.setTyping(questionId, false);
+      scrollToBottom();
+
+      const sentMessage = await ChatService.sendMessage(questionId, {
+        content: tempMessage.content,
+        type: tempMessage.type,
+      });
+
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.id === tempMessage.id
+            ? {
+                ...sentMessage,
+                senderId: user?.id || "unknown", // Ensure senderId is correct
+                senderName: user?.fullName || "Bạn", // Ensure senderName is correct
+                content: sentMessage.content || tempMessage.content, // Ensure content is not lost
+                type: sentMessage.type || tempMessage.type, // Ensure type is not lost
+                createdAt: sentMessage.createdAt || tempMessage.createdAt, // Ensure createdAt is not lost
+                isRead: sentMessage.isRead || tempMessage.isRead, // Ensure isRead is not lost
+                fileUrl: sentMessage.fileUrl || tempMessage.fileUrl, // Ensure fileUrl is not lost
+                description: sentMessage.description || tempMessage.description, // Ensure description is not lost
+              }
+            : msg
+        )
+      );
+      scrollToBottom(); // Scroll again in case new message pushes it
     } catch (error) {
       console.error("Error sending message:", error);
       toast({
@@ -299,114 +329,108 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ questionId }) => {
         </CardHeader>
         <CardContent className="flex-1 overflow-hidden p-4">
           <ScrollArea className="h-full pr-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex items-start gap-3 mb-4 ${
-                  message.senderId === user?.id
-                    ? "justify-end"
-                    : "justify-start"
-                }`}
-              >
-                {message.senderId !== user?.id && (
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage
-                      src={getSenderAvatar(message)}
-                      alt={getSenderName(message)}
-                    />
-                    <AvatarFallback>
-                      {getSenderName(message).charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                )}
+            {messages.map((message) => {
+              const isCurrentUser = message.senderId === user?.id;
+              return (
                 <div
-                  className={`flex flex-col max-w-[70%] ${
-                    message.senderId === user?.id ? "items-end" : "items-start"
+                  key={message.id}
+                  className={`flex items-start gap-3 mb-4 ${
+                    isCurrentUser ? "justify-end" : "justify-start"
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-sm">
-                      {getSenderName(message)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(message.createdAt), "HH:mm dd/MM", {
-                        locale: vi,
-                      })}
-                    </span>
-                  </div>
-                  {message.type === "text" && (
-                    <div
-                      className={`p-3 rounded-lg ${
-                        message.senderId === user?.id
-                          ? "bg-blue-500 text-white"
-                          : "bg-muted"
-                      }`}
-                    >
-                      <p className="text-sm break-words">{message.content}</p>
-                    </div>
-                  )}
-                  {message.type === "image" && (
-                    <div className="relative group">
-                      <img
-                        src={message.fileUrl}
-                        alt="Image message"
-                        className="max-w-xs max-h-48 rounded-lg object-contain cursor-pointer"
-                        onClick={() => window.open(message.fileUrl, "_blank")}
+                  {!isCurrentUser && (
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage
+                        src={getSenderAvatar(message)}
+                        alt={getSenderName(message)}
                       />
-                      {message.isRead && message.senderId === user?.id && (
-                        <span className="absolute bottom-1 right-1 text-xs text-gray-200">Đã xem</span>
-                      )}
-                    </div>
+                      <AvatarFallback>
+                        {getSenderName(message).charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
                   )}
-                  {message.type === "file" && (
-                    <div className="p-3 rounded-lg bg-muted flex items-center gap-2">
-                      <Paperclip className="w-4 h-4 text-muted-foreground" />
-                      <Link
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleDownloadFile(
-                            message.id,
-                            message.content || "downloaded_file"
-                          );
-                        }}
-                        className="text-sm text-blue-600 hover:underline"
-                      >
-                        {message.content || "Tệp đính kèm"}
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          handleDownloadFile(
-                            message.id,
-                            message.content || "downloaded_file"
-                          )
-                        }
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
+                  <div
+                    className={`flex flex-col max-w-[70%] ${
+                      isCurrentUser ? "items-end" : "items-start"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-sm">
+                        {getSenderName(message)}
+                      </span>
                     </div>
-                  )}
-                  {message.senderId === user?.id && (
-                    <span className="text-xs text-muted-foreground mt-1">
-                      {message.isRead ? "Đã xem" : "Đã gửi"}
-                    </span>
+                    {message.type === "text" && (
+                      <div
+                        className={`p-3 rounded-lg ${
+                          isCurrentUser ? "bg-blue-500 text-white" : "bg-muted"
+                        }`}
+                      >
+                        <p className="text-sm break-words">{message.content}</p>
+                      </div>
+                    )}
+                    {message.type === "image" && (
+                      <div className="relative group">
+                        <img
+                          src={message.fileUrl}
+                          alt="Image message"
+                          className="max-w-xs max-h-48 rounded-lg object-contain cursor-pointer"
+                          onClick={() => window.open(message.fileUrl, "_blank")}
+                        />
+                        {isCurrentUser && message.isRead && (
+                          <span className="absolute bottom-1 right-1 text-xs text-gray-200">Đã xem</span>
+                        )}
+                      </div>
+                    )}
+                    {message.type === "file" && (
+                      <div className="p-3 rounded-lg bg-muted flex items-center gap-2">
+                        <Paperclip className="w-4 h-4 text-muted-foreground" />
+                        <Link
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleDownloadFile(
+                              message.id,
+                              message.content || "downloaded_file"
+                            );
+                          }}
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          {message.content || "Tệp đính kèm"}
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            handleDownloadFile(
+                              message.id,
+                              message.content || "downloaded_file"
+                            )
+                          }
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                    {isCurrentUser && (
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {message.isRead ? "Đã xem" : "Đã gửi"}
+                      </span>
+                    )}
+                  </div>
+                  {isCurrentUser && (
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage
+                        src={getSenderAvatar(message)}
+                        alt={getSenderName(message)}
+                      />
+                      <AvatarFallback>
+                        {getSenderName(message).charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
                   )}
                 </div>
-                {message.senderId === user?.id && (
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage
-                      src={getSenderAvatar(message)}
-                      alt={getSenderName(message)}
-                    />
-                    <AvatarFallback>
-                      {getSenderName(message).charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))}
+              );
+            })}
             <div ref={messagesEndRef} />
           </ScrollArea>
         </CardContent>
