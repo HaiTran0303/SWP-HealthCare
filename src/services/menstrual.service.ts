@@ -3,6 +3,13 @@ import { API_ENDPOINTS } from "@/config/api";
 import { ApiResponse } from "@/types/api.d";
 
 export interface CycleData {
+  id: string;
+  cycleStartDate: Date | string;
+  cycleEndDate?: Date | string;
+  notes?: string;
+}
+
+export interface CreateCycleDto {
   cycleStartDate: Date | string;
   cycleEndDate?: Date | string;
   notes?: string;
@@ -75,7 +82,7 @@ export interface UpdateContraceptiveReminderDto {
 
 export const MenstrualService = {
   // Quản lý chu kỳ
-  async createCycle(data: CycleData): Promise<ApiResponse<any>> {
+  async createCycle(data: CreateCycleDto): Promise<ApiResponse<any>> {
     return (await apiClient.post(API_ENDPOINTS.CYCLES.BASE, {
       ...data,
       cycleStartDate: new Date(data.cycleStartDate).toISOString(),

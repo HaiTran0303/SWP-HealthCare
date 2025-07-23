@@ -36,6 +36,7 @@ import {
   Ban,
   Eye,
   MessageSquare,
+  CreditCard, // Add CreditCard icon
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -260,9 +261,10 @@ const AppointmentCard: React.FC<{
   onViewDetails: (appointment: AppointmentDetails) => void;
   onEnterChat: (appointment: AppointmentDetails) => void;
   onRateAppointment: (appointment: AppointmentDetails) => void; // New prop for rating
+  onPayAppointment: (appointment: AppointmentDetails) => void; // New prop for payment
   getStatusIcon: (status: AppointmentStatus) => JSX.Element;
   getStatusColor: (status: AppointmentStatus) => string;
-}> = ({ appointment, onCancel, onViewDetails, onEnterChat, onRateAppointment, getStatusIcon, getStatusColor }) => {
+}> = ({ appointment, onCancel, onViewDetails, onEnterChat, onRateAppointment, onPayAppointment, getStatusIcon, getStatusColor }) => {
 
   const canCancel = AppointmentService.canCancel(appointment.status);
   const isPastAppointment = AppointmentService.isPastAppointment(appointment.appointmentDate);
@@ -411,6 +413,19 @@ const AppointmentCard: React.FC<{
             >
               <StarIcon className="w-4 h-4" />
               Xem phản hồi
+            </Button>
+          )}
+
+          {/* Add Pay Button */}
+          {appointment.status === "pending" && (appointment.type === "consultation" || appointment.type === "sti_test") && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onPayAppointment(appointment)}
+              className="flex items-center gap-2"
+            >
+              <CreditCard className="w-4 h-4" />
+              Thanh toán
             </Button>
           )}
         </div>
@@ -667,6 +682,25 @@ const UserAppointmentManagement: React.FC = () => {
     }
   };
 
+  const handlePayAppointment = (appointment: AppointmentDetails) => {
+    let paymentUrl = '';
+    if (appointment.type === "consultation") {
+      paymentUrl = `/appointments/payment/${appointment.id}`;
+    } else if (appointment.type === "sti_test") {
+      paymentUrl = `/sti-testing/payment/${appointment.id}`; // Assuming STI payment path
+    }
+
+    if (paymentUrl) {
+      router.push(paymentUrl);
+    } else {
+      toast({
+        title: "Lỗi",
+        description: "Không thể tạo URL thanh toán cho lịch hẹn này.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleCancelAppointment = (appointment: AppointmentDetails) => {
     setSelectedAppointment(appointment);
     setIsCancelDialogOpen(true);
@@ -835,6 +869,7 @@ const UserAppointmentManagement: React.FC = () => {
                   onViewDetails={handleViewDetails}
                   onEnterChat={handleEnterChat}
                   onRateAppointment={handleRateAppointment} // Pass the new handler
+                  onPayAppointment={handlePayAppointment} // Pass the new handler
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />
@@ -864,6 +899,7 @@ const UserAppointmentManagement: React.FC = () => {
                   onViewDetails={handleViewDetails}
                   onEnterChat={handleEnterChat}
                   onRateAppointment={handleRateAppointment} // Pass the new handler
+                  onPayAppointment={handlePayAppointment} // Pass the new handler
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />
@@ -896,6 +932,7 @@ const UserAppointmentManagement: React.FC = () => {
                   onViewDetails={handleViewDetails}
                   onEnterChat={handleEnterChat}
                   onRateAppointment={handleRateAppointment} // Pass the new handler
+                  onPayAppointment={handlePayAppointment} // Pass the new handler
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />

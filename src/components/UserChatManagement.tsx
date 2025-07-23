@@ -37,11 +37,11 @@ const CreateQuestionDialog: React.FC<{
   onClose: () => void;
   onQuestionCreated: (questionId: string) => void;
   isLoading: boolean;
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>; // Add setIsLoading prop
   router: any; // Add router prop
-}> = ({ isOpen, onClose, onQuestionCreated, isLoading, router }) => {
+}> = ({ isOpen, onClose, onQuestionCreated, isLoading, setIsLoading, router }) => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [isAnonymous, setIsAnonymous] = useState(false);
   const { toast } = useToast();
 
   const handleCreate = async () => {
@@ -54,19 +54,22 @@ const CreateQuestionDialog: React.FC<{
       return;
     }
 
+    setIsLoading(true); // Set loading true at the start
     try {
-      const response = await ChatService.createQuestion({ title, content, isAnonymous });
-      const newQuestionId = response.id; // Get the ID of the newly created question
+      const response = await ChatService.createQuestion({ title, content });
+      const newQuestionId = response.id;
       
       toast({
         title: "Thành công",
         description: "Câu hỏi của bạn đã được tạo.",
       });
-      onQuestionCreated(newQuestionId); // Pass the new question ID
       onClose();
       setTitle("");
       setContent("");
-      setIsAnonymous(false);
+      // Add a small delay before redirecting to allow the backend to process
+      setTimeout(() => {
+        onQuestionCreated(newQuestionId); // Pass the new question ID after closing dialog
+      }, 500); // 500ms delay
     } catch (error) {
       console.error("Error creating question:", error);
       toast({
@@ -74,6 +77,8 @@ const CreateQuestionDialog: React.FC<{
         description: "Không thể tạo câu hỏi. Vui lòng thử lại.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false); // Set loading false at the end
     }
   };
 
@@ -108,20 +113,6 @@ const CreateQuestionDialog: React.FC<{
               disabled={isLoading}
             />
           </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="anonymous"
-              checked={isAnonymous}
-              onCheckedChange={(checked) => setIsAnonymous(Boolean(checked))}
-              disabled={isLoading}
-            />
-            <label
-              htmlFor="anonymous"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Đặt câu hỏi ẩn danh
-            </label>
-          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
@@ -151,7 +142,7 @@ const UserChatManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateQuestionDialogOpen, setIsCreateQuestionDialogOpen] =
     useState(false);
-  const [isCreatingQuestion, setIsCreatingQuestion] = useState(false);
+  const [isCreatingQuestion, setIsCreatingQuestion] = useState(false); // This state will be passed to dialog
 
   const fetchQuestions = async () => {
     setIsLoading(true);
@@ -291,6 +282,7 @@ const UserChatManagement: React.FC = () => {
           router.push(`/chat/${newQuestionId}`); // Redirect to the new chat room
         }}
         isLoading={isCreatingQuestion}
+        setIsLoading={setIsCreatingQuestion} // Pass the setter
         router={router} // Pass router to the dialog
       />
     </div>

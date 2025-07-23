@@ -1,17 +1,21 @@
 import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { updateBlog, BlogService } from "@/services/blog.service";
+import { BlogService, Blog } from "@/services/blog.service";
 import { CategoryService, Category } from "@/services/category.service";
 
 interface EditBlogModalProps {
-  blog: any;
+  blog: Blog; // Use Blog interface for better type safety
   onClose: () => void;
   onSuccess?: () => void;
 }
 
 const STATUS_OPTIONS = [
   { value: "draft", label: "Nháp" },
+  { value: "pending_review", label: "Chờ duyệt" },
+  { value: "needs_revision", label: "Cần chỉnh sửa" },
+  { value: "rejected", label: "Bị từ chối" },
+  { value: "approved", label: "Đã duyệt" },
   { value: "published", label: "Đã xuất bản" },
   { value: "archived", label: "Lưu trữ" },
 ];
@@ -24,6 +28,11 @@ export default function EditBlogModal({
   const [title, setTitle] = useState(blog.title || "");
   const [content, setContent] = useState(blog.content || "");
   const [categoryId, setCategoryId] = useState(blog.categoryId || "");
+  const [tags, setTags] = useState(blog.tags?.map((tag: any) => typeof tag === 'object' ? tag.name : tag).join(", ") || "");
+  const [seoTitle, setSeoTitle] = useState(blog.seoTitle || "");
+  const [seoDescription, setSeoDescription] = useState(blog.seoDescription || "");
+  const [relatedServicesIds, setRelatedServicesIds] = useState(blog.relatedServicesIds?.join(", ") || "");
+  const [excerpt, setExcerpt] = useState(blog.excerpt || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -50,11 +59,28 @@ export default function EditBlogModal({
     setError("");
     setSuccess("");
     try {
-      const updateData: any = { title, content, categoryId };
-      if (blog.status === "published" || blog.status === "archived") {
-        updateData.status = status;
-      }
-      await updateBlog(blog.id, updateData);
+      const tagArr = tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      const relatedServicesArr = relatedServicesIds
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+
+      const updateData: Partial<Blog> = {
+        title: title.trim(),
+        content: content.trim(),
+        categoryId,
+        tags: tagArr,
+        status: status, // Always include status as it's a controlled field
+        seoTitle: seoTitle.trim(),
+        seoDescription: seoDescription.trim(),
+        relatedServicesIds: relatedServicesArr,
+        excerpt: excerpt.trim(),
+      };
+
+      await BlogService.update(blog.id, updateData);
       setSuccess("Cập nhật thành công!");
       if (onSuccess) onSuccess();
       setTimeout(() => {
@@ -87,7 +113,7 @@ export default function EditBlogModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg relative">
+      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative max-h-[90vh] overflow-y-auto">
         <button className="absolute top-2 right-2 text-xl" onClick={onClose}>
           &times;
         </button>
@@ -133,22 +159,65 @@ export default function EditBlogModal({
               required
             />
           </div>
-          {(blog.status === "published" || blog.status === "archived") && (
-            <div>
-              <label className="block font-medium mb-1 text-left">
-                Trạng thái
-              </label>
-              <select
-                className="w-full border rounded px-3 py-2"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                required
-              >
-                <option value="published">Đã xuất bản</option>
-                <option value="archived">Lưu trữ</option>
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="block font-medium mb-1 text-left">Tags (phân tách bởi dấu phẩy)</label>
+            <Input
+              placeholder="giới tính, sức khỏe, tư vấn"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block font-medium mb-1 text-left">SEO Title</label>
+            <Input
+              placeholder="Tiêu đề SEO"
+              value={seoTitle}
+              onChange={(e) => setSeoTitle(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block font-medium mb-1 text-left">SEO Description</label>
+            <textarea
+              className="w-full border rounded px-3 py-2 min-h-24 resize-y"
+              placeholder="Mô tả SEO"
+              value={seoDescription}
+              onChange={(e) => setSeoDescription(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block font-medium mb-1 text-left">Related Services IDs (phân tách bởi dấu phẩy)</label>
+            <Input
+              placeholder="service-id-1, service-id-2"
+              value={relatedServicesIds}
+              onChange={(e) => setRelatedServicesIds(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block font-medium mb-1 text-left">Excerpt</label>
+            <textarea
+              className="w-full border rounded px-3 py-2 min-h-24 resize-y"
+              placeholder="Tóm tắt ngắn gọn bài viết"
+              value={excerpt}
+              onChange={(e) => setExcerpt(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block font-medium mb-1 text-left">
+              Trạng thái
+            </label>
+            <select
+              className="w-full border rounded px-3 py-2"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              required
+            >
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="flex gap-2 justify-end">
             <Button
               type="button"

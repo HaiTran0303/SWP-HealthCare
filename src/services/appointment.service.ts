@@ -29,6 +29,7 @@ export interface Appointment {
   createdAt: string;
   updatedAt: string;
   cancellationReason?: string;
+  meetingLink?: string; // Added meetingLink property
   // Thêm các trường khác từ API thực tế
   userId?: string;
   user?: User; // New field for user details

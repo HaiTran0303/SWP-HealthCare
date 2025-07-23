@@ -23,14 +23,15 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   MenstrualService,
-  CycleData,
   SymptomData,
   Prediction,
   Symptom,
   ContraceptiveReminder,
   CreateContraceptiveReminderDto,
   UpdateContraceptiveReminderDto,
+  CreateCycleDto, // Import CreateCycleDto
 } from "@/services/menstrual.service";
+import { MenstrualCycleHistory } from "@/components/MenstrualCycleHistory"; // Import MenstrualCycleHistory
 import { ApiResponse, UpdateHealthDataConsentDto } from "@/types/api.d";
 import { apiClient } from "@/services/api";
 import { API_ENDPOINTS } from "@/config/api";
@@ -39,28 +40,10 @@ import { format } from "date-fns";
 export default function MenstrualTrackerPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [cycles, setCycles] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
-  const [selectedCycle, setSelectedCycle] = useState<any>(null);
-  const [showDetail, setShowDetail] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [editStart, setEditStart] = useState("");
-  const [editEnd, setEditEnd] = useState("");
-  const [editLoading, setEditLoading] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [filterYear, setFilterYear] = useState<string>("");
-  const [filterMonth, setFilterMonth] = useState<string>("");
-  // Triệu chứng
-  const [symptoms, setSymptoms] = useState<Symptom[]>([]);
-  const [selectedSymptom, setSelectedSymptom] = useState("");
-  const [symptomNotes, setSymptomNotes] = useState("");
-  const [symptomIntensity, setSymptomIntensity] = useState(3);
-  const [savingSymptom, setSavingSymptom] = useState(false);
-  const [cycleSymptoms, setCycleSymptoms] = useState<SymptomData[]>([]);
   const [menstrualTrackingConsent, setMenstrualTrackingConsent] = useState(false);
   const [userHealthDataConsent, setUserHealthDataConsent] = useState<boolean | null>(null);
 
@@ -86,26 +69,10 @@ export default function MenstrualTrackerPage() {
       } else {
         setMenstrualTrackingConsent(user.healthDataConsent || false);
       }
-      fetchCycles();
       fetchPrediction();
-      fetchSymptoms();
       fetchContraceptiveReminders();
     }
   }, [user]);
-
-  // Lấy lịch sử chu kỳ
-  const fetchCycles = async () => {
-    setLoading(true);
-    try {
-      const res: ApiResponse<CycleData[]> = await MenstrualService.getAllCycles();
-      setCycles(res.data || []);
-    } catch (e: any) {
-      console.error("Error fetching cycles:", e);
-      setCycles([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Lấy dự đoán kỳ tiếp theo
   const fetchPrediction = async () => {
@@ -114,26 +81,6 @@ export default function MenstrualTrackerPage() {
       setPrediction(res);
     } catch {
       setPrediction(null);
-    }
-  };
-
-  // Lấy danh sách triệu chứng
-  const fetchSymptoms = async () => {
-    try {
-      const symRes: ApiResponse<Symptom[]> = await MenstrualService.getAllSymptoms();
-      setSymptoms(symRes.data || []);
-    } catch {
-      setSymptoms([]);
-    }
-  };
-
-  // Lấy triệu chứng của chu kỳ đang chọn
-  const fetchCycleSymptoms = async (cycleId: string) => {
-    try {
-      const symRes: ApiResponse<SymptomData[]> = await MenstrualService.getSymptomsByCycleId(cycleId);
-      setCycleSymptoms(symRes.data || []);
-    } catch {
-      setCycleSymptoms([]);
     }
   };
 
@@ -216,18 +163,18 @@ export default function MenstrualTrackerPage() {
       }
 
       if (user?.gender !== 'F' || userHealthDataConsent || menstrualTrackingConsent) {
-        await MenstrualService.createCycle({
+        const cycleData: CreateCycleDto = {
           cycleStartDate: startDate,
           cycleEndDate: endDate,
-        });
+        };
+        await MenstrualService.createCycle(cycleData);
         toast({ title: "Thành công", description: "Đã tạo chu kỳ mới!" });
         setStartDate("");
         setEndDate("");
         if (menstrualTrackingConsent) {
           setMenstrualTrackingConsent(false);
         }
-        fetchCycles();
-        fetchPrediction();
+        fetchPrediction(); // Refresh prediction after creating new cycle
       } else {
         toast({
           title: "Lỗi",
@@ -243,102 +190,6 @@ export default function MenstrualTrackerPage() {
       });
     } finally {
       setCreating(false);
-    }
-  };
-
-  // Filter cycles
-  const filteredCycles = cycles.filter((c) => {
-    const start = c.cycleStartDate?.slice(0, 10);
-    if (filterYear && filterYear !== "all" && !start.startsWith(filterYear))
-      return false;
-    if (
-      filterMonth &&
-      filterMonth !== "all" &&
-      start.slice(5, 7) !== filterMonth
-    )
-      return false;
-    return true;
-  });
-
-  // Xem chi tiết
-  const handleRowClick = (cycle: any) => {
-    setSelectedCycle(cycle);
-    setShowDetail(true);
-    setEditMode(false);
-    setEditStart(cycle.cycleStartDate?.slice(0, 10) || "");
-    setEditEnd(cycle.cycleEndDate?.slice(0, 10) || "");
-    fetchCycleSymptoms(cycle.id);
-  };
-
-  // Sửa chu kỳ
-  const handleEdit = async () => {
-    if (!selectedCycle) return;
-    setEditLoading(true);
-    try {
-      await MenstrualService.updateCycle(selectedCycle.id, {
-        cycleStartDate: editStart,
-        cycleEndDate: editEnd,
-      });
-      toast({ title: "Thành công", description: "Đã cập nhật chu kỳ!" });
-      setShowDetail(false);
-      fetchCycles();
-      fetchPrediction();
-    } catch (e: any) {
-      toast({
-        title: "Lỗi",
-        description: e?.message || "Không thể cập nhật",
-        variant: "destructive",
-      });
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  // Xoá chu kỳ
-  const handleDelete = async () => {
-    if (!selectedCycle) return;
-    setDeleteLoading(true);
-    try {
-      await MenstrualService.deleteCycle(selectedCycle.id);
-      toast({ title: "Thành công", description: "Đã xoá chu kỳ!" });
-      setShowDetail(false);
-      fetchCycles();
-      fetchPrediction();
-    } catch (e: any) {
-      toast({
-        title: "Lỗi",
-        description: e?.message || "Không thể xoá",
-        variant: "destructive",
-      });
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
-  // Lưu triệu chứng cho chu kỳ
-  const handleSaveSymptom = async () => {
-    if (!selectedCycle || !selectedSymptom) return;
-    setSavingSymptom(true);
-    try {
-      await MenstrualService.addSymptom({
-        cycleId: selectedCycle.id,
-        symptomId: selectedSymptom,
-        intensity: symptomIntensity,
-        notes: symptomNotes,
-      });
-      toast({ title: "Thành công", description: "Đã lưu triệu chứng!" });
-      setSelectedSymptom("");
-      setSymptomNotes("");
-      setSymptomIntensity(3);
-      fetchCycleSymptoms(selectedCycle.id);
-    } catch (e: any) {
-      toast({
-        title: "Lỗi",
-        description: e?.message || "Không thể lưu triệu chứng",
-        variant: "destructive",
-      });
-    } finally {
-      setSavingSymptom(false);
     }
   };
 
@@ -491,197 +342,8 @@ export default function MenstrualTrackerPage() {
           </form>
         </CardContent>
       </Card>
-      {/* Filter */}
-      <div className="flex gap-2 mb-4">
-        <Select value={filterYear} onValueChange={setFilterYear}>
-          <SelectTrigger className="w-28">
-            <SelectValue placeholder="Năm" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            {[
-              ...Array.from(
-                new Set(
-                  cycles
-                    .map((c) => c.cycleStartDate?.slice(0, 4))
-                    .filter(Boolean)
-                )
-              ),
-            ].map((y) => (
-              <SelectItem key={y} value={y}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterMonth} onValueChange={setFilterMonth}>
-          <SelectTrigger className="w-24">
-            <SelectValue placeholder="Tháng" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            {[...Array(12)].map((_, i) => (
-              <SelectItem key={i + 1} value={String(i + 1).padStart(2, "0")}>
-                {i + 1}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {/* Danh sách lịch sử chu kỳ */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lịch sử chu kỳ</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div>Đang tải...</div>
-          ) : filteredCycles.length === 0 ? (
-            <div>Không có dữ liệu phù hợp.</div>
-          ) : (
-            <table className="w-full border text-sm">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="p-2 border text-center">Ngày bắt đầu</th>
-                  <th className="p-2 border text-center">Ngày kết thúc</th>
-                  <th className="p-2 border text-center">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCycles.map((c) => (
-                  <tr
-                    key={c.id}
-                    className={`hover:bg-gray-50 cursor-pointer ${selectedCycle?.id === c.id ? "bg-blue-50" : ""}`}
-                    onClick={() => handleRowClick(c)}
-                  >
-                    <td className="p-2 border text-center align-middle">
-                      {c.cycleStartDate ? format(new Date(c.cycleStartDate), "dd/MM/yyyy") : "N/A"}
-                    </td>
-                    <td className="p-2 border text-center align-middle">
-                      {c.cycleEndDate ? format(new Date(c.cycleEndDate), "dd/MM/yyyy") : "N/A"}
-                    </td>
-                    <td className="p-2 border text-center align-middle">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedCycle(c);
-                          setShowDetail(true);
-                          setEditMode(true);
-                          fetchCycleSymptoms(c.id);
-                        }}
-                      >
-                        Sửa
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="ml-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedCycle(c);
-                          setShowDetail(true);
-                          setEditMode(false);
-                          fetchCycleSymptoms(c.id);
-                        }}
-                      >
-                        Xoá
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
-      {/* Block triệu chứng cho chu kỳ đã chọn */}
-      {selectedCycle && (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>
-              Ghi chú triệu chứng cho chu kỳ:{" "}
-              {selectedCycle.cycleStartDate ? format(new Date(selectedCycle.cycleStartDate), "dd/MM/yyyy") : "N/A"} -{" "}
-              {selectedCycle.cycleEndDate ? format(new Date(selectedCycle.cycleEndDate), "dd/MM/yyyy") : "N/A"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-6">
-              <h4 className="font-semibold mb-3">Ghi chú triệu chứng</h4>
-              <div className="bg-gray-50 rounded-lg p-4 flex flex-col gap-2 border">
-                <div className="flex flex-wrap gap-4 items-end justify-center">
-                  <div className="flex flex-col w-48">
-                    <label className="text-xs text-gray-500 mb-1">
-                      Triệu chứng
-                    </label>
-                    <Select
-                      value={selectedSymptom}
-                      onValueChange={setSelectedSymptom}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Chọn triệu chứng" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {symptoms.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col w-24">
-                    <label className="text-xs text-gray-500 mb-1">
-                      Mức độ (1-5)
-                    </label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={5}
-                      value={symptomIntensity}
-                      onChange={(e) =>
-                        setSymptomIntensity(Number(e.target.value))
-                      }
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col w-56">
-                    <label className="text-xs text-gray-500 mb-1">
-                      Ghi chú
-                    </label>
-                    <Input
-                      value={symptomNotes}
-                      onChange={(e) => setSymptomNotes(e.target.value)}
-                      placeholder="Ghi chú"
-                      className="w-full"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleSaveSymptom}
-                    disabled={savingSymptom || !selectedSymptom}
-                    className="bg-primary text-white font-semibold rounded-full h-10 px-6 mt-5"
-                  >
-                    {savingSymptom ? "Đang lưu..." : "Lưu"}
-                  </Button>
-                </div>
-              </div>
-              {/* Danh sách triệu chứng đã ghi */}
-              <ul className="list-disc pl-5 text-sm mt-2">
-                {cycleSymptoms.map((s) => (
-                  <li key={s.symptomId}>
-                    <b>
-                      {symptoms.find((sym) => sym.id === s.symptomId)?.name ||
-                        s.symptomId}
-                    </b>
-                    {" - "}Mức độ: {s.intensity} {s.notes && `- ${s.notes}`}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Lịch sử chu kỳ */}
+      <MenstrualCycleHistory />
 
       {/* Block Nhắc nhở tránh thai */}
       <Card className="mt-6">
@@ -730,66 +392,6 @@ export default function MenstrualTrackerPage() {
         </CardContent>
       </Card>
 
-      {/* Modal chi tiết/sửa/xoá chu kỳ */}
-      <Dialog open={showDetail} onOpenChange={setShowDetail}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editMode ? "Sửa chu kỳ" : "Chi tiết chu kỳ"}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedCycle && (
-            <div className="space-y-3">
-              <div>
-                <b>Ngày bắt đầu:</b>{" "}
-                {selectedCycle.cycleStartDate ? format(new Date(selectedCycle.cycleStartDate), "dd/MM/yyyy") : "N/A"}
-              </div>
-              <div>
-                <b>Ngày kết thúc:</b>{" "}
-                {selectedCycle.cycleEndDate ? format(new Date(selectedCycle.cycleEndDate), "dd/MM/yyyy") : "N/A"}
-              </div>
-              {editMode && (
-                <form
-                  className="space-y-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleEdit();
-                  }}
-                >
-                  <Input
-                    type="date"
-                    value={editStart}
-                    onChange={(e) => setEditStart(e.target.value)}
-                    required
-                  />
-                  <Input
-                    type="date"
-                    value={editEnd}
-                    onChange={(e) => setEditEnd(e.target.value)}
-                    required
-                  />
-                  <DialogFooter>
-                    <Button type="submit" disabled={editLoading}>
-                      {editLoading ? "Đang lưu..." : "Lưu"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              )}
-              {!editMode && (
-                <DialogFooter>
-                  <Button
-                    variant="destructive"
-                    onClick={handleDelete}
-                    disabled={deleteLoading}
-                  >
-                    {deleteLoading ? "Đang xoá..." : "Xoá chu kỳ"}
-                  </Button>
-                </DialogFooter>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Dialog Thêm/Sửa nhắc nhở tránh thai */}
       <Dialog open={showContraceptiveReminderDialog} onOpenChange={setShowContraceptiveReminderDialog}>

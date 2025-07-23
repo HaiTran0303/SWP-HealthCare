@@ -151,13 +151,12 @@ export const ChatService = {
   },
 
   async getQuestionById(id: string) {
-    return apiClient.get<ChatQuestion>(`/chat/questions/${id}`);
+    return apiClient.get<ChatQuestion>(`/chat/questions/${id}/summary`);
   },
 
   async createQuestion(data: {
     title: string;
     content: string;
-    isAnonymous?: boolean;
   }) {
     return apiClient.post<ChatQuestion>(`/chat/questions`, data);
   },
@@ -183,13 +182,13 @@ export const ChatService = {
     questionId: string,
     data: { content: string; type?: string }
   ) {
-    return new Promise<ChatMessage>((resolve, reject) => {
-      const socket = getSocket();
-      socket.emit("send_message", { ...data, questionId }, (ack: any) => {
-        if (ack.status === "success") resolve(ack.data);
-        else reject(ack);
-      });
-    });
+    // Adhere to the REST API for sending messages as per Swagger
+    const payload = {
+      content: data.content,
+      type: data.type || "text", // Default to 'text' if not provided
+      questionId: questionId,
+    };
+    return apiClient.post<ChatMessage>(`/chat/questions/${questionId}/messages`, payload);
   },
 
   async sendFile(questionId: string, formData: FormData) {

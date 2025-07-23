@@ -1,6 +1,13 @@
 import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
-import { CreateStiAppointmentDto, Appointment, FindAvailableSlotsDto, FindAvailableSlotsResponseDto } from "@/types/sti-appointment.d";
+import {
+  CreateStiAppointmentDto,
+  Appointment,
+  FindAvailableSlotsDto,
+  FindAvailableSlotsResponseDto,
+  StiProcess, // Exported
+  UpdateStiProcessStatusDto, // Exported
+} from "@/types/sti-appointment.d";
 
 export type SampleType = "blood" | "urine" | "swab" | "saliva" | "other";
 export type Priority = "normal" | "high" | "urgent";
@@ -30,43 +37,30 @@ export interface STITestData {
   isConfidential?: boolean;
 }
 
-export interface StiTestProcess {
-  serviceId: string;
-  patientId: string;
-  sampleType: SampleType;
-  priority: Priority;
+// Re-export StiProcess from sti-appointment.d.ts
+export type { StiProcess };
+
+// Define UpdateStiTestProcessDto based on swagger
+export interface UpdateStiTestProcessDto {
+  serviceId?: string;
+  patientId?: string;
+  sampleType?: SampleType;
+  priority?: Priority;
   appointmentId?: string;
-  estimatedResultDate: string;
-  sampleCollectionLocation: string;
+  estimatedResultDate?: string;
+  sampleCollectionLocation?: string;
   processNotes?: string;
   consultantDoctorId?: string;
   requiresConsultation?: boolean;
   isConfidential?: boolean;
-  id: string;
-  testCode: string;
-  status: TestStatus;
-  createdAt: string;
-  updatedAt: string;
-  patient?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
-  service?: {
-    id: string;
-    name: string;
-    description: string;
-  };
-  appointment?: {
-    id: string;
-    appointmentDate: string;
-  };
-  consultantDoctor?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-  };
+  status?: TestStatus;
+  actualResultDate?: string;
+  sampleCollectionDate?: string;
+  labNotes?: string;
+  sampleCollectedBy?: string;
+  labProcessedBy?: string;
+  patientNotified?: boolean;
+  resultEmailSent?: boolean;
 }
 
 
@@ -108,14 +102,14 @@ export interface TestResult {
 
 export const STITestingService = {
   // Quản lý quy trình xét nghiệm
-  async createTest(data: STITestData): Promise<StiTestProcess> {
+  async createTest(data: STITestData): Promise<StiProcess> {
     const payload = {
       ...data,
       estimatedResultDate: data.estimatedResultDate
         ? new Date(data.estimatedResultDate).toISOString()
         : undefined,
     };
-    return apiClient.post<StiTestProcess>(API_ENDPOINTS.STI_TESTING.BASE, payload);
+    return apiClient.post<StiProcess>(API_ENDPOINTS.STI_TESTING.BASE, payload);
   },
 
   async createStiAppointment(
@@ -133,9 +127,9 @@ export const STITestingService = {
     );
   },
 
-  async getAllTests(filters: TestFilters = {}): Promise<{ data: StiTestProcess[]; total: number }> {
+  async getAllTests(filters: TestFilters = {}): Promise<{ data: StiProcess[]; total: number }> {
     try {
-      const response = await apiClient.post<{ data: StiTestProcess[]; total: number }>(
+      const response = await apiClient.post<{ data: StiProcess[]; total: number }>(
         API_ENDPOINTS.STI_TESTING.GET_ALL_PROCESSES,
         filters
       );
@@ -146,20 +140,22 @@ export const STITestingService = {
     }
   },
 
-  async getTestById(id: string) {
-    return apiClient.get(`${API_ENDPOINTS.STI_TESTING.BASE}/${id}`);
+  async getTestById(id: string): Promise<StiProcess> {
+    return apiClient.get<StiProcess>(`${API_ENDPOINTS.STI_TESTING.BASE}/${id}`);
   },
 
-  async getTestByCode(testCode: string) {
-    return apiClient.get(
+  async getTestByCode(testCode: string): Promise<StiProcess> {
+    return apiClient.get<StiProcess>(
       `${API_ENDPOINTS.STI_TESTING.BASE}/test-code/${testCode}`
     );
   },
 
-  async updateTestStatus(id: string, status: TestStatus) {
-    return apiClient.patch(`${API_ENDPOINTS.STI_TESTING.BASE}/${id}/status`, {
-      status,
-    });
+  async updateTestProcess(id: string, data: UpdateStiTestProcessDto): Promise<StiProcess> {
+    return apiClient.put<StiProcess>(`${API_ENDPOINTS.STI_TESTING.BASE}/${id}`, data);
+  },
+
+  async updateTestStatus(id: string, status: TestStatus): Promise<StiProcess> {
+    return apiClient.patch<StiProcess>(`${API_ENDPOINTS.STI_TESTING.BASE}/${id}/status?status=${status}`);
   },
 
   async getBookingEstimation(data: {

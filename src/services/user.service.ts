@@ -11,8 +11,17 @@ export interface User {
   gender?: string;
   dateOfBirth?: string;
   profilePicture?: string;
-  role: { id: string; name: string };
+  role: Role;
   isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  roleId?: string; // Add roleId here for convenience in forms
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,7 +39,53 @@ export interface GetUsersQuery {
   sortOrder?: "ASC" | "DESC";
 }
 
+export interface CreateUserPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password?: string;
+  phone?: string;
+  address?: string;
+  gender?: string;
+  roleId: string;
+}
+
+export interface UpdateUserPayload {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  password?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  phone?: string;
+  address?: string;
+  roleId?: string;
+  profilePicture?: string;
+  locale?: string;
+  healthDataConsent?: boolean;
+}
+
 export class UserService {
+  static async createUser(payload: CreateUserPayload): Promise<User> {
+    try {
+      const response = await apiClient.post<User>(API_ENDPOINTS.USERS.CREATE, payload);
+      return response;
+    } catch (error) {
+      console.error("Error creating user:", error);
+      throw error;
+    }
+  }
+
+  static async updateUser(id: string, payload: UpdateUserPayload): Promise<User> {
+    try {
+      const response = await apiClient.patch<User>(`${API_ENDPOINTS.USERS.BASE}/${id}`, payload);
+      return response;
+    } catch (error) {
+      console.error(`Error updating user ${id}:`, error);
+      throw error;
+    }
+  }
+
   static async getAllUsers(query?: GetUsersQuery): Promise<{ data: User[]; total: number }> {
     try {
       const response = await apiClient.get<{ data: User[]; total: number }>(API_ENDPOINTS.USERS.GET_ALL, { params: query });
@@ -67,6 +122,16 @@ export class UserService {
       return response;
     } catch (error) {
       console.error(`Error fetching user ${id}:`, error);
+      throw error;
+    }
+  }
+
+  static async getAllRoles(): Promise<Role[]> {
+    try {
+      const response = await apiClient.get<Role[]>(API_ENDPOINTS.ROLES.GET_ALL);
+      return response;
+    } catch (error) {
+      console.error("Error fetching roles:", error);
       throw error;
     }
   }

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Blog, BlogService } from "@/services/blog.service";
 import { CategoryService, Category } from "@/services/category.service";
 import { Button } from "@/components/ui/button";
+import BlogPublishModal from "@/components/BlogPublishModal"; // Import BlogPublishModal
 
 export default function BlogDetailPage() {
   const router = useRouter();
@@ -15,9 +16,7 @@ export default function BlogDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [showReviewDialog, setShowReviewDialog] = useState(false);
-  const [reviewStatus, setReviewStatus] = useState("");
-  const [reviewReason, setReviewReason] = useState("");
+  const [showPublishDialog, setShowPublishDialog] = useState(false); // New state for publish dialog
   const [categoryName, setCategoryName] = useState<string>("");
 
   useEffect(() => {
@@ -44,37 +43,15 @@ export default function BlogDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleSubmitReview = async () => {
-    if (!blog) return;
-    setActionLoading(true);
-    try {
-      await BlogService.submitReview(blog.id);
-      router.refresh();
-    } catch (err: any) {
-      setError(err?.message || "Lỗi gửi duyệt");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleDirectPublish = async () => {
-    if (!blog) return;
-    setActionLoading(true);
-    try {
-      await BlogService.directPublish(blog.id);
-      router.refresh();
-    } catch (err: any) {
-      setError(err?.message || "Lỗi publish trực tiếp");
-    } finally {
-      setActionLoading(false);
-    }
+  const handleDirectPublish = () => {
+    setShowPublishDialog(true);
   };
 
   const handlePublish = async () => {
     if (!blog) return;
     setActionLoading(true);
     try {
-      await BlogService.publish(blog.id);
+      await BlogService.publish(blog.id, {});
       router.refresh();
     } catch (err: any) {
       setError(err?.message || "Lỗi publish");
@@ -91,27 +68,6 @@ export default function BlogDetailPage() {
       router.push("/blog");
     } catch (err: any) {
       setError(err?.message || "Lỗi archive");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleReview = async () => {
-    if (!blog) return;
-    setActionLoading(true);
-    try {
-      await BlogService.review(blog.id, {
-        status: reviewStatus,
-        ...(reviewStatus === "REJECTED" && { rejectionReason: reviewReason }),
-        ...(reviewStatus === "NEEDS_REVISION" && {
-          revisionNotes: reviewReason,
-        }),
-      });
-      setShowReviewDialog(false);
-      setReviewReason("");
-      router.refresh();
-    } catch (err: any) {
-      setError(err?.message || "Lỗi review");
     } finally {
       setActionLoading(false);
     }
@@ -160,6 +116,18 @@ export default function BlogDetailPage() {
           </div>
         </div>
       </div>
+
+      {showPublishDialog && blog && (
+        <BlogPublishModal
+          blog={blog}
+          onClose={() => setShowPublishDialog(false)}
+          onPublishSuccess={() => {
+            setShowPublishDialog(false);
+            router.refresh();
+          }}
+          isDirectPublish={true}
+        />
+      )}
     </div>
   );
 }

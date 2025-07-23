@@ -63,8 +63,10 @@ export default function BlogListPage() {
           </span>
         </h1>
         {canManage && (
-          <Link href="/blog/manage">
-            <Button>Quản lý blog</Button>
+          <Link href={roleName === "consultant" ? "/blog/new" : "/blog/manage"}>
+            <Button>
+              {roleName === "consultant" ? "Thêm bài viết" : "Quản lý blog"}
+            </Button>
           </Link>
         )}
       </div>

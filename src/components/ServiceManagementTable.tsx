@@ -28,6 +28,16 @@ import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label"; // Ensure Label is imported
+import { Textarea } from "@/components/ui/textarea"; // For description
 
 export default function ServiceManagementTable() {
   const { toast } = useToast();
@@ -40,6 +50,10 @@ export default function ServiceManagementTable() {
   const [filterCategory, setFilterCategory] = useState<string>(""); // For categoryId
   const [filterActiveStatus, setFilterActiveStatus] = useState<string>(""); // For isActive
   const [filterRequiresConsultant, setFilterRequiresConsultant] = useState<string>(""); // For requiresConsultant
+  const [isAddServiceDialogOpen, setIsAddServiceDialogOpen] = useState(false);
+  const [isViewServiceDetailDialogOpen, setIsViewServiceDetailDialogOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
 
@@ -128,6 +142,33 @@ export default function ServiceManagementTable() {
     setCurrentPage(totalPages);
   };
 
+  const handleAddServiceClick = () => {
+    setIsAddServiceDialogOpen(true);
+  };
+
+  const handleViewServiceDetailsClick = (service: Service) => {
+    setSelectedService(service);
+    setIsViewServiceDetailDialogOpen(true);
+  };
+
+  const handleCloseAddServiceDialog = () => {
+    setIsAddServiceDialogOpen(false);
+  };
+
+  const handleCloseViewServiceDetailDialog = () => {
+    setIsViewServiceDetailDialogOpen(false);
+    setSelectedService(null);
+  };
+
+  const handleServiceAdded = () => {
+    setIsAddServiceDialogOpen(false);
+    fetchServices(); // Refresh service list
+    toast({
+      title: "Thành công",
+      description: "Dịch vụ mới đã được thêm.",
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -169,7 +210,7 @@ export default function ServiceManagementTable() {
             </SelectContent>
           </Select>
         </div>
-        <Button>Thêm dịch vụ mới</Button>
+        <Button onClick={handleAddServiceClick}>Thêm dịch vụ mới</Button>
       </div>
 
       {loading ? (
@@ -207,6 +248,9 @@ export default function ServiceManagementTable() {
                   <TableCell>{format(new Date(service.createdAt), "dd/MM/yyyy")}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => handleViewServiceDetailsClick(service)}>
+                        Chi tiết
+                      </Button>
                       <Button variant="ghost" size="sm">
                         Chỉnh sửa
                       </Button>
@@ -238,6 +282,211 @@ export default function ServiceManagementTable() {
           />
         </>
       )}
+
+      {/* Add Service Dialog */}
+      <Dialog open={isAddServiceDialogOpen} onOpenChange={setIsAddServiceDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Thêm dịch vụ mới</DialogTitle>
+            <DialogDescription>
+              Điền thông tin để tạo dịch vụ mới.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Tên dịch vụ
+              </Label>
+              <Input id="name" defaultValue="" className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">
+                Mô tả chi tiết
+              </Label>
+              <Textarea id="description" defaultValue="" className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="shortDescription" className="text-right">
+                Mô tả ngắn
+              </Label>
+              <Input id="shortDescription" defaultValue="" className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="price" className="text-right">
+                Giá (VND)
+              </Label>
+              <Input id="price" type="number" defaultValue={0} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="duration" className="text-right">
+                Thời lượng (phút)
+              </Label>
+              <Input id="duration" type="number" defaultValue={30} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="categoryId" className="text-right">
+                ID Danh mục
+              </Label>
+              <Input id="categoryId" defaultValue="" className="col-span-3" placeholder="ID của danh mục dịch vụ" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="location" className="text-right">
+                Địa điểm
+              </Label>
+              <Select>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Chọn địa điểm" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="online">Trực tuyến</SelectItem>
+                  <SelectItem value="office">Tại phòng khám</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="requiresConsultant" className="text-right">
+                Yêu cầu TVV
+              </Label>
+              <Select>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Chọn" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Có</SelectItem>
+                  <SelectItem value="false">Không</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="isActive" className="text-right">
+                Hoạt động
+              </Label>
+              <Select>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Chọn" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Có</SelectItem>
+                  <SelectItem value="false">Không</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="featured" className="text-right">
+                Nổi bật
+              </Label>
+              <Select>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Chọn" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Có</SelectItem>
+                  <SelectItem value="false">Không</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="prerequisites" className="text-right">
+                Điều kiện tiên quyết
+              </Label>
+              <Textarea id="prerequisites" defaultValue="" className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="postInstructions" className="text-right">
+                Hướng dẫn sau dịch vụ
+              </Label>
+              <Textarea id="postInstructions" defaultValue="" className="col-span-3" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseAddServiceDialog}>Hủy</Button>
+            <Button onClick={handleServiceAdded}>Thêm dịch vụ</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Service Detail Dialog */}
+      <Dialog open={isViewServiceDetailDialogOpen} onOpenChange={setIsViewServiceDetailDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Chi tiết dịch vụ</DialogTitle>
+            <DialogDescription>
+              Thông tin chi tiết của dịch vụ.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedService && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">ID:</Label>
+                <span className="col-span-3">{selectedService.id}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Tên dịch vụ:</Label>
+                <span className="col-span-3">{selectedService.name}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Mô tả chi tiết:</Label>
+                <span className="col-span-3">{selectedService.description}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Mô tả ngắn:</Label>
+                <span className="col-span-3">{selectedService.shortDescription || "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Giá:</Label>
+                <span className="col-span-3">{selectedService.price?.toLocaleString() || "N/A"}đ</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Thời lượng:</Label>
+                <span className="col-span-3">{selectedService.duration} phút</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Danh mục ID:</Label>
+                <span className="col-span-3">{selectedService.categoryId || "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Địa điểm:</Label>
+                <span className="col-span-3">{selectedService.location || "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Yêu cầu TVV:</Label>
+                <span className="col-span-3">{selectedService.requiresConsultant ? "Có" : "Không"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Trạng thái:</Label>
+                <span className="col-span-3">
+                  <Badge variant={selectedService.isActive === true ? "default" : "secondary"}>
+                    {selectedService.isActive === true ? "Hoạt động" : "Không hoạt động"}
+                  </Badge>
+                </span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Nổi bật:</Label>
+                <span className="col-span-3">{selectedService.featured ? "Có" : "Không"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Điều kiện tiên quyết:</Label>
+                <span className="col-span-3">{selectedService.prerequisites || "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Hướng dẫn sau dịch vụ:</Label>
+                <span className="col-span-3">{selectedService.postInstructions || "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Ngày tạo:</Label>
+                <span className="col-span-3">{format(new Date(selectedService.createdAt), "dd/MM/yyyy HH:mm")}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Cập nhật cuối:</Label>
+                <span className="col-span-3">{format(new Date(selectedService.updatedAt), "dd/MM/yyyy HH:mm")}</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={handleCloseViewServiceDetailDialog}>Đóng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

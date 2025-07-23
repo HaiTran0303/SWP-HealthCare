@@ -1,5 +1,11 @@
 import { apiClient } from "./api";
-import { API_ENDPOINTS } from "@/config/api";
+import { API_ENDPOINTS, API_BASE_URL } from "@/config/api";
+import {
+  ReviewBlogDto,
+  PublishBlogDto,
+  UpdateBlogDto,
+  BlogQueryParams,
+} from "@/types/api.d"; // Import new DTOs and QueryParams
 
 export interface Blog {
   id: string;
@@ -19,7 +25,12 @@ export interface Blog {
   imageUrl?: string; // Add imageUrl to the Blog interface
   rejectionReason?: string;
   revisionNotes?: string;
-  // ... các trường khác nếu cần
+  autoPublish?: boolean; // Add autoPublish property
+  views?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  relatedServicesIds?: string[];
+  excerpt?: string;
 }
 
 interface UploadImageResponse {
@@ -28,9 +39,25 @@ interface UploadImageResponse {
   // Add other properties if available in the API response
 }
 
+export interface CreateBlogData {
+  title: string;
+  content: string;
+  authorId: string;
+  categoryId: string;
+  tags?: string[];
+  status?: 'draft' | 'pending_review' | 'approved' | 'published' | 'rejected' | 'archived';
+  featuredImage?: string;
+  views?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  relatedServicesIds?: string[];
+  excerpt?: string;
+  autoPublish?: boolean;
+}
+
 export const BlogService = {
-  async getAll(params: Record<string, any> = {}) {
-    const query = new URLSearchParams(params).toString();
+  async getAll(params: BlogQueryParams = {}) { // Use BlogQueryParams
+    const query = new URLSearchParams(params as Record<string, string>).toString();
     return apiClient.get<Blog[]>(
       `${API_ENDPOINTS.BLOG.BASE}${query ? `?${query}` : ""}`
     );
@@ -38,26 +65,24 @@ export const BlogService = {
   async getById(id: string) {
     return apiClient.get<Blog>(`${API_ENDPOINTS.BLOG.BASE}/${id}`);
   },
-  async create(data: Partial<Blog>) {
-    return apiClient.post(API_ENDPOINTS.BLOG.BASE, data);
+  async create(data: CreateBlogData) {
+    console.log("Creating blog with data:", JSON.stringify(data, null, 2));
+    return apiClient.post<Blog>(API_ENDPOINTS.BLOG.BASE, data);
   },
-  async update(id: string, data: Partial<Blog>) {
+  async update(id: string, data: UpdateBlogDto) { // Use UpdateBlogDto
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}`, data);
   },
   async submitReview(id: string) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/submit-review`);
   },
-  async review(
-    id: string,
-    data: { status: string; rejectionReason?: string; revisionNotes?: string }
-  ) {
+  async review(id: string, data: ReviewBlogDto) { // Use ReviewBlogDto
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/review`, data);
   },
-  async publish(id: string, data?: { publishNotes?: string }) {
+  async publish(id: string, data: PublishBlogDto) { // Use PublishBlogDto
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/publish`, data);
   },
-  async directPublish(id: string) {
-    return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/direct-publish`);
+  async directPublish(id: string, data: PublishBlogDto) { // Use PublishBlogDto
+    return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/direct-publish`, data);
   },
   async archive(id: string) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/archive`);
@@ -65,24 +90,39 @@ export const BlogService = {
   async getPublished() {
     return apiClient.get<Blog[]>(`${API_ENDPOINTS.BLOG.BASE}/published`);
   },
+  async attachImageToBlog(blogId: string, imageId: string) {
+    return apiClient.post(`${API_ENDPOINTS.BLOG.BASE}/image`, {
+      blogId,
+      imageId,
+    });
+  },
+  async getImageAccessUrl(imageId: string) {
+    return apiClient.get<{ url: string }>(API_ENDPOINTS.FILES.GET_IMAGE(imageId));
+  },
   async deleteImageFromBlog(blogId: string, imageId: string) {
     return apiClient.put(`${API_ENDPOINTS.BLOG.BASE}/image`, {
       blogId,
       imageId,
     });
   },
-  async getPendingReview(params: Record<string, any> = {}) {
+
+  async synchronizeImageToBlog(imageId: string, data: Record<string, any>) {
+    return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/image/${imageId}`, data);
+  },
+  async getPendingReview(params: BlogQueryParams = {}) { // Use BlogQueryParams
     const query = new URLSearchParams({
-      ...params,
+      ...params as Record<string, string>,
       status: "pending_review",
+      limit: String(params.limit || 1000), // Ensure all pending blogs are fetched
+      page: String(params.page || 1),     // Start from the first page
     }).toString();
     return apiClient.get<Blog[]>(
       `${API_ENDPOINTS.BLOG.BASE}${query ? `?${query}` : ""}`
     );
   },
-  async getApproved(params: Record<string, any> = {}) {
+  async getApproved(params: BlogQueryParams = {}) { // Use BlogQueryParams
     const query = new URLSearchParams({
-      ...params,
+      ...params as Record<string, string>,
       status: "approved",
     }).toString();
     return apiClient.get<Blog[]>(
@@ -93,32 +133,31 @@ export const BlogService = {
     return apiClient.delete(`${API_ENDPOINTS.BLOG.BASE}/${id}`);
   },
 
-  async uploadBlogImage(file: File, userId: string) {
+  async uploadBlogImage(file: File, blogId: string, altText?: string) {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("entityType", "blog"); // Or "user" if it's a user profile image
-    formData.append("entityId", userId); // The user ID who is uploading the image
+    formData.append("entityType", "blog");
+    formData.append("entityId", blogId);
+    if (altText) {
+      formData.append("altText", altText);
+    }
+    formData.append("generateThumbnails", "true");
+    formData.append("isPublic", "true");
 
-    return apiClient.post<UploadImageResponse>(API_ENDPOINTS.FILES.UPLOAD_IMAGE, formData, {
+    const accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+
+    const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.FILES.UPLOAD_IMAGE}`, {
+      method: 'POST',
+      body: formData,
       headers: {
-        "Content-Type": "multipart/form-data", // Important for FormData
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
     });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to upload image');
+    }
+    return data;
   },
 };
-
-export async function updateBlog(id: string, data: any) {
-  const accessToken =
-    typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-  const res = await fetch(`https://gender-healthcare.org/blogs/${id}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-    body: JSON.stringify(data),
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.message || "Cập nhật blog thất bại");
-  return result.data;
-}

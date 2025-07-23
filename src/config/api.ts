@@ -28,6 +28,7 @@ export const API_ENDPOINTS = {
     PROFILE: "/users/me",
     CHANGE_PASSWORD: "/users/me/change-password",
     GET_ALL: "/users",
+    CREATE: "/users", // Add this line
     TOGGLE_ACTIVE: (id: string) => `/users/${id}/toggle-active`,
     VERIFY_EMAIL: (id: string) => `/users/${id}/verify-email`,
   },
@@ -37,7 +38,7 @@ export const API_ENDPOINTS = {
     BASE: "/appointments",
     GET_ALL: "/appointments",
     AVAILABLE_SLOTS: "/appointments/available-slots",
-    STATUS: (id: string) => `/appointments/${id}/status`,
+    UPDATE_STATUS: (id: string) => `/appointments/${id}/status`, // Corrected endpoint
     CANCEL: (id: string) => `/appointments/${id}/cancel`,
     CHAT_ROOM: (id: string) => `/appointments/${id}/chat-room`,
     CHECK_IN: (id: string) => `/appointments/${id}/check-in`,
@@ -46,6 +47,7 @@ export const API_ENDPOINTS = {
     UPDATE_MEETING_LINK: (id: string) => `/appointments/${id}/meeting-link`,
     GET_MEETING_LINK: (id: string) => `/appointments/${id}/meeting-link`,
     REMOVE_MEETING_LINK: (id: string) => `/appointments/${id}/meeting-link`,
+    CONSULTANT_MY_APPOINTMENTS: "/appointments/consultant/my-appointments", // Added for consultant dashboard
   },
 
   // Consultants
@@ -164,6 +166,11 @@ export const API_ENDPOINTS = {
     MONTHLY: "/revenue-stats/monthly",
     YEARLY: "/revenue-stats/yearly",
     REPORT: "/revenue-stats/report",
+  },
+
+  // Roles
+  ROLES: {
+    GET_ALL: "/roles",
   },
 };
 

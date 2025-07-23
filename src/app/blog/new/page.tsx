@@ -1,257 +1,233 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BlogService } from "@/services/blog.service";
-import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { CategoryService, Category } from "@/services/category.service";
 import { useAuth } from "@/contexts/AuthContext";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { BlogService, CreateBlogData } from "@/services/blog.service";
+import { Category, CategoryService } from "@/services/category.service";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useToast } from "@/components/ui/use-toast";
 
-export default function BlogNewPage() {
+export default function CreateBlogPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [categoryId, setCategoryId] = useState("");
   const [tags, setTags] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
-  const { user } = useAuth();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [publishOption, setPublishOption] = useState<string>("draft"); // 'draft', 'publish', 'review'
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
+  const [excerpt, setExcerpt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const userRole = typeof user?.role === "object" ? user.role.name : user?.role;
-  const isAdminOrManager = userRole === "admin" || userRole === "manager";
-  const isConsultant = userRole === "consultant";
+  const { user } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
-    CategoryService.getAllCategories()
-      .then((data: any) => {
-        if (Array.isArray(data)) {
-          setCategories(data);
-        } else if (Array.isArray(data?.data)) {
-          setCategories(data.data);
-        } else {
-          setCategories([]);
+    const fetchCategories = async () => {
+      try {
+        const fetchedCategories = await CategoryService.getAllCategories();
+        if (fetchedCategories) {
+          setCategories(fetchedCategories);
         }
-      })
-      .catch(() => setCategories([]));
-  }, []);
+      } catch (err) {
+        setError("Không thể tải danh mục.");
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải danh sách danh mục.",
+          variant: "destructive",
+        });
+      }
+    };
+    fetchCategories();
+  }, [toast]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-    } else {
-      setSelectedFile(null);
-    }
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategory(categoryId);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
+    setError(null);
 
-    if (!user?.id) {
-      setError("Không xác định được người dùng. Vui lòng đăng nhập lại.");
+    const tagsArray = tags.split(",").map((tag) => tag.trim()).filter(Boolean);
+
+    if (!title || !content || !selectedCategory || tagsArray.length === 0) {
+      toast({
+        title: "Lỗi",
+        description:
+          "Vui lòng điền đầy đủ các trường: Tiêu đề, Nội dung, Thẻ và chọn ít nhất một Danh mục.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: "Lỗi",
+        description: "Bạn cần đăng nhập để tạo bài viết.",
+        variant: "destructive",
+      });
       setLoading(false);
       return;
     }
 
+    setLoading(true);
+
+    const isManagerOrAdmin = Boolean(
+      user.role &&
+        ['ADMIN', 'MANAGER'].includes(
+          (typeof user.role === 'string'
+            ? user.role
+            : user.role.name || ''
+          ).toUpperCase()
+        )
+    );
+
+    const blogStatus = isManagerOrAdmin ? "published" : "pending_review"; // Set status based on role
+
+    const payload: CreateBlogData = {
+      title,
+      content,
+      authorId: user.id,
+      tags: tagsArray,
+      categoryId: selectedCategory,
+      status: blogStatus, // Use the determined status
+      autoPublish: isManagerOrAdmin, // autoPublish is true only for Admin/Manager
+      seoTitle: seoTitle || title, // Fallback to title if seoTitle is empty
+      seoDescription: seoDescription,
+      excerpt: excerpt,
+      featuredImage: "",
+      relatedServicesIds: [],
+    };
+
     try {
-      let featuredImageId: string | null = null;
-      if (selectedFile) {
-        const uploadResponse = await BlogService.uploadBlogImage(selectedFile, user.id);
-        featuredImageId = uploadResponse.id;
-      }
-
-      const tagArr = tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-
-      if (!categoryId) {
-        setError("Bạn phải chọn chủ đề.");
-        setLoading(false);
-        return;
-      }
-      if (!title.trim() || !content.trim()) {
-        setError("Tiêu đề và nội dung không được để trống.");
-        setLoading(false);
-        return;
-      }
-
-      let status: "draft" | "published" | "pending_review" = "draft";
-      let autoPublish = false;
-
-      if (isAdminOrManager) {
-        if (publishOption === "publish") {
-          status = "published";
-          autoPublish = true; // For "Tạo blog với autoPublish=true"
-        } else if (publishOption === "draft_then_publish") {
-          status = "published"; // For "Tạo blog (DRAFT) & Xuất bản trực tiếp"
-          autoPublish = false;
-        } else if (publishOption === "review") {
-          status = "pending_review"; // For "Tạo blog (DRAFT) & Gửi để xem xét (workflow review)"
-        } else if (publishOption === "draft") {
-          status = "draft"; // For "Tạo blog (DRAFT)"
-        }
-      } else if (isConsultant) {
-        if (publishOption === "review") {
-          status = "pending_review"; // For "Tạo blog (DRAFT) & Gửi để xem xét"
-        } else {
-          status = "draft"; // Default for consultant if not submitting for review
-        }
-      }
-
-      const payload: any = {
-        authorId: user.id,
-        title: title.trim(),
-        content: content.trim(),
-        categoryId,
-        tags: tagArr,
-        status: status,
-      };
-
-      if (featuredImageId) {
-        payload.featuredImage = featuredImageId;
-      }
-
-      if (autoPublish) {
-        payload.autoPublish = true;
-      }
-
-      Object.keys(payload).forEach(
-        (key) =>
-          (payload[key] === undefined || payload[key] === "") &&
-          key !== "tags" &&
-          delete payload[key]
-      );
-
-      console.log("Blog create payload:", payload);
+      console.log("Submitting blog with payload:", payload);
       await BlogService.create(payload);
-      router.push("/blog");
+
+      toast({
+        title: "Thành công!",
+        description: isManagerOrAdmin
+          ? "Đã tạo và xuất bản blog mới thành công."
+          : "Đã tạo blog mới thành công và gửi đi duyệt.",
+      });
+
+      router.push(`/?blogSubmitted=true`);
+
     } catch (err: any) {
-      const detail = Array.isArray(err?.error?.message)
-        ? err.error.message.join(", ")
-        : err?.error?.message || err?.message || "Đã có lỗi xảy ra";
-      setError(detail);
+      console.error("Failed to create blog:", err.response?.data || err);
+      const errorMessage =
+        err.response?.data?.message || "Tạo blog thất bại. Vui lòng thử lại.";
+      setError(errorMessage);
+      toast({
+        title: "Lỗi",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">Tạo blog mới</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6">Tạo Blog Mới</h1>
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <Label htmlFor="title" className="font-medium">Tiêu đề</Label>
-          <input
+          <Label htmlFor="title">Tiêu đề</Label>
+          <Input
             id="title"
-            className="w-full border rounded px-2 py-1 mt-1"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            placeholder="Nhập tiêu đề blog..."
             required
+            disabled={loading}
           />
         </div>
         <div>
-          <Label htmlFor="content" className="font-medium">Nội dung</Label>
-          <textarea
+          <Label htmlFor="content">Nội dung</Label>
+          <Textarea
             id="content"
-            className="w-full border rounded px-2 py-1 mt-1 min-h-[120px]"
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            placeholder="Viết nội dung blog ở đây..."
             required
+            rows={10}
+            disabled={loading}
           />
         </div>
         <div>
-          <Label htmlFor="category" className="font-medium">Chủ đề</Label>
-          <select
-            id="category"
-            className="w-full border rounded px-2 py-1 mt-1"
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            required
-          >
-            <option value="">Chọn chủ đề</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label htmlFor="tags" className="font-medium">Tags (phân tách bởi dấu phẩy)</Label>
-          <input
+          <Label htmlFor="tags">Thẻ (cách nhau bởi dấu phẩy)</Label>
+          <Input
             id="tags"
-            className="w-full border rounded px-2 py-1 mt-1"
             value={tags}
             onChange={(e) => setTags(e.target.value)}
-            placeholder="giới tính, sức khỏe, tư vấn"
+            placeholder="ví dụ: sức khỏe, dinh dưỡng, thể thao"
+            required
+            disabled={loading}
           />
         </div>
         <div>
-          <Label htmlFor="featuredImage" className="font-medium">Ảnh nổi bật</Label>
-          <input
-            id="featuredImage"
-            type="file"
-            className="w-full border rounded px-2 py-1 mt-1"
-            accept="image/*"
-            onChange={handleFileChange}
+          <Label htmlFor="excerpt">Đoạn trích</Label>
+          <Textarea
+            id="excerpt"
+            value={excerpt}
+            onChange={(e) => setExcerpt(e.target.value)}
+            placeholder="Viết một đoạn trích ngắn gọn..."
+            rows={3}
+            disabled={loading}
           />
         </div>
-
-        {(isAdminOrManager || isConsultant) && (
-          <div className="space-y-2">
-            <Label className="font-medium">Tùy chọn xuất bản</Label>
-            <RadioGroup
-              value={publishOption}
-              onValueChange={setPublishOption}
-              className="flex flex-col space-y-1"
-            >
-              {isAdminOrManager && (
-                <>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="publish" id="option-publish" />
-                    <Label htmlFor="option-publish">
-                      Tạo blog với autoPublish=true (Xuất bản ngay lập tức)
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="draft_then_publish" id="option-draft-publish" />
-                    <Label htmlFor="option-draft-publish">
-                      Tạo blog (DRAFT) & Xuất bản trực tiếp
-                    </Label>
-                  </div>
-                </>
-              )}
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="review" id="option-review" />
-                <Label htmlFor="option-review">
-                  {isConsultant ? "Tạo blog (DRAFT) & Gửi để xem xét" : "Tạo blog (DRAFT) & Gửi để xem xét (nếu muốn theo workflow review)"}
+        <div>
+          <Label htmlFor="seoTitle">Tiêu đề SEO</Label>
+          <Input
+            id="seoTitle"
+            value={seoTitle}
+            onChange={(e) => setSeoTitle(e.target.value)}
+            placeholder="Nhập tiêu đề SEO..."
+            disabled={loading}
+          />
+        </div>
+        <div>
+          <Label htmlFor="seoDescription">Mô tả SEO</Label>
+          <Textarea
+            id="seoDescription"
+            value={seoDescription}
+            onChange={(e) => setSeoDescription(e.target.value)}
+            placeholder="Nhập mô tả SEO..."
+            rows={3}
+            disabled={loading}
+          />
+        </div>
+        <div>
+          <Label>Danh mục</Label>
+          <RadioGroup
+            value={selectedCategory}
+            onValueChange={handleCategoryChange}
+            className="space-y-2 mt-2"
+            disabled={loading}
+          >
+            {categories.map((category) => (
+              <div key={category.id} className="flex items-center space-x-2">
+                <RadioGroupItem value={category.id} id={category.id} />
+                <Label htmlFor={category.id} className="font-normal">
+                  {category.name}
                 </Label>
               </div>
-              {!isConsultant && (
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="draft" id="option-draft" />
-                  <Label htmlFor="option-draft">
-                    Tạo blog (DRAFT)
-                  </Label>
-                </div>
-              )}
-            </RadioGroup>
-          </div>
-        )}
-
-        {error && <div className="text-red-500 text-sm">{error}</div>}
-        <div className="flex justify-end">
-          <Button type="submit" disabled={loading}>
-            {loading ? "Đang lưu..." : "Tạo blog"}
-          </Button>
+            ))}
+          </RadioGroup>
         </div>
+        
+        {error && <p className="text-red-500">{error}</p>}
+        
+        <Button type="submit" disabled={loading}>
+          {loading ? "Đang tạo..." : "Tạo Blog"}
+        </Button>
       </form>
     </div>
   );

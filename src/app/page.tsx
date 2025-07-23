@@ -2,7 +2,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { APIService, Service } from "@/services/service.service";
+import { useToast } from "@/components/ui/use-toast";
 
 async function getBlogs() {
   try {
@@ -39,6 +41,8 @@ async function getBlogs() {
 export default function HomePage() {
   const [blogs, setBlogs] = useState<any[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     APIService.getAll({ limit: 3, page: 1 })
@@ -56,7 +60,17 @@ export default function HomePage() {
         console.error("Error in getBlogs promise chain:", error);
         setBlogs([]); // Set to empty array on error
     });
-  }, []);
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("blogSubmitted") === "true") {
+      toast({
+        title: "Thành công!",
+        description: "Bài viết của bạn đang chờ duyệt.",
+      });
+      // Clear the query parameter to prevent the toast from showing again on refresh
+      router.replace(window.location.pathname);
+    }
+  }, [router, toast]);
 
   return (
     <main className="min-h-screen bg-background">
