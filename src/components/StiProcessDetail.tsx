@@ -1,18 +1,24 @@
-export default function StiProcessDetail({ process }: any) {
+import { StiProcess } from "@/types/sti-appointment";
+
+interface StiProcessDetailProps {
+  process: StiProcess;
+}
+
+export default function StiProcessDetail({ process }: StiProcessDetailProps) {
   if (!process) return <div>Đang tải...</div>;
   return (
     <div className="space-y-4">
       <div>
-        <b>Mã:</b> {process.testCode}
+        <b>Bệnh nhân:</b> {process.patient?.fullName || "N/A"}
       </div>
       <div>
-        <b>Bệnh nhân:</b> {process.patient?.fullName}
+        <b>Dịch vụ:</b> {process.service?.name || "N/A"}
       </div>
       <div>
-        <b>Dịch vụ:</b> {process.service?.name}
+        <b>ID cuộc hẹn lấy mẫu:</b> {process.appointment?.id || "N/A"}
       </div>
       <div>
-        <b>Trạng thái:</b> {process.status}
+        <b>ID bác sĩ tư vấn:</b> {process.consultantDoctor?.id || "N/A"}
       </div>
       <div>
         <b>Ngày tạo:</b> {new Date(process.createdAt).toLocaleDateString()}
@@ -24,7 +30,7 @@ export default function StiProcessDetail({ process }: any) {
         <b>Độ ưu tiên:</b> {process.priority}
       </div>
       <div>
-        <b>ID cuộc hẹn lấy mẫu:</b> {process.appointmentId}
+        <b>ID cuộc hẹn lấy mẫu:</b> {process.appointment?.id || "-"}
       </div>
       <div>
         <b>Thời gian dự kiến có kết quả:</b> {process.estimatedResultDate ? new Date(process.estimatedResultDate).toLocaleDateString() : "-"}
@@ -36,7 +42,7 @@ export default function StiProcessDetail({ process }: any) {
         <b>Ghi chú về quá trình:</b> {process.processNotes}
       </div>
       <div>
-        <b>ID bác sĩ tư vấn:</b> {process.consultantDoctorId}
+        <b>ID bác sĩ tư vấn:</b> {process.consultantDoctor?.id || "-"}
       </div>
       <div>
         <b>Yêu cầu tư vấn:</b> {process.requiresConsultation ? "Có" : "Không"}

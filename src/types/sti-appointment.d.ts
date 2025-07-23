@@ -37,3 +37,50 @@ export interface FindAvailableSlotsResponseDto {
   totalConsultants: number;
   message?: string;
 }
+
+export interface StiProcess {
+  id: string;
+  testCode: string;
+  status: "ordered" | "sample_collection_scheduled" | "sample_collected" | "processing" | "result_ready" | "result_delivered" | "consultation_required" | "follow_up_scheduled" | "completed" | "cancelled";
+  sampleType: "blood" | "urine" | "swab" | "saliva" | "other";
+  priority: "normal" | "high" | "urgent";
+  estimatedResultDate: string | null;
+  actualResultDate: string | null;
+  sampleCollectionDate: string | null;
+  sampleCollectionLocation: string | null;
+  processNotes: string | null;
+  labNotes: string | null;
+  sampleCollectedBy: string | null;
+  labProcessedBy: string | null;
+  requiresConsultation: boolean;
+  patientNotified: boolean;
+  resultEmailSent: boolean;
+  isConfidential: boolean;
+  createdAt: string;
+  updatedAt: string;
+  patient: {
+    id: string;
+    name: string;
+    fullName: string;
+    // Add other patient details if available from swagger if needed
+  } | null;
+  service: {
+    id: string;
+    name: string;
+    // Add other service details if available from swagger if needed
+  } | null;
+  appointment: {
+    id: string;
+    // Add other appointment details if available from swagger if needed
+  } | null;
+  testResult: any | null; // Define a proper type for TestResult if available
+  consultantDoctor: {
+    id: string;
+    name: string;
+    // Add other consultant details if available from swagger if needed
+  } | null;
+}
+
+export interface UpdateStiProcessStatusDto {
+  status: "ordered" | "sample_collection_scheduled" | "sample_collected" | "processing" | "result_ready" | "result_delivered" | "consultation_required" | "follow_up_scheduled" | "completed" | "cancelled";
+}
