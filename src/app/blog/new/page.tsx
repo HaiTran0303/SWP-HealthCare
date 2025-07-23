@@ -79,7 +79,7 @@ export default function CreateBlogPage() {
 
     setLoading(true);
 
-    const autoPublish = Boolean(
+    const isManagerOrAdmin = Boolean(
       user.role &&
         ['ADMIN', 'MANAGER'].includes(
           (typeof user.role === 'string'
@@ -89,13 +89,16 @@ export default function CreateBlogPage() {
         )
     );
 
+    const blogStatus = isManagerOrAdmin ? "published" : "pending_review"; // Set status based on role
+
     const payload: CreateBlogData = {
       title,
       content,
       authorId: user.id,
       tags: tagsArray,
       categoryId: selectedCategory,
-      autoPublish,
+      status: blogStatus, // Use the determined status
+      autoPublish: isManagerOrAdmin, // autoPublish is true only for Admin/Manager
       seoTitle: seoTitle || title, // Fallback to title if seoTitle is empty
       seoDescription: seoDescription,
       excerpt: excerpt,
@@ -109,10 +112,12 @@ export default function CreateBlogPage() {
 
       toast({
         title: "Thành công!",
-        description: "Đã tạo blog mới thành công.",
+        description: isManagerOrAdmin
+          ? "Đã tạo và xuất bản blog mới thành công."
+          : "Đã tạo blog mới thành công và gửi đi duyệt.",
       });
 
-      router.push(`/blog/manage`);
+      router.push(`/?blogSubmitted=true`);
 
     } catch (err: any) {
       console.error("Failed to create blog:", err.response?.data || err);

@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Blog, BlogService } from "@/services/blog.service";
 import { fetchAllUsers } from "@/services/api";
-import BlogCreateWithImage from "@/components/BlogCreateWithImage";
+import BlogCreateWithImage from "@/components/BlogCreateWithImage"; // Re-add this import
 import EditBlogModal from "@/components/EditBlogModal";
 import BlogReasonModal from "@/components/BlogReasonModal";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/use-toast";
+import BlogPublishModal from "@/components/BlogPublishModal";
 
 export default function BlogManagePage() {
   const { user } = useAuth();
@@ -25,7 +27,7 @@ export default function BlogManagePage() {
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
-  const [showImageModal, setShowImageModal] = useState<string | null>(null);
+  const [showImageModal, setShowImageModal] = useState<string | null>(null); // Re-add this state
   const [editBlog, setEditBlog] = useState<any | null>(null);
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [selectedBlogReason, setSelectedBlogReason] = useState({
@@ -33,6 +35,14 @@ export default function BlogManagePage() {
     revisionNotes: "",
   });
   const router = useRouter();
+  const { toast } = useToast();
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
+
+  const handleDirectPublishBlog = (blog: Blog) => {
+    setSelectedBlog(blog);
+    setPublishModalOpen(true);
+  };
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -43,9 +53,15 @@ export default function BlogManagePage() {
     const params: any = {};
     if (search) params.title = search;
     if (status) params.status = status;
+    if (roleName === "consultant" && user?.id) {
+      params.authorId = user.id; // Filter by current consultant's ID
+    }
+
+    console.log("Fetching blogs with params:", params); // Log params
 
     BlogService.getAll(params)
       .then((data: any) => {
+        console.log("BlogService.getAll response:", data); // Log API response
         if (Array.isArray(data)) {
           setBlogs(data);
         } else if (Array.isArray(data?.data)) {
@@ -54,20 +70,31 @@ export default function BlogManagePage() {
           setBlogs([]);
         }
       })
-      .catch(() => setBlogs([]))
+      .catch((err) => {
+        console.error("Error fetching blogs:", err); // Log errors
+        setBlogs([]);
+      })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     fetchBlogs();
-    fetchAllUsers()
-      .then((res) => {
-        if (Array.isArray(res?.data)) setUsers(res.data);
-        else if (Array.isArray(res)) setUsers(res);
-        else setUsers([]);
-      })
-      .catch(() => setUsers([]));
-  }, [canCreate, search, status]);
+    // Only fetch all users if the user is admin or manager, otherwise it's not needed for consultant's own blogs
+    if (roleName === "admin" || roleName === "manager") {
+      fetchAllUsers()
+        .then((res) => {
+          if (Array.isArray(res?.data)) setUsers(res.data);
+          else if (Array.isArray(res)) setUsers(res);
+          else setUsers([]);
+        })
+        .catch(() => setUsers([]));
+    } else {
+      // For consultants, their own user info is enough for author name
+      if (user) {
+        setUsers([user]);
+      }
+    }
+  }, [canCreate, search, status, user, roleName]);
 
   // Helper to get author full name
   function getAuthorName(authorId: string) {
@@ -84,13 +111,44 @@ export default function BlogManagePage() {
     setReasonModalOpen(true);
   };
 
+  const handlePublishBlog = (blog: Blog) => {
+    setSelectedBlog(blog);
+    setPublishModalOpen(true);
+  };
+
+  const handleArchiveBlog = async (blogId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn lưu trữ blog này?")) return;
+    try {
+      await BlogService.archive(blogId);
+      toast({
+        title: "Thành công!",
+        description: "Đã lưu trữ blog thành công.",
+      });
+      fetchBlogs();
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: err?.message || "Lưu trữ blog thất bại.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDeleteBlog = async (id: string) => {
     if (!window.confirm("Bạn có chắc chắn muốn xoá blog này?")) return;
     try {
       await BlogService.delete(id);
       setBlogs((prev) => prev.filter((b) => b.id !== id));
+      toast({
+        title: "Thành công!",
+        description: "Đã xoá blog thành công.",
+      });
     } catch (err: any) {
-      alert(err?.message || "Xoá blog thất bại");
+      toast({
+        title: "Lỗi",
+        description: err?.message || "Xoá blog thất bại",
+        variant: "destructive",
+      });
     }
   };
 
@@ -124,12 +182,13 @@ export default function BlogManagePage() {
             <Link href="/blog/new">
               <Button>Thêm bài viết</Button>
             </Link>
-            <Link href="/blog/review">
-              <Button variant="outline">Review Blog</Button>
-            </Link>
-            <Link href="/blog/categories">
-              <Button variant="outline">Quản lý chủ đề</Button>
-            </Link>
+            {roleName === "admin" || roleName === "manager" ? (
+              <>
+                <Link href="/blog/categories">
+                  <Button variant="outline">Quản lý chủ đề</Button>
+                </Link>
+              </>
+            ) : null}
           </div>
         )}
       </div>
@@ -162,11 +221,11 @@ export default function BlogManagePage() {
                     </td>
                     <td className="p-2 border text-center">{blog.status}</td>
                     <td className="p-2 border text-center">
-                      <div className="flex gap-2 justify-center">
+                      <div className="flex flex-wrap gap-2 justify-center">
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setShowImageModal(blog.id)}
+                          onClick={() => setShowImageModal(blog.id)} // Restore usage
                         >
                           Cập nhật ảnh
                         </Button>
@@ -177,22 +236,43 @@ export default function BlogManagePage() {
                         >
                           Chỉnh sửa
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteBlog(blog.id)}
-                          disabled={
-                            roleName !== "admin" && roleName !== "manager"
-                          }
-                          style={{
-                            display:
-                              roleName === "admin" || roleName === "manager"
-                                ? undefined
-                                : "none",
-                          }}
-                        >
-                          Xoá
-                        </Button>
+                        {/* Removed "Gửi review" button */}
+                        {roleName === "admin" || roleName === "manager" ? (
+                          <>
+                            {(blog.status === "draft" || blog.status === "pending_review") && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleDirectPublishBlog(blog)}
+                              >
+                                Xuất bản trực tiếp
+                              </Button>
+                            )}
+                            {blog.status === "published" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleArchiveBlog(blog.id)}
+                              >
+                                Lưu trữ
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteBlog(blog.id)}
+                            >
+                              Xoá
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteBlog(blog.id)}
+                          >
+                            Xoá
+                          </Button>
+                        )}
                         {(blog.rejectionReason || blog.revisionNotes) && (
                           <Button
                             size="sm"
@@ -203,19 +283,19 @@ export default function BlogManagePage() {
                           </Button>
                         )}
                       </div>
-                      {showImageModal === blog.id && (
+                      {showImageModal === blog.id && ( // Restore conditional rendering
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
                           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg relative">
                             <button
                               className="absolute top-2 right-2 text-xl"
-                              onClick={() => setShowImageModal(null)}
+                              onClick={() => setShowImageModal(null)} // Restore usage
                             >
                               &times;
                             </button>
                             <h3 className="text-lg font-bold mb-4">
                               Cập nhật ảnh cho blog
                             </h3>
-                            <BlogCreateWithImage blogId={blog.id} />
+                            <BlogCreateWithImage blogId={blog.id} /> {/* Restore component */}
                           </div>
                         </div>
                       )}
@@ -225,11 +305,7 @@ export default function BlogManagePage() {
                           onClose={() => setEditBlog(null)}
                           onSuccess={() => {
                             setEditBlog(null);
-                            BlogService.getAll().then((data: any) => {
-                              if (Array.isArray(data)) setBlogs(data);
-                              else if (Array.isArray(data?.data))
-                                setBlogs(data.data);
-                            });
+                            fetchBlogs(); // Refresh blogs after edit
                           }}
                         />
                       )}
@@ -246,6 +322,22 @@ export default function BlogManagePage() {
         rejectionReason={selectedBlogReason.rejectionReason || ""}
         revisionNotes={selectedBlogReason.revisionNotes || ""}
       />
+      {/* Removed BlogReviewModal */}
+      {selectedBlog && (
+        <BlogPublishModal
+          onClose={() => {
+            setPublishModalOpen(false);
+            setSelectedBlog(null);
+          }}
+          blog={selectedBlog}
+          onPublishSuccess={() => {
+            setPublishModalOpen(false);
+            setSelectedBlog(null);
+            fetchBlogs(); // Refresh blogs after publish
+          }}
+          isDirectPublish={selectedBlog.status === "draft"} // Pass a prop to indicate direct publish
+        />
+      )}
     </div>
   );
 }

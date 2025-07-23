@@ -45,7 +45,9 @@ export default function UserManagementTable() {
   const [filterStatus, setFilterStatus] = useState("all"); // "active", "inactive", ""
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [isViewUserDetailDialogOpen, setIsViewUserDetailDialogOpen] = useState(false);
+  const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false); // New state for edit dialog
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [editUserData, setEditUserData] = useState<Partial<User>>({}); // New state for editing user data
   const [roles, setRoles] = useState<Role[]>([]); // State to store roles
 
   // State for new user form
@@ -206,6 +208,27 @@ export default function UserManagementTable() {
     setSelectedUser(null);
   };
 
+  const handleEditUserClick = (user: User) => {
+    setSelectedUser(user);
+    setEditUserData({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone || "",
+      address: user.address || "",
+      gender: user.gender || "",
+      roleId: user.role?.id || "",
+      dateOfBirth: user.dateOfBirth,
+    });
+    setIsEditUserDialogOpen(true);
+  };
+
+  const handleCloseEditUserDialog = () => {
+    setIsEditUserDialogOpen(false);
+    setSelectedUser(null);
+    setEditUserData({});
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setNewUserData((prevData) => ({
@@ -214,8 +237,23 @@ export default function UserManagementTable() {
     }));
   };
 
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setEditUserData((prevData) => ({
+      ...prevData,
+      [id]: value,
+    }));
+  };
+
   const handleSelectChange = (id: string, value: string) => {
     setNewUserData((prevData) => ({
+      ...prevData,
+      [id]: value,
+    }));
+  };
+
+  const handleEditSelectChange = (id: string, value: string) => {
+    setEditUserData((prevData) => ({
       ...prevData,
       [id]: value,
     }));
@@ -262,6 +300,54 @@ export default function UserManagementTable() {
     }
   };
 
+  const handleUpdateUser = async () => {
+    if (!selectedUser?.id) {
+      toast({
+        title: "Lỗi",
+        description: "Không tìm thấy ID người dùng để cập nhật.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic validation for required fields
+    if (!editUserData.firstName || !editUserData.lastName || !editUserData.email || !editUserData.roleId) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng điền đầy đủ các trường bắt buộc (Họ, Tên, Email, Vai trò).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const payload = {
+        firstName: editUserData.firstName,
+        lastName: editUserData.lastName,
+        email: editUserData.email,
+        phone: editUserData.phone || undefined,
+        address: editUserData.address || undefined,
+        gender: editUserData.gender || undefined,
+        roleId: editUserData.roleId,
+        dateOfBirth: editUserData.dateOfBirth ? new Date(editUserData.dateOfBirth).toISOString() : undefined,
+      };
+
+      await UserService.updateUser(selectedUser.id, payload);
+      toast({
+        title: "Thành công",
+        description: "Thông tin người dùng đã được cập nhật.",
+      });
+      handleCloseEditUserDialog();
+      fetchUsers(); // Refresh the list
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: `Không thể cập nhật người dùng: ${err.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -278,11 +364,11 @@ export default function UserManagementTable() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả vai trò</SelectItem>
-              <SelectItem value="customer">Khách hàng</SelectItem>
-              <SelectItem value="consultant">Tư vấn viên</SelectItem>
-              <SelectItem value="staff">Nhân viên</SelectItem>
-              <SelectItem value="manager">Quản lý</SelectItem>
-              <SelectItem value="admin">Quản trị viên</SelectItem>
+              {roles.map((role) => (
+                <SelectItem key={role.id} value={role.id}>
+                  {role.description || role.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -319,23 +405,25 @@ export default function UserManagementTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>{user.firstName} {user.lastName}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.phone || "N/A"}</TableCell>
-                  <TableCell>{user.role?.name || "N/A"}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.isActive ? "default" : "secondary"}>
-                      {user.isActive ? "Đang hoạt động" : "Không hoạt động"}
-                    </Badge>
-                  </TableCell>
+              {users.map((user) => {
+                const userRole = roles.find(role => role.id === user.roleId);
+                return (
+                  <TableRow key={user.id}>
+                    <TableCell>{user.firstName} {user.lastName}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>{user.phone || "N/A"}</TableCell>
+                    <TableCell>{userRole?.description || userRole?.name || "N/A"}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.isActive ? "default" : "secondary"}>
+                        {user.isActive ? "Đang hoạt động" : "Không hoạt động"}
+                      </Badge>
+                    </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => handleViewUserDetailsClick(user)}>
                         Xem chi tiết
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => handleEditUserClick(user)}>
                         Chỉnh sửa
                       </Button>
                       <Button
@@ -358,7 +446,8 @@ export default function UserManagementTable() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
 
@@ -449,7 +538,7 @@ export default function UserManagementTable() {
                 <SelectContent>
                   {roles.map((role) => (
                     <SelectItem key={role.id} value={role.id}>
-                      {role.name}
+                      {role.description || role.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -504,7 +593,7 @@ export default function UserManagementTable() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Vai trò:</Label>
-                <span className="col-span-3">{selectedUser.role?.name || "N/A"}</span>
+                <span className="col-span-3">{selectedUser.role?.description || selectedUser.role?.name || "N/A"}</span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Trạng thái:</Label>
@@ -518,6 +607,100 @@ export default function UserManagementTable() {
           )}
           <DialogFooter>
             <Button onClick={handleCloseViewUserDetailDialog}>Đóng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Chỉnh sửa người dùng</DialogTitle>
+            <DialogDescription>
+              Cập nhật thông tin người dùng.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="firstName" className="text-right">
+                  Họ
+                </Label>
+                <Input id="firstName" value={editUserData.firstName || ""} onChange={handleEditInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="lastName" className="text-right">
+                  Tên
+                </Label>
+                <Input id="lastName" value={editUserData.lastName || ""} onChange={handleEditInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="email" className="text-right">
+                  Email
+                </Label>
+                <Input id="email" value={editUserData.email || ""} onChange={handleEditInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="phone" className="text-right">
+                  Số điện thoại
+                </Label>
+                <Input id="phone" value={editUserData.phone || ""} onChange={handleEditInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="address" className="text-right">
+                  Địa chỉ
+                </Label>
+                <Input id="address" value={editUserData.address || ""} onChange={handleEditInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="gender" className="text-right">
+                  Giới tính
+                </Label>
+                <Select value={editUserData.gender || ""} onValueChange={(value) => handleEditSelectChange("gender", value)}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Nam</SelectItem>
+                    <SelectItem value="F">Nữ</SelectItem>
+                    <SelectItem value="Other">Khác</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="dateOfBirth" className="text-right">
+                  Ngày sinh
+                </Label>
+                <Input
+                  id="dateOfBirth"
+                  type="date"
+                  value={editUserData.dateOfBirth ? new Date(editUserData.dateOfBirth).toISOString().split('T')[0] : ""}
+                  onChange={handleEditInputChange}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="roleId" className="text-right">
+                  Vai trò
+                </Label>
+                <Select value={editUserData.roleId || ""} onValueChange={(value) => handleEditSelectChange("roleId", value)}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Chọn vai trò" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.description || role.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseEditUserDialog}>Hủy</Button>
+            <Button onClick={handleUpdateUser}>Lưu thay đổi</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

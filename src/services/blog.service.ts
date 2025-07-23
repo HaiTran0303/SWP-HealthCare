@@ -1,5 +1,11 @@
 import { apiClient } from "./api";
 import { API_ENDPOINTS, API_BASE_URL } from "@/config/api";
+import {
+  ReviewBlogDto,
+  PublishBlogDto,
+  UpdateBlogDto,
+  BlogQueryParams,
+} from "@/types/api.d"; // Import new DTOs and QueryParams
 
 export interface Blog {
   id: string;
@@ -50,8 +56,8 @@ export interface CreateBlogData {
 }
 
 export const BlogService = {
-  async getAll(params: Record<string, any> = {}) {
-    const query = new URLSearchParams(params).toString();
+  async getAll(params: BlogQueryParams = {}) { // Use BlogQueryParams
+    const query = new URLSearchParams(params as Record<string, string>).toString();
     return apiClient.get<Blog[]>(
       `${API_ENDPOINTS.BLOG.BASE}${query ? `?${query}` : ""}`
     );
@@ -63,23 +69,20 @@ export const BlogService = {
     console.log("Creating blog with data:", JSON.stringify(data, null, 2));
     return apiClient.post<Blog>(API_ENDPOINTS.BLOG.BASE, data);
   },
-  async update(id: string, data: Partial<Blog>) {
+  async update(id: string, data: UpdateBlogDto) { // Use UpdateBlogDto
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}`, data);
   },
   async submitReview(id: string) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/submit-review`);
   },
-  async review(
-    id: string,
-    data: { status: string; rejectionReason?: string; revisionNotes?: string }
-  ) {
+  async review(id: string, data: ReviewBlogDto) { // Use ReviewBlogDto
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/review`, data);
   },
-  async publish(id: string, data?: { publishNotes?: string }) {
+  async publish(id: string, data: PublishBlogDto) { // Use PublishBlogDto
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/publish`, data);
   },
-  async directPublish(id: string) {
-    return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/direct-publish`);
+  async directPublish(id: string, data: PublishBlogDto) { // Use PublishBlogDto
+    return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/direct-publish`, data);
   },
   async archive(id: string) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/archive`);
@@ -106,9 +109,9 @@ export const BlogService = {
   async synchronizeImageToBlog(imageId: string, data: Record<string, any>) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/image/${imageId}`, data);
   },
-  async getPendingReview(params: Record<string, any> = {}) {
+  async getPendingReview(params: BlogQueryParams = {}) { // Use BlogQueryParams
     const query = new URLSearchParams({
-      ...params,
+      ...params as Record<string, string>,
       status: "pending_review",
       limit: String(params.limit || 1000), // Ensure all pending blogs are fetched
       page: String(params.page || 1),     // Start from the first page
@@ -117,9 +120,9 @@ export const BlogService = {
       `${API_ENDPOINTS.BLOG.BASE}${query ? `?${query}` : ""}`
     );
   },
-  async getApproved(params: Record<string, any> = {}) {
+  async getApproved(params: BlogQueryParams = {}) { // Use BlogQueryParams
     const query = new URLSearchParams({
-      ...params,
+      ...params as Record<string, string>,
       status: "approved",
     }).toString();
     return apiClient.get<Blog[]>(

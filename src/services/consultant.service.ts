@@ -130,4 +130,14 @@ export const ConsultantService = {
       throw error;
     }
   },
+
+  async createConsultant(data: any): Promise<ConsultantProfile> {
+    try {
+      const response = await apiClient.post<ConsultantProfile>(API_ENDPOINTS.CONSULTANTS.REGISTER, data);
+      return response;
+    } catch (error) {
+      console.error("Error creating consultant:", error);
+      throw error;
+    }
+  },
 };

@@ -38,7 +38,7 @@ export const API_ENDPOINTS = {
     BASE: "/appointments",
     GET_ALL: "/appointments",
     AVAILABLE_SLOTS: "/appointments/available-slots",
-    STATUS: (id: string) => `/appointments/${id}/status`,
+    UPDATE_STATUS: (id: string) => `/appointments/${id}/status`, // Corrected endpoint
     CANCEL: (id: string) => `/appointments/${id}/cancel`,
     CHAT_ROOM: (id: string) => `/appointments/${id}/chat-room`,
     CHECK_IN: (id: string) => `/appointments/${id}/check-in`,
@@ -47,6 +47,7 @@ export const API_ENDPOINTS = {
     UPDATE_MEETING_LINK: (id: string) => `/appointments/${id}/meeting-link`,
     GET_MEETING_LINK: (id: string) => `/appointments/${id}/meeting-link`,
     REMOVE_MEETING_LINK: (id: string) => `/appointments/${id}/meeting-link`,
+    CONSULTANT_MY_APPOINTMENTS: "/appointments/consultant/my-appointments", // Added for consultant dashboard
   },
 
   // Consultants

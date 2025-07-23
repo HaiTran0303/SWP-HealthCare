@@ -31,6 +31,43 @@ export interface CreateBlogDto {
   autoPublish?: boolean;
 }
 
+export interface ReviewBlogDto {
+  status: "approved" | "rejected" | "needs_revision";
+  rejectionReason?: string;
+  revisionNotes?: string;
+}
+
+export interface PublishBlogDto {
+  publishNotes?: string;
+}
+
+export interface UpdateBlogDto {
+  authorId?: string;
+  title?: string;
+  content?: string;
+  status?: "draft" | "pending_review" | "needs_revision" | "rejected" | "approved" | "published" | "archived";
+  featuredImage?: string;
+  tags?: string[];
+  views?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  relatedServicesIds?: string[];
+  excerpt?: string;
+  categoryId?: string;
+  autoPublish?: boolean;
+}
+
+export interface BlogQueryParams {
+  title?: string;
+  status?: "draft" | "pending_review" | "needs_revision" | "rejected" | "approved" | "published" | "archived";
+  categoryId?: string;
+  tags?: string[];
+  sortBy?: "createdAt" | "updatedAt" | "views" | "title" | "publishedAt";
+  sortOrder?: "ASC" | "DESC";
+  page?: number;
+  limit?: number;
+}
+
 export interface Appointment {
   id: string;
   userId: string;

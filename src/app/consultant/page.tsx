@@ -1,8 +1,7 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
 import OnlineConsultationBooking from "@/components/OnlineConsultationBooking";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
@@ -18,62 +17,154 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { apiClient } from "@/services/api";
+import { API_ENDPOINTS } from "@/config/api";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay } from "date-fns";
+import { vi } from "date-fns/locale"; // Import Vietnamese locale
+
+interface Appointment {
+  id: string;
+  appointmentDate: string;
+  status: string;
+  consultationType: string;
+  user: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+interface Feedback {
+  id: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  user: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
 
 export default function ConsultantPage() {
-  const { user } = useAuth();
-  const { toast } = useToast();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    new Date()
-  );
 
-  // Nếu người dùng là tư vấn viên, hiển thị dashboard
-  if (user && (
-    (typeof user.role === "string" && user.role === "consultant") ||
-    (typeof user.role === "object" && user.role?.name === "consultant")
-  )) {
-    return <ConsultantDashboard />;
+  // If user is loading or not a consultant, show appropriate message/component
+  if (isAuthLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p>Đang tải...</p>
+      </div>
+    );
   }
 
-  // Nếu không phải tư vấn viên, hiển thị giao diện đặt lịch
-  return <OnlineConsultationBooking />;
+  if (!user || (typeof user.role === "string" && user.role !== "consultant") || (typeof user.role === "object" && user.role?.name !== "consultant")) {
+    return <OnlineConsultationBooking />;
+  }
+
+  return <ConsultantDashboard />;
 }
 
 function ConsultantDashboard() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    new Date()
-  );
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(true);
+  const [errorAppointments, setErrorAppointments] = useState<string | null>(null);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [loadingFeedbacks, setLoadingFeedbacks] = useState(true);
+  const [errorFeedbacks, setErrorFeedbacks] = useState<string | null>(null);
+  const [dailySchedule, setDailySchedule] = useState<any[]>([]); // Placeholder for daily schedule
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchAppointments(user.id);
+      fetchFeedbacks(user.id);
+      fetchDailySchedule(user.id, selectedDate || new Date());
+    }
+  }, [user, selectedDate]);
+
+  const fetchAppointments = async (consultantId: string) => {
+    setLoadingAppointments(true);
+    setErrorAppointments(null);
+    try {
+      const today = format(new Date(), "yyyy-MM-dd");
+      const response = await apiClient.get<{ data: Appointment[] }>(
+        `${API_ENDPOINTS.APPOINTMENTS.CONSULTANT_MY_APPOINTMENTS}?dateFrom=${today}&dateTo=${today}`
+      );
+      setAppointments(response.data || []);
+    } catch (err: any) {
+      console.error("Error fetching appointments:", err);
+      setErrorAppointments(err?.message || "Lỗi khi tải danh sách cuộc hẹn");
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
+
+  const fetchFeedbacks = async (consultantId: string) => {
+    setLoadingFeedbacks(true);
+    setErrorFeedbacks(null);
+    try {
+      const response = await apiClient.get<{ data: Feedback[] }>(
+        `${API_ENDPOINTS.FEEDBACKS}?consultantId=${consultantId}`
+      );
+      setFeedbacks(response.data || []);
+    } catch (err: any) {
+      console.error("Error fetching feedbacks:", err);
+      setErrorFeedbacks(err?.message || "Lỗi khi tải đánh giá");
+    } finally {
+      setLoadingFeedbacks(false);
+    }
+  };
+
+  const fetchDailySchedule = async (consultantId: string, date: Date) => {
+    try {
+      const dayOfWeek = date.getDay(); // 0 for Sunday, 1 for Monday, etc.
+      const response = await apiClient.get<{ data: any[] }>(
+        `${API_ENDPOINTS.CONSULTANTS.AVAILABILITY}/consultant?consultantId=${consultantId}&dayOfWeek=${dayOfWeek}`
+      );
+
+      const formattedSchedule = response.data.map((slot: any) => ({
+        time: `${slot.startTime} - ${slot.endTime}`,
+        status: slot.isAvailable ? "Trống" : "Đã đặt", // Assuming 'isAvailable' means it's free
+      }));
+      setDailySchedule(formattedSchedule);
+    } catch (err) {
+      console.error("Error fetching daily schedule:", err);
+      setDailySchedule([]); // Clear schedule on error
+    }
+  };
 
   const handleStatusChange = async (appointmentId: string, status: string) => {
     try {
-      const response = await fetch(
-        `https://gender-healthcare.org/api/appointments/${appointmentId}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            // Add authorization header here
-          },
-          body: JSON.stringify({ status }),
-        }
+      await apiClient.patch(
+        `${API_ENDPOINTS.APPOINTMENTS.UPDATE_STATUS(appointmentId)}`,
+        { status }
       );
-
-      if (!response.ok) {
-        throw new Error("Không thể cập nhật trạng thái");
-      }
 
       toast({
         title: "Thành công",
         description: "Đã cập nhật trạng thái cuộc hẹn",
       });
-    } catch (error) {
+      if (user?.id) {
+        fetchAppointments(user.id); // Refresh appointments after status change
+      }
+    } catch (error: any) {
       toast({
         title: "Lỗi",
-        description: "Không thể cập nhật. Vui lòng thử lại sau.",
+        description: error?.message || "Không thể cập nhật. Vui lòng thử lại sau.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    if (user?.id && date) {
+      fetchDailySchedule(user.id, date);
     }
   };
 
@@ -81,50 +172,6 @@ function ConsultantDashboard() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Dashboard tư vấn viên</h1>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Cuộc hẹn hôm nay
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">3 đã hoàn thành</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Số giờ tư vấn</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12.5</div>
-            <p className="text-xs text-muted-foreground">Trong tuần này</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Đánh giá</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">4.8/5</div>
-            <p className="text-xs text-muted-foreground">Từ 124 đánh giá</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Thu nhập</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12.4M</div>
-            <p className="text-xs text-muted-foreground">Trong tháng này</p>
-          </CardContent>
-        </Card>
-      </div>
 
       <Tabs defaultValue="schedule" className="space-y-6">
         <TabsList>
@@ -143,26 +190,28 @@ function ConsultantDashboard() {
                 <Calendar
                   mode="single"
                   selected={selectedDate}
-                  onSelect={setSelectedDate}
+                  onSelect={handleDateSelect}
                   className="rounded-md border"
+                  locale={vi}
                 />
                 <div className="space-y-4">
-                  <h3 className="font-semibold">Lịch trong ngày</h3>
+                  <h3 className="font-semibold">Lịch trong ngày {selectedDate ? format(selectedDate, "dd/MM/yyyy", { locale: vi }) : ""}</h3>
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center p-2 border rounded-lg">
-                      <div>
-                        <p className="font-medium">09:00 - 10:00</p>
-                        <p className="text-sm text-muted-foreground">Đã đặt</p>
-                      </div>
-                      <Badge>Đã đặt</Badge>
-                    </div>
-                    <div className="flex justify-between items-center p-2 border rounded-lg">
-                      <div>
-                        <p className="font-medium">10:00 - 11:00</p>
-                        <p className="text-sm text-muted-foreground">Trống</p>
-                      </div>
-                      <Badge variant="outline">Trống</Badge>
-                    </div>
+                    {dailySchedule.length > 0 ? (
+                      dailySchedule.map((slot, index) => (
+                        <div key={index} className="flex justify-between items-center p-2 border rounded-lg">
+                          <div>
+                            <p className="font-medium">{slot.time}</p>
+                            <p className="text-sm text-muted-foreground">{slot.status}</p>
+                          </div>
+                          <Badge className={slot.status === "Đã đặt" ? "" : "bg-gray-200 text-gray-800"}>
+                            {slot.status}
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground">Không có lịch làm việc cho ngày này.</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -176,54 +225,66 @@ function ConsultantDashboard() {
               <CardTitle>Quản lý cuộc hẹn</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mã cuộc hẹn</TableHead>
-                    <TableHead>Khách hàng</TableHead>
-                    <TableHead>Thời gian</TableHead>
-                    <TableHead>Loại tư vấn</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell>APT-001</TableCell>
-                    <TableCell>Nguyễn Văn A</TableCell>
-                    <TableCell>23/06/2025 09:00</TableCell>
-                    <TableCell>Tư vấn trực tuyến</TableCell>
-                    <TableCell>
-                      <Badge>Chờ xác nhận</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            handleStatusChange("APT-001", "confirmed")
-                          }
-                        >
-                          Xác nhận
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          Chi tiết
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            router.push("/appointments/update-status/APT-001")
-                          }
-                        >
-                          Cập nhật trạng thái
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              {loadingAppointments ? (
+                <div className="flex justify-center items-center h-40">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-2 border-gray-200" />
+                </div>
+              ) : errorAppointments ? (
+                <p className="text-red-500 text-center">{errorAppointments}</p>
+              ) : appointments.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Mã cuộc hẹn</TableHead>
+                      <TableHead>Khách hàng</TableHead>
+                      <TableHead>Thời gian</TableHead>
+                      <TableHead>Loại tư vấn</TableHead>
+                      <TableHead>Trạng thái</TableHead>
+                      <TableHead>Thao tác</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {appointments.map((appointment) => (
+                      <TableRow key={appointment.id}>
+                        <TableCell>{appointment.id.substring(0, 8).toUpperCase()}</TableCell>
+                        <TableCell>{`${appointment.user.firstName} ${appointment.user.lastName}`}</TableCell>
+                        <TableCell>{format(new Date(appointment.appointmentDate), "dd/MM/yyyy HH:mm", { locale: vi })}</TableCell>
+                        <TableCell>{appointment.consultationType}</TableCell>
+                        <TableCell>
+                          <Badge>{appointment.status}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                handleStatusChange(appointment.id, "confirmed")
+                              }
+                            >
+                              Xác nhận
+                            </Button>
+                            <Button variant="ghost" size="sm">
+                              Chi tiết
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() =>
+                                router.push(`/appointments/update-status/${appointment.id}`)
+                              }
+                            >
+                              Cập nhật trạng thái
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-muted-foreground text-center">Không có cuộc hẹn nào hôm nay.</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -234,39 +295,34 @@ function ConsultantDashboard() {
               <CardTitle>Đánh giá từ khách hàng</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="p-4 border rounded-lg">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium">Nguyễn Văn A</p>
-                      <p className="text-sm text-muted-foreground">
-                        20/06/2025
+              {loadingFeedbacks ? (
+                <div className="flex justify-center items-center h-40">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-2 border-gray-200" />
+                </div>
+              ) : errorFeedbacks ? (
+                <p className="text-red-500 text-center">{errorFeedbacks}</p>
+              ) : feedbacks.length > 0 ? (
+                <div className="space-y-4">
+                  {feedbacks.map((feedback) => (
+                    <div key={feedback.id} className="p-4 border rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium">{`${feedback.user.firstName} ${feedback.user.lastName}`}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(feedback.createdAt), "dd/MM/yyyy", { locale: vi })}
+                          </p>
+                        </div>
+                        <Badge>{feedback.rating}/5 ⭐</Badge>
+                      </div>
+                      <p className="text-muted-foreground">
+                        {feedback.comment}
                       </p>
                     </div>
-                    <Badge>5/5 ⭐</Badge>
-                  </div>
-                  <p className="text-muted-foreground">
-                    Bác sĩ tư vấn rất tận tình và chuyên nghiệp. Tôi rất hài
-                    lòng với buổi tư vấn.
-                  </p>
+                  ))}
                 </div>
-
-                <div className="p-4 border rounded-lg">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium">Trần Thị B</p>
-                      <p className="text-sm text-muted-foreground">
-                        19/06/2025
-                      </p>
-                    </div>
-                    <Badge>4.5/5 ⭐</Badge>
-                  </div>
-                  <p className="text-muted-foreground">
-                    Tư vấn viên rất kinh nghiệm và giải đáp mọi thắc mắc của
-                    tôi.
-                  </p>
-                </div>
-              </div>
+              ) : (
+                <p className="text-muted-foreground text-center">Chưa có đánh giá nào.</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

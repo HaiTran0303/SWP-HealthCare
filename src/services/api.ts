@@ -31,14 +31,24 @@ async function fetchWithTimeout(resource: string, config: RequestConfig = {}) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
 
+  const finalHeaders = new Headers(apiClient.defaultHeaders);
+  if (config.headers) {
+    const customHeaders = new Headers(config.headers);
+    customHeaders.forEach((value, key) => {
+      finalHeaders.set(key, value);
+    });
+  }
+
+  const isFormData = config.body instanceof FormData;
+  if (isFormData) {
+    finalHeaders.delete("Content-Type");
+  }
+
   try {
     const response = await fetch(resource, {
       ...config,
-      credentials: "include", // Needed for cookies
-      headers: {
-        ...apiClient.defaultHeaders,
-        ...config.headers,
-      },
+      credentials: "include",
+      headers: finalHeaders,
       signal: controller.signal,
     });
 
@@ -188,7 +198,7 @@ export const apiClient = {
   ): Promise<T> {
     return this.request(endpoint, {
       method: "POST",
-      body: data ? JSON.stringify(data) : undefined, // Handle undefined body
+      body: data instanceof FormData ? data : data ? JSON.stringify(data) : undefined,
       ...config,
     });
   },
@@ -200,7 +210,7 @@ export const apiClient = {
   ): Promise<T> {
     return this.request(endpoint, {
       method: "PUT",
-      body: data ? JSON.stringify(data) : undefined, // Handle undefined body
+      body: data instanceof FormData ? data : data ? JSON.stringify(data) : undefined,
       ...config,
     });
   },
@@ -212,7 +222,7 @@ export const apiClient = {
   ): Promise<T> {
     return this.request(endpoint, {
       method: "PATCH",
-      body: data ? JSON.stringify(data) : undefined, // Handle undefined body
+      body: data instanceof FormData ? data : data ? JSON.stringify(data) : undefined,
       ...config,
     });
   },
