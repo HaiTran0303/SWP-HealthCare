@@ -19,10 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { User, UserService, GetUsersQuery } from "@/services/user.service";
+import { User, UserService, GetUsersQuery, Role } from "@/services/user.service"; // Import Role
 import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label"; // Ensure Label is imported
 
 export default function UserManagementTable() {
   const { toast } = useToast();
@@ -34,6 +43,22 @@ export default function UserManagementTable() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all"); // "active", "inactive", ""
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+  const [isViewUserDetailDialogOpen, setIsViewUserDetailDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [roles, setRoles] = useState<Role[]>([]); // State to store roles
+
+  // State for new user form
+  const [newUserData, setNewUserData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    phone: "",
+    address: "",
+    gender: "",
+    roleId: "", // Assuming roleId is used for creation
+  });
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
 
@@ -74,7 +99,22 @@ export default function UserManagementTable() {
   };
 
   useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const fetchedRoles = await UserService.getAllRoles();
+        setRoles(fetchedRoles);
+      } catch (err) {
+        console.error("Error fetching roles:", err);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải danh sách vai trò.",
+          variant: "destructive",
+        });
+      }
+    };
+
     fetchUsers();
+    fetchRoles();
   }, [currentPage, searchQuery, filterRole, filterStatus]);
 
   const handlePageChange = (page: number) => {
@@ -138,6 +178,90 @@ export default function UserManagementTable() {
     setCurrentPage(totalPages);
   };
 
+  const handleAddUserClick = () => {
+    setIsAddUserDialogOpen(true);
+  };
+
+  const handleCloseAddUserDialog = () => {
+    setIsAddUserDialogOpen(false);
+    setNewUserData({
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      phone: "",
+      address: "",
+      gender: "",
+      roleId: "",
+    });
+  };
+
+  const handleViewUserDetailsClick = (user: User) => {
+    setSelectedUser(user);
+    setIsViewUserDetailDialogOpen(true);
+  };
+
+  const handleCloseViewUserDetailDialog = () => {
+    setIsViewUserDetailDialogOpen(false);
+    setSelectedUser(null);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setNewUserData((prevData) => ({
+      ...prevData,
+      [id]: value,
+    }));
+  };
+
+  const handleSelectChange = (id: string, value: string) => {
+    setNewUserData((prevData) => ({
+      ...prevData,
+      [id]: value,
+    }));
+  };
+
+  const handleCreateUser = async () => {
+    // Basic validation for required fields
+    if (!newUserData.firstName || !newUserData.lastName || !newUserData.email || !newUserData.password || !newUserData.roleId) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng điền đầy đủ các trường bắt buộc (Họ, Tên, Email, Mật khẩu, Vai trò).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const payload = {
+        firstName: newUserData.firstName,
+        lastName: newUserData.lastName,
+        email: newUserData.email,
+        password: newUserData.password,
+        roleId: newUserData.roleId,
+        phone: newUserData.phone || undefined,
+        gender: newUserData.gender || undefined, // Include gender if it has a value
+        address: newUserData.address || undefined, // Include address if it has a value
+      };
+
+      console.log("Payload being sent to createUser:", payload); // Add this log
+
+      await UserService.createUser(payload);
+      toast({
+        title: "Thành công",
+        description: "Người dùng mới đã được thêm.",
+      });
+      handleCloseAddUserDialog(); // Close dialog and reset form
+      fetchUsers(); // Refresh user list
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: `Không thể thêm người dùng: ${err.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -172,7 +296,7 @@ export default function UserManagementTable() {
             </SelectContent>
           </Select>
         </div>
-        <Button>Thêm người dùng</Button>
+        <Button onClick={handleAddUserClick}>Thêm người dùng</Button>
       </div>
 
       {loading ? (
@@ -208,6 +332,9 @@ export default function UserManagementTable() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => handleViewUserDetailsClick(user)}>
+                        Xem chi tiết
+                      </Button>
                       <Button variant="ghost" size="sm">
                         Chỉnh sửa
                       </Button>
@@ -249,6 +376,151 @@ export default function UserManagementTable() {
           />
         </>
       )}
+
+      {/* Add User Dialog */}
+      <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Thêm người dùng mới</DialogTitle>
+            <DialogDescription>
+              Điền thông tin để tạo tài khoản người dùng mới.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="firstName" className="text-right">
+                Họ
+              </Label>
+              <Input id="firstName" value={newUserData.firstName} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="lastName" className="text-right">
+                Tên
+              </Label>
+              <Input id="lastName" value={newUserData.lastName} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email" className="text-right">
+                Email
+              </Label>
+              <Input id="email" value={newUserData.email} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="password" className="text-right">
+                Mật khẩu
+              </Label>
+              <Input id="password" type="password" value={newUserData.password} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="phone" className="text-right">
+                Số điện thoại
+              </Label>
+              <Input id="phone" value={newUserData.phone} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="address" className="text-right">
+                Địa chỉ
+              </Label>
+              <Input id="address" value={newUserData.address} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="gender" className="text-right">
+                Giới tính
+              </Label>
+              <Select value={newUserData.gender} onValueChange={(value) => handleSelectChange("gender", value)}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Chọn giới tính" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="M">Nam</SelectItem>
+                  <SelectItem value="F">Nữ</SelectItem>
+                  <SelectItem value="Other">Khác</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="roleId" className="text-right">
+                Vai trò
+              </Label>
+              <Select value={newUserData.roleId} onValueChange={(value) => handleSelectChange("roleId", value)}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Chọn vai trò" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseAddUserDialog}>Hủy</Button>
+            <Button onClick={handleCreateUser}>Thêm người dùng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View User Detail Dialog */}
+      <Dialog open={isViewUserDetailDialogOpen} onOpenChange={setIsViewUserDetailDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Chi tiết người dùng</DialogTitle>
+            <DialogDescription>
+              Thông tin chi tiết của người dùng.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">ID:</Label>
+                <span className="col-span-3">{selectedUser.id}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Họ tên:</Label>
+                <span className="col-span-3">{selectedUser.firstName} {selectedUser.lastName}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Email:</Label>
+                <span className="col-span-3">{selectedUser.email}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Số điện thoại:</Label>
+                <span className="col-span-3">{selectedUser.phone || "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Địa chỉ:</Label>
+                <span className="col-span-3">{selectedUser.address || "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Giới tính:</Label>
+                <span className="col-span-3">{selectedUser.gender || "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Ngày sinh:</Label>
+                <span className="col-span-3">{selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString() : "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Vai trò:</Label>
+                <span className="col-span-3">{selectedUser.role?.name || "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Trạng thái:</Label>
+                <span className="col-span-3">
+                  <Badge variant={selectedUser.isActive ? "default" : "secondary"}>
+                    {selectedUser.isActive ? "Đang hoạt động" : "Không hoạt động"}
+                  </Badge>
+                </span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={handleCloseViewUserDetailDialog}>Đóng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

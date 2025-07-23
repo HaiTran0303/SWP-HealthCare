@@ -30,3 +30,21 @@ export interface CreateBlogDto {
   categoryId: string;
   autoPublish?: boolean;
 }
+
+export interface Appointment {
+  id: string;
+  userId: string;
+  consultantId?: string;
+  serviceId?: string;
+  appointmentDate: string;
+  appointmentLocation: "online" | "office";
+  notes?: string;
+  status: "pending" | "confirmed" | "checked_in" | "in_progress" | "completed" | "cancelled" | "rescheduled" | "no_show";
+  meetingLink?: string; // Add this line
+  cancellationReason?: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: any; // Assuming User interface is defined elsewhere or can be 'any' for now
+  consultant?: any; // Assuming Consultant interface is defined elsewhere or can be 'any' for now
+  service?: any; // Assuming Service interface is defined elsewhere or can be 'any' for now
+}

@@ -32,6 +32,15 @@ import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns"; // For date formatting
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label"; // Ensure Label is imported
 
 export default function AppointmentManagementTable() {
   const { toast } = useToast();
@@ -45,6 +54,10 @@ export default function AppointmentManagementTable() {
   const [filterConsultantId, setFilterConsultantId] = useState<string>(""); // For filtering by consultant
   const [filterUserId, setFilterUserId] = useState<string>(""); // For filtering by user/customer
   const [usersMap, setUsersMap] = useState<Map<string, User>>(new Map()); // Cache for user details
+  const [isViewAppointmentDetailDialogOpen, setIsViewAppointmentDetailDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [isAddAppointmentDialogOpen, setIsAddAppointmentDialogOpen] = useState(false);
+
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
 
@@ -185,6 +198,33 @@ export default function AppointmentManagementTable() {
     setCurrentPage(totalPages);
   };
 
+  const handleViewAppointmentDetailsClick = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setIsViewAppointmentDetailDialogOpen(true);
+  };
+
+  const handleCloseViewAppointmentDetailDialog = () => {
+    setIsViewAppointmentDetailDialogOpen(false);
+    setSelectedAppointment(null);
+  };
+
+  const handleAddAppointmentClick = () => {
+    setIsAddAppointmentDialogOpen(true);
+  };
+
+  const handleCloseAddAppointmentDialog = () => {
+    setIsAddAppointmentDialogOpen(false);
+  };
+
+  const handleAppointmentAdded = () => {
+    setIsAddAppointmentDialogOpen(false);
+    fetchAppointments(); // Refresh appointment list
+    toast({
+      title: "Thành công",
+      description: "Cuộc hẹn mới đã được thêm.",
+    });
+  };
+
   const getLocationText = (location: string | undefined): string => {
     if (!location) {
       return "Địa điểm không xác định";
@@ -244,7 +284,7 @@ export default function AppointmentManagementTable() {
             </SelectContent>
           </Select> */}
         </div>
-        <Button>Thêm cuộc hẹn mới</Button>
+        <Button onClick={handleAddAppointmentClick}>Thêm cuộc hẹn mới</Button>
       </div>
 
       {loading ? (
@@ -288,18 +328,9 @@ export default function AppointmentManagementTable() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => handleViewAppointmentDetailsClick(appointment)}>
                         Chi tiết
                       </Button>
-                      {appointment.status === "pending" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleUpdateStatus(appointment.id, "confirmed")}
-                        >
-                          Xác nhận
-                        </Button>
-                      )}
                       {appointment.status === "confirmed" && (
                         <Button
                           variant="outline"
@@ -339,6 +370,137 @@ export default function AppointmentManagementTable() {
           />
         </>
       )}
+
+      {/* Add Appointment Dialog */}
+      <Dialog open={isAddAppointmentDialogOpen} onOpenChange={setIsAddAppointmentDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Thêm cuộc hẹn mới</DialogTitle>
+            <DialogDescription>
+              Điền thông tin để tạo cuộc hẹn mới.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="userId" className="text-right">
+                ID Khách hàng
+              </Label>
+              <Input id="userId" defaultValue="" className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="consultantId" className="text-right">
+                ID Tư vấn viên
+              </Label>
+              <Input id="consultantId" defaultValue="" className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="serviceId" className="text-right">
+                ID Dịch vụ
+              </Label>
+              <Input id="serviceId" defaultValue="" className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="appointmentDate" className="text-right">
+                Ngày giờ
+              </Label>
+              <Input id="appointmentDate" type="datetime-local" defaultValue="" className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="location" className="text-right">
+                Địa điểm
+              </Label>
+              <Select>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Chọn địa điểm" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="online">Trực tuyến</SelectItem>
+                  <SelectItem value="office">Tại phòng khám</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="notes" className="text-right">
+                Ghi chú
+              </Label>
+              <Input id="notes" defaultValue="" className="col-span-3" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseAddAppointmentDialog}>Hủy</Button>
+            <Button onClick={handleAppointmentAdded}>Thêm cuộc hẹn</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Appointment Detail Dialog */}
+      <Dialog open={isViewAppointmentDetailDialogOpen} onOpenChange={setIsViewAppointmentDetailDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Chi tiết cuộc hẹn</DialogTitle>
+            <DialogDescription>
+              Thông tin chi tiết của cuộc hẹn.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedAppointment && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">ID:</Label>
+                <span className="col-span-3">{selectedAppointment.id}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Khách hàng:</Label>
+                <span className="col-span-3">{selectedAppointment.user ? `${selectedAppointment.user.firstName} ${selectedAppointment.user.lastName}` : "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Tư vấn viên:</Label>
+                <span className="col-span-3">{selectedAppointment.consultant?.firstName} {selectedAppointment.consultant?.lastName || "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Dịch vụ:</Label>
+                <span className="col-span-3">{selectedAppointment.service?.name || "Tư vấn chung"}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Ngày giờ:</Label>
+                <span className="col-span-3">{format(new Date(selectedAppointment.appointmentDate), "dd/MM/yyyy HH:mm")}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Địa điểm:</Label>
+                <span className="col-span-3">{getLocationText(selectedAppointment.appointmentLocation)}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Trạng thái:</Label>
+                <span className="col-span-3">
+                  <Badge variant={selectedAppointment.status === "completed" ? "default" : "secondary"}>
+                    {AppointmentService.getStatusText(selectedAppointment.status as AppointmentStatus)}
+                  </Badge>
+                </span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Ghi chú:</Label>
+                <span className="col-span-3">{selectedAppointment.notes || "N/A"}</span>
+              </div>
+              {selectedAppointment.meetingLink && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Link cuộc họp:</Label>
+                  <a href={selectedAppointment.meetingLink} target="_blank" rel="noopener noreferrer" className="col-span-3 text-blue-500 hover:underline">
+                    {selectedAppointment.meetingLink}
+                  </a>
+                </div>
+              )}
+              {selectedAppointment.cancellationReason && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Lý do hủy:</Label>
+                  <span className="col-span-3">{selectedAppointment.cancellationReason}</span>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={handleCloseViewAppointmentDetailDialog}>Đóng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

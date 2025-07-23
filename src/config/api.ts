@@ -28,6 +28,7 @@ export const API_ENDPOINTS = {
     PROFILE: "/users/me",
     CHANGE_PASSWORD: "/users/me/change-password",
     GET_ALL: "/users",
+    CREATE: "/users", // Add this line
     TOGGLE_ACTIVE: (id: string) => `/users/${id}/toggle-active`,
     VERIFY_EMAIL: (id: string) => `/users/${id}/verify-email`,
   },
@@ -164,6 +165,11 @@ export const API_ENDPOINTS = {
     MONTHLY: "/revenue-stats/monthly",
     YEARLY: "/revenue-stats/yearly",
     REPORT: "/revenue-stats/report",
+  },
+
+  // Roles
+  ROLES: {
+    GET_ALL: "/roles",
   },
 };
 
