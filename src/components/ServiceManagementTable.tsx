@@ -38,9 +38,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label"; // Ensure Label is imported
 import { Textarea } from "@/components/ui/textarea"; // For description
+import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
 
 export default function ServiceManagementTable() {
   const { toast } = useToast();
+  const { user } = useAuth(); // Get user from AuthContext
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +55,8 @@ export default function ServiceManagementTable() {
   const [isAddServiceDialogOpen, setIsAddServiceDialogOpen] = useState(false);
   const [isViewServiceDetailDialogOpen, setIsViewServiceDetailDialogOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [isUploadImageDialogOpen, setIsUploadImageDialogOpen] = useState(false); // New state for image upload dialog
+  const [selectedServiceForImage, setSelectedServiceForImage] = useState<Service | null>(null); // New state for selected service for image upload
 
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
@@ -169,6 +173,31 @@ export default function ServiceManagementTable() {
     });
   };
 
+  const handleUploadImageClick = (service: Service) => {
+    setSelectedServiceForImage(service);
+    setIsUploadImageDialogOpen(true);
+  };
+
+  const handleCloseUploadImageDialog = () => {
+    setIsUploadImageDialogOpen(false);
+    setSelectedServiceForImage(null);
+  };
+
+  const handleImageUploaded = () => {
+    setIsUploadImageDialogOpen(false);
+    fetchServices(); // Refresh service list to show new image if applicable
+    toast({
+      title: "Thành công",
+      description: "Ảnh đã được thêm vào dịch vụ.",
+    });
+  };
+
+  const userRoleName = typeof user?.role === "object" ? user.role.name : user?.role;
+  const isAdminOrManager = userRoleName === "admin" || userRoleName === "manager";
+  const isConsultant = userRoleName === "consultant";
+  const isStaff = userRoleName === "staff";
+  const isCustomer = userRoleName === "customer";
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -210,7 +239,9 @@ export default function ServiceManagementTable() {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={handleAddServiceClick}>Thêm dịch vụ mới</Button>
+        {isAdminOrManager && (
+          <Button onClick={handleAddServiceClick}>Thêm dịch vụ mới</Button>
+        )}
       </div>
 
       {loading ? (
@@ -251,16 +282,27 @@ export default function ServiceManagementTable() {
                       <Button variant="ghost" size="sm" onClick={() => handleViewServiceDetailsClick(service)}>
                         Chi tiết
                       </Button>
-                      <Button variant="ghost" size="sm">
-                        Chỉnh sửa
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteService(service.id)}
-                      >
-                        Xóa
-                      </Button>
+                      {isAdminOrManager && (
+                        <>
+                          <Button variant="ghost" size="sm">
+                            Chỉnh sửa
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleUploadImageClick(service)}
+                          >
+                            Thêm ảnh
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteService(service.id)}
+                          >
+                            Xóa
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -416,6 +458,19 @@ export default function ServiceManagementTable() {
           </DialogHeader>
           {selectedService && (
             <div className="grid gap-4 py-4">
+              {selectedService.images && selectedService.images.length > 0 ? (
+                <div className="col-span-4 flex justify-center">
+                  <img
+                    src={selectedService.images[0].url}
+                    alt={selectedService.name}
+                    className="w-48 h-48 object-cover rounded-md"
+                  />
+                </div>
+              ) : (
+                <div className="col-span-4 flex justify-center items-center w-48 h-48 bg-gray-200 rounded-md text-gray-500">
+                  Không có ảnh
+                </div>
+              )}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">ID:</Label>
                 <span className="col-span-3">{selectedService.id}</span>
@@ -487,6 +542,115 @@ export default function ServiceManagementTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Upload Image Dialog */}
+      {selectedServiceForImage && (
+        <UploadImageDialog
+          service={selectedServiceForImage}
+          isOpen={isUploadImageDialogOpen}
+          onClose={handleCloseUploadImageDialog}
+          onImageUploaded={handleImageUploaded}
+        />
+      )}
     </div>
+  );
+}
+
+interface UploadImageDialogProps {
+  service: Service;
+  isOpen: boolean;
+  onClose: () => void;
+  onImageUploaded: () => void;
+}
+
+function UploadImageDialog({ service, isOpen, onClose, onImageUploaded }: UploadImageDialogProps) {
+  const { toast } = useToast();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedFile(event.target.files[0]);
+    } else {
+      setSelectedFile(null);
+    }
+  };
+
+  const handleUploadAndAssociate = async () => {
+    if (!selectedFile) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng chọn một ảnh để tải lên.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      // 1. Upload the image
+      const uploadResponse = await APIService.uploadServiceImage(selectedFile, service.id);
+      const imageId = uploadResponse.id;
+
+      // 2. Associate the image with the service
+      await APIService.addImageToService(service.id, imageId);
+
+      toast({
+        title: "Thành công",
+        description: "Ảnh đã được tải lên và liên kết với dịch vụ.",
+      });
+      onImageUploaded();
+    } catch (error: any) {
+      console.error("Error uploading or associating image:", error);
+      toast({
+        title: "Lỗi",
+        description: `Không thể thêm ảnh: ${error.message || "Lỗi không xác định"}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      setSelectedFile(null); // Clear selected file
+      onClose();
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Thêm ảnh cho dịch vụ</DialogTitle>
+          <DialogDescription>
+            Tải lên một ảnh mới cho dịch vụ "{service.name}".
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="image" className="text-right">
+              Chọn ảnh
+            </Label>
+            <Input
+              id="image"
+              type="file"
+              className="col-span-3"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+          </div>
+          {selectedFile && (
+            <div className="col-span-4 text-center text-sm text-gray-500">
+              Đã chọn: {selectedFile.name}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isUploading}>
+            Hủy
+          </Button>
+          <Button onClick={handleUploadAndAssociate} disabled={isUploading || !selectedFile}>
+            {isUploading ? "Đang tải lên..." : "Tải lên và thêm"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -41,14 +41,16 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppointmentService, AppointmentStatus, Appointment as GeneralAppointmentType } from "@/services/appointment.service";
-import { STITestingService, StiTestProcess as StiAppointmentType } from "@/services/sti-testing.service";
+import { STITestingService, StiProcess as StiAppointmentType } from "@/services/sti-testing.service";
 import { FeedbackService } from "@/services/feedback.service"; // Import FeedbackService
 import { Feedback, CreateFeedbackDto } from "@/types/feedback"; // Import Feedback types
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useRouter } from "next/navigation";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // For star rating
-import { DialogClose } from "@/components/ui/dialog"; // For closing dialogs
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { DialogClose } from "@/components/ui/dialog";
+import { Pagination, PaginationInfo } from "@/components/ui/pagination"; // Import Pagination components
+import { PaginationResponse } from "@/types/api.d"; // Import PaginationResponse
 
 interface ConsultantDetails {
   id: string;
@@ -437,15 +439,21 @@ const AppointmentCard: React.FC<{
 const UserAppointmentManagement: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const router = useRouter(); // Add useRouter
+  const router = useRouter();
   const [appointments, setAppointments] = useState<AppointmentDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentDetails | null>(null);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false); // New state for rating dialog
-  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false); // New state for feedback submission
+  const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalAppointmentsCount, setTotalAppointmentsCount] = useState(0); // Total count for all appointments
+  const itemsPerPage = 10; // Number of items per page
 
   const getStatusIcon = (status: AppointmentStatus) => {
     switch (status) {
@@ -496,11 +504,11 @@ const UserAppointmentManagement: React.FC = () => {
     try {
       console.log("Fetching appointments for user:", user.id);
       const [generalAppointmentsResponse, stiAppointmentsResponse] = await Promise.all([
-        AppointmentService.getUserAppointments(),
-        STITestingService.getUserStiAppointments(),
+        AppointmentService.getUserAppointments({ page: currentPage, limit: itemsPerPage }),
+        STITestingService.getUserStiAppointments({ page: currentPage, limit: itemsPerPage }),
       ]) as [
-          { data: GeneralAppointmentType[]; total: number },
-          { data: StiAppointmentType[]; total: number }
+          PaginationResponse<GeneralAppointmentType>,
+          PaginationResponse<StiAppointmentType>
         ];
 
       console.log("Raw General Appointments Response:", generalAppointmentsResponse);
@@ -538,12 +546,11 @@ const UserAppointmentManagement: React.FC = () => {
                 type: s.type,
               })),
               questionId: apt.questionId,
-              type: "consultation", // Mark as consultation appointment
-              feedbackId: apt.feedbackId, // Populate feedbackId
-              feedback: undefined, // Initialize feedback as undefined
+              type: "consultation",
+              feedbackId: apt.feedbackId,
+              feedback: undefined,
             };
 
-            // Fetch feedback if feedbackId exists
             if (appointmentDetails.feedbackId) {
               try {
                 const feedbackResponse = await FeedbackService.getFeedbackById(appointmentDetails.feedbackId);
@@ -575,7 +582,7 @@ const UserAppointmentManagement: React.FC = () => {
                 rating: apt.consultantDoctor.rating,
               } : undefined,
               appointmentDate: apt.sampleCollectionDate,
-              status: (() => { // Map STI status to a general AppointmentStatus
+              status: (() => {
                 switch (apt.status) {
                   case "ordered":
                   case "sample_collection_scheduled":
@@ -586,13 +593,13 @@ const UserAppointmentManagement: React.FC = () => {
                   case "result_delivered":
                   case "consultation_required":
                   case "follow_up_scheduled":
-                    return "confirmed"; // Treat as confirmed/ongoing
+                    return "confirmed";
                   case "completed":
                     return "completed";
                   case "cancelled":
                     return "cancelled";
                   default:
-                    return "pending"; // Fallback
+                    return "pending";
                 }
               })() as AppointmentStatus,
               notes: apt.processNotes,
@@ -606,16 +613,15 @@ const UserAppointmentManagement: React.FC = () => {
                 price: apt.service.price,
                 type: apt.service.type,
               }] : [],
-              type: "sti_test", // Mark as STI test appointment
+              type: "sti_test",
               sampleCollectionDate: apt.sampleCollectionDate,
               sampleCollectionLocation: apt.sampleCollectionLocation,
               stiServiceId: apt.service?.id,
               testCode: apt.testCode,
-              feedbackId: apt.feedbackId, // Populate feedbackId for STI appointments
-              feedback: undefined, // Initialize feedback as undefined
+              feedbackId: apt.feedbackId,
+              feedback: undefined,
             };
 
-            // Fetch feedback if feedbackId exists for STI appointments
             if (appointmentDetails.feedbackId) {
               try {
                 const feedbackResponse = await FeedbackService.getFeedbackById(appointmentDetails.feedbackId);
@@ -641,9 +647,19 @@ const UserAppointmentManagement: React.FC = () => {
       console.log("Combined Appointments after sort:", combinedAppointments);
 
       setAppointments(combinedAppointments);
+
+      // Calculate total count and total pages from both responses
+      const totalGeneral = generalAppointmentsResponse.meta?.totalItems || 0;
+      const totalSti = stiAppointmentsResponse.meta?.totalItems || 0;
+      const combinedTotal = totalGeneral + totalSti;
+      setTotalAppointmentsCount(combinedTotal);
+      setTotalPages(Math.ceil(combinedTotal / itemsPerPage));
+
     } catch (error: any) {
       console.error("Error fetching appointments:", error);
       setAppointments([]);
+      setTotalAppointmentsCount(0);
+      setTotalPages(1);
       toast({
         title: "Lỗi",
         description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
@@ -815,6 +831,62 @@ const UserAppointmentManagement: React.FC = () => {
     ["completed", "cancelled", "no_show"].includes(apt.status)
   );
 
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleFirstPage = () => {
+    setCurrentPage(1);
+  };
+
+  const handleLastPage = () => {
+    setCurrentPage(totalPages);
+  };
+
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+    if (endPage - startPage + 1 < maxPagesToShow) {
+      startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+
+    if (startPage > 1) {
+      pageNumbers.push(1);
+      if (startPage > 2) {
+        pageNumbers.push(-1);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        pageNumbers.push(-1);
+      }
+      pageNumbers.push(totalPages);
+    }
+
+    return pageNumbers;
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -841,7 +913,7 @@ const UserAppointmentManagement: React.FC = () => {
             Đã qua ({pastAppointments.length})
           </TabsTrigger>
           <TabsTrigger value="all">
-            Tất cả ({appointments.length})
+            Tất cả ({totalAppointmentsCount})
           </TabsTrigger>
         </TabsList>
 
@@ -868,8 +940,8 @@ const UserAppointmentManagement: React.FC = () => {
                   onCancel={handleCancelAppointment}
                   onViewDetails={handleViewDetails}
                   onEnterChat={handleEnterChat}
-                  onRateAppointment={handleRateAppointment} // Pass the new handler
-                  onPayAppointment={handlePayAppointment} // Pass the new handler
+                  onRateAppointment={handleRateAppointment}
+                  onPayAppointment={handlePayAppointment}
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />
@@ -898,8 +970,8 @@ const UserAppointmentManagement: React.FC = () => {
                   onCancel={handleCancelAppointment}
                   onViewDetails={handleViewDetails}
                   onEnterChat={handleEnterChat}
-                  onRateAppointment={handleRateAppointment} // Pass the new handler
-                  onPayAppointment={handlePayAppointment} // Pass the new handler
+                  onRateAppointment={handleRateAppointment}
+                  onPayAppointment={handlePayAppointment}
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />
@@ -909,7 +981,7 @@ const UserAppointmentManagement: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="all" className="space-y-4">
-          {appointments.length === 0 ? (
+          {appointments.length === 0 && totalAppointmentsCount === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Calendar className="w-12 h-12 text-muted-foreground mb-4" />
@@ -923,21 +995,43 @@ const UserAppointmentManagement: React.FC = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4">
-              {appointments.map((appointment) => (
-                <AppointmentCard
-                  key={appointment.id}
-                  appointment={appointment}
-                  onCancel={handleCancelAppointment}
-                  onViewDetails={handleViewDetails}
-                  onEnterChat={handleEnterChat}
-                  onRateAppointment={handleRateAppointment} // Pass the new handler
-                  onPayAppointment={handlePayAppointment} // Pass the new handler
-                  getStatusIcon={getStatusIcon}
-                  getStatusColor={getStatusColor}
+            <>
+              <div className="grid gap-4">
+                {appointments.map((appointment) => (
+                  <AppointmentCard
+                    key={appointment.id}
+                    appointment={appointment}
+                    onCancel={handleCancelAppointment}
+                    onViewDetails={handleViewDetails}
+                    onEnterChat={handleEnterChat}
+                    onRateAppointment={handleRateAppointment}
+                    onPayAppointment={handlePayAppointment}
+                    getStatusIcon={getStatusIcon}
+                    getStatusColor={getStatusColor}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between items-center mt-4">
+                <PaginationInfo
+                  totalItems={totalAppointmentsCount}
+                  itemsPerPage={itemsPerPage}
+                  currentPage={currentPage}
+                  itemName="lịch hẹn"
                 />
-              ))}
-            </div>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageNumbers={getPageNumbers()}
+                  hasNextPage={currentPage < totalPages}
+                  hasPreviousPage={currentPage > 1}
+                  onPageChange={handlePageChange}
+                  onNextPage={handleNextPage}
+                  onPreviousPage={handlePreviousPage}
+                  onFirstPage={handleFirstPage}
+                  onLastPage={handleLastPage}
+                />
+              </div>
+            </>
           )}
         </TabsContent>
       </Tabs>

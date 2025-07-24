@@ -9,14 +9,16 @@ interface BlogPublishModalProps {
   blog: Blog | null;
   onClose: () => void;
   onPublishSuccess: () => void;
-  isDirectPublish?: boolean; // Add this prop
+  isDirectPublish?: boolean;
+  isApproveAction?: boolean; // New prop for approval action
 }
 
 export default function BlogPublishModal({
   blog,
   onClose,
   onPublishSuccess,
-  isDirectPublish = false, // Default to false
+  isDirectPublish = false,
+  isApproveAction = false, // Default to false
 }: BlogPublishModalProps) {
   const [publishNotes, setPublishNotes] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -38,18 +40,23 @@ export default function BlogPublishModal({
     setError("");
     setSuccess("");
     try {
-      const data: PublishBlogDto = { publishNotes };
-      if (isDirectPublish) {
-        await BlogService.directPublish(blog.id, data);
-        setSuccess("Đã xuất bản trực tiếp thành công!");
+      if (isApproveAction) {
+        await BlogService.review(blog.id, { status: "approved" }); // Call review API to approve
+        setSuccess("Đã duyệt blog thành công!");
       } else {
-        await BlogService.publish(blog.id, data);
-        setSuccess("Đã xuất bản thành công!");
+        const data: PublishBlogDto = { publishNotes };
+        if (isDirectPublish) {
+          await BlogService.directPublish(blog.id, data);
+          setSuccess("Đã xuất bản trực tiếp thành công!");
+        } else {
+          await BlogService.publish(blog.id, data);
+          setSuccess("Đã xuất bản thành công!");
+        }
       }
       onPublishSuccess();
       onClose();
     } catch (err: any) {
-      setError(err?.message || "Lỗi xuất bản");
+      setError(err?.message || (isApproveAction ? "Lỗi duyệt blog" : "Lỗi xuất bản"));
     } finally {
       setActionLoading(false);
     }
@@ -69,9 +76,13 @@ export default function BlogPublishModal({
           &times;
         </button>
         <h2 className="text-xl font-bold mb-4">
-          {isDirectPublish ? "Xuất bản trực tiếp Blog" : "Xuất bản Blog"}: {blog.title}
+          {isApproveAction
+            ? `Duyệt Blog: ${blog.title}`
+            : isDirectPublish
+            ? `Xuất bản trực tiếp Blog: ${blog.title}`
+            : `Xuất bản Blog: ${blog.title}`}
         </h2>
-        {!isDirectPublish && ( // Conditionally render notes for non-direct publish
+        {!isDirectPublish && !isApproveAction && ( // Conditionally render notes for non-direct publish and non-approve
           <div className="mb-4">
             <label htmlFor="publishNotes" className="font-medium">
               Ghi chú publish (không bắt buộc)
@@ -90,9 +101,13 @@ export default function BlogPublishModal({
         <div className="flex gap-2 justify-end">
           <Button onClick={handlePublish} disabled={actionLoading}>
             {actionLoading
-              ? isDirectPublish
+              ? isApproveAction
+                ? "Đang duyệt..."
+                : isDirectPublish
                 ? "Đang xuất bản trực tiếp..."
                 : "Đang xuất bản..."
+              : isApproveAction
+              ? "Xác nhận Duyệt"
               : isDirectPublish
               ? "Xác nhận Xuất bản trực tiếp"
               : "Xác nhận Xuất bản"}

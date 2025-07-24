@@ -10,9 +10,12 @@ export interface UpdateHealthDataConsentDto {
 
 export interface PaginationResponse<T> {
   data: T[];
-  total: number;
-  page: number;
-  limit: number;
+  meta: {
+    itemsPerPage: number;
+    totalItems: number;
+    currentPage: number;
+    totalPages: number;
+  };
 }
 
 export interface CreateBlogDto {
@@ -84,4 +87,37 @@ export interface Appointment {
   user?: any; // Assuming User interface is defined elsewhere or can be 'any' for now
   consultant?: any; // Assuming Consultant interface is defined elsewhere or can be 'any' for now
   service?: any; // Assuming Service interface is defined elsewhere or can be 'any' for now
+}
+
+export interface Image {
+  id: string;
+  name: string;
+  originalName: string;
+  size: number;
+  width?: number;
+  height?: number;
+  format?: string;
+  altText?: string;
+  entityType: string;
+  entityId: string;
+  isPublic: boolean;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UploadImageResponse {
+  id: string;
+  url: string;
+  entityType: string;
+  entityId: string;
+  altText?: string;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateServiceImageDto {
+  serviceId: string;
+  imageId: string;
 }

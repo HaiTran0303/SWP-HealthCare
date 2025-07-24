@@ -5,7 +5,8 @@ import {
   PublishBlogDto,
   UpdateBlogDto,
   BlogQueryParams,
-} from "@/types/api.d"; // Import new DTOs and QueryParams
+  PaginationResponse,
+} from "@/types/api.d";
 
 export interface Blog {
   id: string;
@@ -15,17 +16,17 @@ export interface Blog {
   categoryId: string;
   tags: (string | { id: string; name: string; slug?: string })[];
   authorId: string;
-  author: string; // Add author field
+  author: string;
   createdAt: string;
   updatedAt: string;
   category?: { id: string; name: string; slug?: string };
   coverImage?: string;
   featuredImage?: string;
   images?: { id: string; url: string; [key: string]: any }[];
-  imageUrl?: string; // Add imageUrl to the Blog interface
+  imageUrl?: string;
   rejectionReason?: string;
   revisionNotes?: string;
-  autoPublish?: boolean; // Add autoPublish property
+  autoPublish?: boolean;
   views?: number;
   seoTitle?: string;
   seoDescription?: string;
@@ -34,9 +35,10 @@ export interface Blog {
 }
 
 interface UploadImageResponse {
-  id: string;
-  url: string;
-  // Add other properties if available in the API response
+  data: {
+    id: string;
+    url: string;
+  };
 }
 
 export interface CreateBlogData {
@@ -56,9 +58,9 @@ export interface CreateBlogData {
 }
 
 export const BlogService = {
-  async getAll(params: BlogQueryParams = {}) { // Use BlogQueryParams
+  async getAll(params: BlogQueryParams = {}) {
     const query = new URLSearchParams(params as Record<string, string>).toString();
-    return apiClient.get<Blog[]>(
+    return apiClient.get<PaginationResponse<Blog>>(
       `${API_ENDPOINTS.BLOG.BASE}${query ? `?${query}` : ""}`
     );
   },
@@ -69,19 +71,19 @@ export const BlogService = {
     console.log("Creating blog with data:", JSON.stringify(data, null, 2));
     return apiClient.post<Blog>(API_ENDPOINTS.BLOG.BASE, data);
   },
-  async update(id: string, data: UpdateBlogDto) { // Use UpdateBlogDto
+  async update(id: string, data: UpdateBlogDto) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}`, data);
   },
   async submitReview(id: string) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/submit-review`);
   },
-  async review(id: string, data: ReviewBlogDto) { // Use ReviewBlogDto
+  async review(id: string, data: ReviewBlogDto) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/review`, data);
   },
-  async publish(id: string, data: PublishBlogDto) { // Use PublishBlogDto
+  async publish(id: string, data: PublishBlogDto) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/publish`, data);
   },
-  async directPublish(id: string, data: PublishBlogDto) { // Use PublishBlogDto
+  async directPublish(id: string, data: PublishBlogDto) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/direct-publish`, data);
   },
   async archive(id: string) {
@@ -109,23 +111,23 @@ export const BlogService = {
   async synchronizeImageToBlog(imageId: string, data: Record<string, any>) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/image/${imageId}`, data);
   },
-  async getPendingReview(params: BlogQueryParams = {}) { // Use BlogQueryParams
+  async getPendingReview(params: BlogQueryParams = {}) {
     const query = new URLSearchParams({
       ...params as Record<string, string>,
       status: "pending_review",
-      limit: String(params.limit || 1000), // Ensure all pending blogs are fetched
-      page: String(params.page || 1),     // Start from the first page
+      limit: String(params.limit || 1000),
+      page: String(params.page || 1),
     }).toString();
-    return apiClient.get<Blog[]>(
+    return apiClient.get<PaginationResponse<Blog>>(
       `${API_ENDPOINTS.BLOG.BASE}${query ? `?${query}` : ""}`
     );
   },
-  async getApproved(params: BlogQueryParams = {}) { // Use BlogQueryParams
+  async getApproved(params: BlogQueryParams = {}) {
     const query = new URLSearchParams({
       ...params as Record<string, string>,
       status: "approved",
     }).toString();
-    return apiClient.get<Blog[]>(
+    return apiClient.get<PaginationResponse<Blog>>(
       `${API_ENDPOINTS.BLOG.BASE}${query ? `?${query}` : ""}`
     );
   },

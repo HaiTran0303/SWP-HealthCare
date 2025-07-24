@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { BlogService, Blog } from "@/services/blog.service";
 import { useAuth } from "@/contexts/AuthContext";
+import { UpdateBlogDto } from "@/types/api.d";
 
 interface BlogCreateWithImageProps {
   blogId: string; // blogId is now required
@@ -17,6 +18,7 @@ export default function BlogCreateWithImage({
 }: BlogCreateWithImageProps) {
   const [step, setStep] = useState(1); // 1: Upload image, 2: Attach image
   const [imageId, setImageId] = useState("");
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null); // New state for uploaded image URL
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -25,10 +27,8 @@ export default function BlogCreateWithImage({
   // Image form state
   const [file, setFile] = useState<File | null>(null);
   const [altText, setAltText] = useState("");
+  const [currentFeaturedImageUrl, setCurrentFeaturedImageUrl] = useState<string | null>(null); // State for current featured image URL
 
-  const [blogImages, setBlogImages] = useState<{ id: string; url: string }[]>(
-    []
-  );
   const [fetchingImages, setFetchingImages] = useState(false);
 
   // Helper function to get image access URL
@@ -42,28 +42,25 @@ export default function BlogCreateWithImage({
     }
   };
 
-  // Fetch blog images if blogId is available
+  // Fetch blog details and featured image if blogId is available
   useEffect(() => {
     if (blogId) {
       setFetchingImages(true);
       BlogService.getById(blogId)
         .then(async (data: Blog) => {
-          if (Array.isArray(data?.images)) {
-            const imagesWithUrls = await Promise.all(
-              data.images.map(async (img) => {
-                const url = await getImageAccessUrl(img.id);
-                return { ...img, url: url || "" }; // Ensure url is always a string
-              })
-            );
-            setBlogImages(imagesWithUrls.filter(img => img.url)); // Filter out images that failed to get a URL
-            console.log("Fetched blog images with URLs:", imagesWithUrls);
+          if (data?.featuredImage) {
+            setCurrentFeaturedImageUrl(data.featuredImage);
+            console.log("Fetched blog featured image:", data.featuredImage); // Debug log
           } else {
-            setBlogImages([]);
+            setCurrentFeaturedImageUrl(null);
+            console.log("No featured image found for blog."); // Debug log
           }
+          // If there are other images (not featured), you might want to handle them here too.
+          // For now, focusing only on featuredImage.
         })
         .catch((err) => {
-          console.error("Error fetching blog images:", err);
-          setBlogImages([]);
+          console.error("Error fetching blog details:", err);
+          setCurrentFeaturedImageUrl(null);
         })
         .finally(() => setFetchingImages(false));
     }
@@ -87,11 +84,19 @@ export default function BlogCreateWithImage({
     try {
       // Pass the blogId prop to uploadBlogImage
       const uploadResponse = await BlogService.uploadBlogImage(file, blogId, altText);
-      console.log("Image upload response:", uploadResponse); // Log upload response
-      if (uploadResponse && uploadResponse.data && uploadResponse.data.id) {
-        setImageId(uploadResponse.data.id); // Safely extract imageId from nested 'data' object
+      console.log("Image upload raw response:", uploadResponse); // Log raw upload response
+      if (uploadResponse && uploadResponse.data && uploadResponse.data.id) { // Check for nested data object and ID
+        setImageId(uploadResponse.data.id);
+        // Get the actual public access URL for the uploaded image
+        const publicImageUrl = await BlogService.getImageAccessUrl(uploadResponse.data.id);
+        if (publicImageUrl) {
+          setUploadedImageUrl(publicImageUrl.url); // Store the public URL
+          console.log("Uploaded image public URL:", publicImageUrl.url); // Debug log
+        } else {
+          throw new Error("Failed to get public URL for uploaded image.");
+        }
       } else {
-        throw new Error("Invalid upload response: Missing image ID.");
+        throw new Error("Invalid upload response: Missing image ID in data object.");
       }
       setStep(2); // Move to attach step
       setSuccess("Upload ảnh thành công!");
@@ -113,64 +118,60 @@ export default function BlogCreateWithImage({
     setError("");
     setSuccess("");
     try {
-      console.log("Attempting to attach image:", { blogId, imageId });
-      // Use the new attachImageToBlog method
-      await BlogService.attachImageToBlog(blogId, imageId);
-      setSuccess("Gắn ảnh vào blog thành công!");
+      if (!uploadedImageUrl) {
+        setError("Không có URL ảnh để gắn.");
+        return;
+      }
+
+      console.log("Attempting to set featured image:", { blogId, uploadedImageUrl });
+      const updatePayload: UpdateBlogDto = {
+        featuredImage: uploadedImageUrl,
+      };
+      await BlogService.update(blogId, updatePayload); // Update the blog's featuredImage field
+
+      setSuccess("Gắn ảnh nổi bật vào blog thành công!");
+      setCurrentFeaturedImageUrl(uploadedImageUrl); // Update local state for display
+      console.log("Current featured image URL after attach:", uploadedImageUrl); // Debug log
+
       if (onImageUploaded) {
         onImageUploaded(); // Notify parent component
       }
-      // Re-fetch images after attachment and update with URLs
-      const data = await BlogService.getById(blogId);
-      if (Array.isArray(data?.images)) {
-        const imagesWithUrls = await Promise.all(
-          data.images.map(async (img) => {
-            const url = await getImageAccessUrl(img.id);
-            return { ...img, url: url || "" };
-          })
-        );
-        setBlogImages(imagesWithUrls.filter(img => img.url));
-        console.log("Blog images after attachment:", imagesWithUrls.filter(img => img.url)); // Log the images
-      } else {
-        setBlogImages([]);
-        console.log("No images found for blog after attachment.");
-      }
+
       setFile(null); // Clear selected file
       setAltText(""); // Clear alt text
+      setUploadedImageUrl(null); // Clear uploaded URL
+      setImageId(""); // Clear image ID
       setStep(1); // Reset to upload new image
     } catch (err: any) {
-      setError(err?.message || "Lỗi không xác định");
+      setError(err?.message || "Lỗi không xác định khi gắn ảnh vào blog.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Delete image from blog
-  const handleDeleteImage = async (imageId: string) => {
+  // Delete featured image from blog
+  const handleDeleteFeaturedImage = async () => {
     setLoading(true);
     setError("");
     setSuccess("");
     try {
-      await BlogService.deleteImageFromBlog(blogId, imageId);
-      setSuccess("Xoá ảnh thành công!");
+      // To "delete" the featured image, we update the blog to set featuredImage to null/empty string
+      const updatePayload: UpdateBlogDto = {
+        featuredImage: "", // Set to empty string to remove featured image
+      };
+      await BlogService.update(blogId, updatePayload);
+      setSuccess("Xoá ảnh nổi bật thành công!");
+      setCurrentFeaturedImageUrl(null); // Clear local state
+
+      // Optionally, if the image file itself needs to be deleted from storage,
+      // you would call a separate API endpoint for that using the imageId.
+      // For now, we are only unlinking it as the featured image.
+
       if (onImageUploaded) {
         onImageUploaded(); // Notify parent component
       }
-      // Refetch images and update with URLs
-      const data = await BlogService.getById(blogId);
-      if (Array.isArray(data?.images)) {
-        const imagesWithUrls = await Promise.all(
-          data.images.map(async (img) => {
-            const url = await getImageAccessUrl(img.id);
-            return { ...img, url: url || "" };
-          })
-        );
-        setBlogImages(imagesWithUrls.filter(img => img.url));
-      } else {
-        setBlogImages([]);
-      }
     } catch (err: any) {
-      setError(err?.message || "Lỗi xoá ảnh");
+      setError(err?.message || "Lỗi xoá ảnh nổi bật");
     } finally {
       setLoading(false);
     }
@@ -215,37 +216,28 @@ export default function BlogCreateWithImage({
       )}
 
       <div className="mb-4 mt-6">
-        <h4 className="font-semibold mb-2">Ảnh hiện tại của blog:</h4>
+        <h4 className="font-semibold mb-2">Ảnh nổi bật hiện tại:</h4>
         {fetchingImages ? (
           <div>Đang tải ảnh...</div>
-        ) : blogImages.length === 0 ? (
-          <div>Chưa có ảnh nào.</div>
-        ) : (
-          <div className="flex flex-wrap gap-4">
-            {blogImages.map((img) => (
-              <div
-                key={img.id}
-                className="relative w-28 h-28 border rounded overflow-hidden flex flex-col items-center justify-center"
-              >
-                {img.url ? (
-                  <img
-                    src={img.url}
-                    alt="Blog image"
-                    className="object-cover w-full h-20"
-                  />
-                ) : null}
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="mt-1"
-                  disabled={loading}
-                  onClick={() => handleDeleteImage(img.id)}
-                >
-                  Xoá
-                </Button>
-              </div>
-            ))}
+        ) : currentFeaturedImageUrl ? (
+          <div className="relative w-48 h-32 border rounded overflow-hidden flex flex-col items-center justify-center">
+            <img
+              src={currentFeaturedImageUrl}
+              alt="Ảnh nổi bật của blog"
+              className="object-cover w-full h-full"
+            />
+            <Button
+              size="sm"
+              variant="destructive"
+              className="absolute bottom-1 right-1"
+              disabled={loading}
+              onClick={handleDeleteFeaturedImage}
+            >
+              Xoá ảnh
+            </Button>
           </div>
+        ) : (
+          <div>Chưa có ảnh nổi bật nào.</div>
         )}
       </div>
     </div>

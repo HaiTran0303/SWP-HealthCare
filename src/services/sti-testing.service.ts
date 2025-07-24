@@ -8,6 +8,8 @@ import {
   StiProcess, // Exported
   UpdateStiProcessStatusDto, // Exported
 } from "@/types/sti-appointment.d";
+import { PaginationResponse } from "@/types/api.d"; // Import PaginationResponse
+import { GetAppointmentsQuery } from "@/services/appointment.service"; // Import GetAppointmentsQuery
 
 export type SampleType = "blood" | "urine" | "swab" | "saliva" | "other";
 export type Priority = "normal" | "high" | "urgent";
@@ -127,9 +129,9 @@ export const STITestingService = {
     );
   },
 
-  async getAllTests(filters: TestFilters = {}): Promise<{ data: StiProcess[]; total: number }> {
+  async getAllTests(filters: TestFilters = {}): Promise<PaginationResponse<StiProcess>> {
     try {
-      const response = await apiClient.post<{ data: StiProcess[]; total: number }>(
+      const response = await apiClient.post<PaginationResponse<StiProcess>>(
         API_ENDPOINTS.STI_TESTING.GET_ALL_PROCESSES,
         filters
       );
@@ -187,8 +189,14 @@ export const STITestingService = {
     return apiClient.get(`${API_ENDPOINTS.STI_TESTING.RESULTS}/${testId}`);
   },
 
-  async getUserStiAppointments() {
-    return apiClient.get(API_ENDPOINTS.STI_TESTING.CREATE_STI_APPOINTMENT);
+  async getUserStiAppointments(query?: GetAppointmentsQuery): Promise<PaginationResponse<StiProcess>> {
+    try {
+      const response = await apiClient.get<PaginationResponse<StiProcess>>(API_ENDPOINTS.STI_TESTING.CREATE_STI_APPOINTMENT, { params: query });
+      return response;
+    } catch (error) {
+      console.error("[STITestingService] Error fetching user STI appointments:", error);
+      throw error;
+    }
   },
 
   async getTestTemplate(serviceType: string) {

@@ -1,6 +1,7 @@
 import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
 import { User } from "./user.service";
+import { PaginationResponse } from "@/types/api.d"; // Import PaginationResponse
 
 export interface Appointment {
   id: string;
@@ -72,10 +73,10 @@ export type AppointmentStatus = "scheduled" | "completed" | "cancelled" | "pendi
 
 export const AppointmentService = {
   // Lấy danh sách appointments của user hiện tại
-  getUserAppointments: async (query?: GetAppointmentsQuery): Promise<{ data: Appointment[]; total: number }> => {
+  getUserAppointments: async (query?: GetAppointmentsQuery): Promise<PaginationResponse<Appointment>> => {
     try {
       console.log("[AppointmentService] Fetching current user appointments...");
-      const response = await apiClient.get<{ data: Appointment[]; total: number }>(API_ENDPOINTS.APPOINTMENTS.BASE, { params: query });
+      const response = await apiClient.get<PaginationResponse<Appointment>>(API_ENDPOINTS.APPOINTMENTS.BASE, { params: query });
       console.log("[AppointmentService] Raw API Response for current user appointments:", response);
       return response;
     } catch (error: any) {
@@ -94,10 +95,10 @@ export const AppointmentService = {
   },
 
   // Lấy tất cả appointments (cho admin/consultant)
-  getAllAppointments: async (query?: GetAppointmentsQuery): Promise<{ data: Appointment[]; total: number }> => {
+  getAllAppointments: async (query?: GetAppointmentsQuery): Promise<PaginationResponse<Appointment>> => {
     try {
       console.log("[AppointmentService] Fetching all appointments...");
-      const response = await apiClient.get<{ data: Appointment[]; total: number }>(API_ENDPOINTS.APPOINTMENTS.GET_ALL, { params: query });
+      const response = await apiClient.get<PaginationResponse<Appointment>>(API_ENDPOINTS.APPOINTMENTS.GET_ALL, { params: query });
       return response;
     } catch (error) {
       console.error("[AppointmentService] Error fetching all appointments:", error);
@@ -151,7 +152,7 @@ export const AppointmentService = {
     try {
       console.log("[AppointmentService] Updating appointment status:", id, data);
       const response = await apiClient.patch<Appointment>(
-        API_ENDPOINTS.APPOINTMENTS.STATUS(id),
+        API_ENDPOINTS.APPOINTMENTS.UPDATE_STATUS(id),
         data
       );
       return response;
