@@ -23,7 +23,7 @@ import { RefreshCcw, Calendar as CalendarIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import DatePickerWithRange from "@/components/ui/date-picker-with-range";
 import {
-  StiTestProcess,
+  StiProcess as StiTestProcess,
   STITestingService,
   TestFilters,
   TestStatus,
@@ -31,7 +31,7 @@ import {
   Priority,
 } from "@/services/sti-testing.service";
 import { API_FEATURES } from "@/config/api";
-import { Pagination } from "@/components/ui/pagination";
+import { Pagination, PaginationInfo } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 
@@ -103,7 +103,7 @@ export default function StiTestManagementTable() {
 
       const response = await STITestingService.getAllTests(filters);
       setTests(response.data);
-      setTotalTests(response.total);
+      setTotalTests(response.meta.totalItems);
     } catch (err: any) {
       console.error("Error fetching STI tests:", err);
       setError(err.message || "Lỗi khi tải danh sách xét nghiệm STI. Vui lòng thử lại.");
@@ -138,7 +138,6 @@ export default function StiTestManagementTable() {
   };
 
   const totalPages = Math.ceil(totalTests / limit);
-  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -158,6 +157,37 @@ export default function StiTestManagementTable() {
 
   const handleLastPage = () => {
     setCurrentPage(totalPages);
+  };
+
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+    if (endPage - startPage + 1 < maxPagesToShow) {
+      startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+
+    if (startPage > 1) {
+      pageNumbers.push(1);
+      if (startPage > 2) {
+        pageNumbers.push(-1);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        pageNumbers.push(-1);
+      }
+      pageNumbers.push(totalPages);
+    }
+
+    return pageNumbers;
   };
 
   return (
@@ -286,7 +316,7 @@ export default function StiTestManagementTable() {
               {tests.map((test) => (
                 <TableRow key={test.id}>
                   <TableCell>{test.testCode}</TableCell>
-                  <TableCell>{test.patient?.firstName} {test.patient?.lastName || "N/A"}</TableCell>
+                  <TableCell>{test.patient?.fullName || "N/A"}</TableCell>
                   <TableCell>{test.service?.name || "N/A"}</TableCell>
                   <TableCell>{test.sampleType}</TableCell>
                   <TableCell>{test.priority}</TableCell>
@@ -344,18 +374,26 @@ export default function StiTestManagementTable() {
             </TableBody>
           </Table>
 
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageNumbers={pageNumbers}
-            hasNextPage={currentPage < totalPages}
-            hasPreviousPage={currentPage > 1}
-            onPageChange={handlePageChange}
-            onNextPage={handleNextPage}
-            onPreviousPage={handlePreviousPage}
-            onFirstPage={handleFirstPage}
-            onLastPage={handleLastPage}
-          />
+          <div className="flex justify-between items-center mt-4">
+            <PaginationInfo
+              totalItems={totalTests}
+              itemsPerPage={limit}
+              currentPage={currentPage}
+              itemName="xét nghiệm"
+            />
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageNumbers={getPageNumbers()}
+              hasNextPage={currentPage < totalPages}
+              hasPreviousPage={currentPage > 1}
+              onPageChange={handlePageChange}
+              onNextPage={handleNextPage}
+              onPreviousPage={handlePreviousPage}
+              onFirstPage={handleFirstPage}
+              onLastPage={handleLastPage}
+            />
+          </div>
         </>
       )}
     </div>
