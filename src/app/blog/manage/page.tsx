@@ -11,6 +11,7 @@ import BlogReasonModal from "@/components/BlogReasonModal";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import BlogPublishModal from "@/components/BlogPublishModal";
+import DeleteConfirmationDialog from "@/components/DeleteConfirmationDialog";
 import { Pagination, PaginationInfo } from "@/components/ui/pagination";
 import { PaginationResponse } from "@/types/api.d"; // Import PaginationResponse
 
@@ -41,6 +42,8 @@ export default function BlogManagePage() {
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
   const [modalActionType, setModalActionType] = useState<'publish' | 'approve' | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [blogToDelete, setBlogToDelete] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -205,11 +208,16 @@ export default function BlogManagePage() {
     }
   };
 
-  const handleDeleteBlog = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xoá blog này?")) return;
+  const handleDeleteBlog = (id: string) => {
+    setBlogToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!blogToDelete) return;
     try {
-      await BlogService.delete(id);
-      setBlogs((prev) => prev.filter((b) => b.id !== id));
+      await BlogService.delete(blogToDelete);
+      setBlogs((prev) => prev.filter((b) => b.id !== blogToDelete));
       toast({
         title: "Thành công!",
         description: "Đã xoá blog thành công.",
@@ -220,6 +228,9 @@ export default function BlogManagePage() {
         description: err?.message || "Xoá blog thất bại",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setBlogToDelete(null);
     }
   };
 
@@ -314,7 +325,7 @@ export default function BlogManagePage() {
                                 size="sm"
                                 onClick={() => handlePublishBlog(blog)}
                               >
-                                Xuất bản trực tiếp
+                                Xuất bản
                               </Button>
                             )}
                             {blog.status === "pending_review" && (
@@ -434,10 +445,14 @@ export default function BlogManagePage() {
             setModalActionType(null);
             fetchBlogs();
           }}
-          isDirectPublish={modalActionType === 'publish'}
           isApproveAction={modalActionType === 'approve'}
         />
       )}
+      <DeleteConfirmationDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

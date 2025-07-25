@@ -9,7 +9,6 @@ interface BlogPublishModalProps {
   blog: Blog | null;
   onClose: () => void;
   onPublishSuccess: () => void;
-  isDirectPublish?: boolean;
   isApproveAction?: boolean; // New prop for approval action
 }
 
@@ -17,7 +16,6 @@ export default function BlogPublishModal({
   blog,
   onClose,
   onPublishSuccess,
-  isDirectPublish = false,
   isApproveAction = false, // Default to false
 }: BlogPublishModalProps) {
   const [publishNotes, setPublishNotes] = useState("");
@@ -45,13 +43,8 @@ export default function BlogPublishModal({
         setSuccess("Đã duyệt blog thành công!");
       } else {
         const data: PublishBlogDto = { publishNotes };
-        if (isDirectPublish) {
-          await BlogService.directPublish(blog.id, data);
-          setSuccess("Đã xuất bản trực tiếp thành công!");
-        } else {
-          await BlogService.publish(blog.id, data);
-          setSuccess("Đã xuất bản thành công!");
-        }
+        await BlogService.publish(blog.id, data);
+        setSuccess("Đã xuất bản thành công!");
       }
       onPublishSuccess();
       onClose();
@@ -78,11 +71,9 @@ export default function BlogPublishModal({
         <h2 className="text-xl font-bold mb-4">
           {isApproveAction
             ? `Duyệt Blog: ${blog.title}`
-            : isDirectPublish
-            ? `Xuất bản trực tiếp Blog: ${blog.title}`
             : `Xuất bản Blog: ${blog.title}`}
         </h2>
-        {!isDirectPublish && !isApproveAction && ( // Conditionally render notes for non-direct publish and non-approve
+        {!isApproveAction && (
           <div className="mb-4">
             <label htmlFor="publishNotes" className="font-medium">
               Ghi chú publish (không bắt buộc)
@@ -103,13 +94,9 @@ export default function BlogPublishModal({
             {actionLoading
               ? isApproveAction
                 ? "Đang duyệt..."
-                : isDirectPublish
-                ? "Đang xuất bản trực tiếp..."
                 : "Đang xuất bản..."
               : isApproveAction
               ? "Xác nhận Duyệt"
-              : isDirectPublish
-              ? "Xác nhận Xuất bản trực tiếp"
               : "Xác nhận Xuất bản"}
           </Button>
         </div>

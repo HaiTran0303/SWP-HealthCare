@@ -83,9 +83,6 @@ export const BlogService = {
   async publish(id: string, data: PublishBlogDto) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/publish`, data);
   },
-  async directPublish(id: string, data: PublishBlogDto) {
-    return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/direct-publish`, data);
-  },
   async archive(id: string) {
     return apiClient.patch(`${API_ENDPOINTS.BLOG.BASE}/${id}/archive`);
   },
