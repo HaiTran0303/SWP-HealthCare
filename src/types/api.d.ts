@@ -121,3 +121,20 @@ export interface CreateServiceImageDto {
   serviceId: string;
   imageId: string;
 }
+
+export interface Service {
+  id: string;
+  name: string;
+  description: string;
+  shortDescription: string;
+  htmlDescription: string;
+  price: number;
+  duration: number;
+  requiresConsultant: boolean;
+  location: "online" | "office";
+  prerequisites: string;
+  postInstructions: string;
+  createdAt: string;
+  updatedAt: string;
+  images?: Image[];
+}
