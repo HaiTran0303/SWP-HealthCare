@@ -170,7 +170,7 @@ export const API_ENDPOINTS = {
 
   // Payments
   PAYMENTS: {
-    GET_ALL: "/payments",
+    GET_ALL: "/payments/admin/all",
   },
 
   // Roles

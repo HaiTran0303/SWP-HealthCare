@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/select";
 import { User, UserService, GetUsersQuery, Role } from "@/services/user.service"; // Import Role
 import { API_FEATURES } from "@/config/api";
-import { Pagination, PaginationInfo } from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui/pagination";
+import { PaginationInfo } from "@/components/ui/pagination-info";
 import { useToast } from "@/components/ui/use-toast";
 import {
   Dialog,

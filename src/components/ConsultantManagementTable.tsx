@@ -26,7 +26,8 @@ import {
 } from "@/services/consultant.service";
 import { API_ENDPOINTS } from "@/config/api";
 import { API_FEATURES } from "@/config/api";
-import { Pagination, PaginationInfo } from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui/pagination";
+import { PaginationInfo } from "@/components/ui/pagination-info";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import {

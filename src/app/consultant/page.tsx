@@ -22,12 +22,17 @@ import { apiClient } from "@/services/api";
 import { API_ENDPOINTS } from "@/config/api";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay } from "date-fns";
 import { vi } from "date-fns/locale"; // Import Vietnamese locale
+import { UpdateAppointmentStatusDialog } from "@/components/UpdateAppointmentStatusDialog";
+import { AppointmentDetailsDialog } from "@/components/AppointmentDetailsDialog";
+import { translatedAppointmentStatus } from "@/lib/translations";
 
 interface Appointment {
   id: string;
   appointmentDate: string;
   status: string;
-  consultationType: string;
+  services: {
+    name: string;
+  }[];
   user: {
     firstName: string;
     lastName: string;
@@ -91,11 +96,13 @@ function ConsultantDashboard() {
     setLoadingAppointments(true);
     setErrorAppointments(null);
     try {
-      const today = format(new Date(), "yyyy-MM-dd");
       const response = await apiClient.get<{ data: Appointment[] }>(
-        `${API_ENDPOINTS.APPOINTMENTS.CONSULTANT_MY_APPOINTMENTS}?dateFrom=${today}&dateTo=${today}`
+        `${API_ENDPOINTS.APPOINTMENTS.BASE}`
       );
-      setAppointments(response.data || []);
+      const userAppointments = response.data.filter(
+        (appointment: any) => appointment.consultant?.id === consultantId
+      );
+      setAppointments(userAppointments || []);
     } catch (err: any) {
       console.error("Error fetching appointments:", err);
       setErrorAppointments(err?.message || "Lỗi khi tải danh sách cuộc hẹn");
@@ -127,18 +134,24 @@ function ConsultantDashboard() {
         `${API_ENDPOINTS.CONSULTANTS.AVAILABILITY}/consultant?consultantId=${consultantId}&dayOfWeek=${dayOfWeek}`
       );
 
-      const formattedSchedule = response.data.map((slot: any) => ({
-        time: `${slot.startTime} - ${slot.endTime}`,
-        status: slot.isAvailable ? "Trống" : "Đã đặt",
+      const groupedSchedule: { [key: string]: { time: string; isBooked: boolean } } = {};
+
+      response.data.forEach((slot: any) => {
+        const timeSlot = `${slot.startTime} - ${slot.endTime}`;
+        if (!groupedSchedule[timeSlot]) {
+          groupedSchedule[timeSlot] = { time: timeSlot, isBooked: false };
+        }
+        if (!slot.isAvailable) {
+          groupedSchedule[timeSlot].isBooked = true;
+        }
+      });
+
+      const finalSchedule = Object.values(groupedSchedule).map(item => ({
+        time: item.time,
+        status: item.isBooked ? "Đã đặt" : "Trống",
       }));
 
-      // Remove duplicates by creating a Set of unique time slots
-      const uniqueSchedule = Array.from(new Set(formattedSchedule.map(s => s.time)))
-        .map(time => {
-          return formattedSchedule.find(s => s.time === time)!;
-        });
-
-      setDailySchedule(uniqueSchedule);
+      setDailySchedule(finalSchedule);
     } catch (err) {
       console.error("Error fetching daily schedule:", err);
       setDailySchedule([]); // Clear schedule on error
@@ -256,9 +269,9 @@ function ConsultantDashboard() {
                         <TableCell>{appointment.id.substring(0, 8).toUpperCase()}</TableCell>
                         <TableCell>{`${appointment.user.firstName} ${appointment.user.lastName}`}</TableCell>
                         <TableCell>{format(new Date(appointment.appointmentDate), "dd/MM/yyyy HH:mm", { locale: vi })}</TableCell>
-                        <TableCell>{appointment.consultationType}</TableCell>
+                        <TableCell>{appointment.services && appointment.services.length > 0 ? appointment.services[0].name : "Tư vấn trực tuyến"}</TableCell>
                         <TableCell>
-                          <Badge>{appointment.status}</Badge>
+                          <Badge>{translatedAppointmentStatus(appointment.status)}</Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
@@ -271,18 +284,15 @@ function ConsultantDashboard() {
                             >
                               Xác nhận
                             </Button>
-                            <Button variant="ghost" size="sm">
-                              Chi tiết
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() =>
-                                router.push(`/appointments/update-status/${appointment.id}`)
-                              }
-                            >
-                              Cập nhật trạng thái
-                            </Button>
+                            <AppointmentDetailsDialog appointment={appointment} />
+                            <UpdateAppointmentStatusDialog
+                              appointmentId={appointment.id}
+                              onStatusUpdate={() => {
+                                if (user) {
+                                  fetchAppointments(user.id);
+                                }
+                              }}
+                            />
                             <Button
                               variant="outline"
                               size="sm"

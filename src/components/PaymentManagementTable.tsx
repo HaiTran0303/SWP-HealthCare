@@ -50,8 +50,8 @@ export default function PaymentManagementTable() {
         searchTerm,
         status: filterStatus === "all" ? undefined : filterStatus,
       });
-      setPayments(response.data);
-      setTotalPages(response.totalPages);
+      setPayments(response.data || []);
+      setTotalPages(response.totalPages || 1);
     } catch (err: any) {
       setError(err?.message || "Lỗi khi tải danh sách thanh toán");
     } finally {
