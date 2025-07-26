@@ -49,7 +49,8 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { ConsultantService, ConsultantProfile } from "@/services/consultant.service";
-import { AppointmentService, Appointment } from "@/services/appointment.service";
+import { AppointmentService } from "@/services/appointment.service"; // Removed Appointment from here
+import { Appointment } from "@/types/api.d"; // Imported Appointment from global types
 import { APIService, Service } from "@/services/service.service"; // Import APIService and Service
 import { useConsultationBooking } from "@/hooks/use-consultation-booking";
 import { format, addDays, isBefore, isToday, isSameDay } from "date-fns";
@@ -225,8 +226,10 @@ const OnlineConsultationBooking: React.FC = () => {
             consultantExperience: slot.consultant.experience,
             consultantSpecialties: slot.consultant.specialties,
             consultationFee: slot.consultant.consultationFee,
-            location: slot.location, // Extract location from the API response
+            location: "online", // Force location to "online" as per user feedback
             serviceId: slot.serviceId, // Extract serviceId from the API response
+            // meetingLink is not directly available in FindAvailableSlotsResponseDto
+            // It is part of the appointment creation, not the availability itself.
           }))
         : [];
       
@@ -313,8 +316,7 @@ const OnlineConsultationBooking: React.FC = () => {
           additionalNotes,
           preferredContactMethod,
         },
-        selectedSlot.location, // Pass the location from the selected slot, default to "online"
-        serviceIdToUse, // Pass the serviceId from the selected slot, default to fetched service
+        serviceIdToUse, // Removed selectedSlot.location
         undefined // meetingLink is not available from the available slots API
       );
 

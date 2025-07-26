@@ -25,19 +25,13 @@ import { vi } from "date-fns/locale"; // Import Vietnamese locale
 import { UpdateAppointmentStatusDialog } from "@/components/UpdateAppointmentStatusDialog";
 import { AppointmentDetailsDialog } from "@/components/AppointmentDetailsDialog";
 import { translatedAppointmentStatus } from "@/lib/translations";
-
-interface Appointment {
-  id: string;
-  appointmentDate: string;
-  status: string;
-  services: {
-    name: string;
-  }[];
-  user: {
-    firstName: string;
-    lastName: string;
-  };
-}
+import { API_FEATURES } from "@/config/api";
+import { Pagination } from "@/components/ui/pagination";
+import { PaginationInfo } from "@/components/ui/pagination-info";
+import { ChatService, ChatRoom } from "@/services/chat.service"; // Import ChatService and ChatRoom
+import { Appointment } from "@/types/api.d"; // Import global Appointment type
+import { User } from "@/services/user.service"; // Import User type
+import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
 
 interface Feedback {
   id: string;
@@ -49,7 +43,6 @@ interface Feedback {
     lastName: string;
   };
 }
-
 
 export default function ConsultantPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -84,25 +77,28 @@ function ConsultantDashboard() {
   const [errorFeedbacks, setErrorFeedbacks] = useState<string | null>(null);
   const [dailySchedule, setDailySchedule] = useState<any[]>([]); // Placeholder for daily schedule
 
+  // Pagination states for appointments
+  const [currentPage, setCurrentPage] = useState(API_FEATURES.PAGINATION.DEFAULT_PAGE);
+  const [totalAppointments, setTotalAppointments] = useState(0);
+  const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
+
   useEffect(() => {
     if (user?.id) {
       fetchAppointments(user.id);
       fetchFeedbacks(user.id);
       fetchDailySchedule(user.id, selectedDate || new Date());
     }
-  }, [user, selectedDate]);
+  }, [user, selectedDate, currentPage]); // Add currentPage to dependencies
 
   const fetchAppointments = async (consultantId: string) => {
     setLoadingAppointments(true);
     setErrorAppointments(null);
     try {
-      const response = await apiClient.get<{ data: Appointment[] }>(
-        `${API_ENDPOINTS.APPOINTMENTS.BASE}`
+      const response = await apiClient.get<{ data: Appointment[]; meta: { totalItems: number; totalPages: number } }>(
+        `${API_ENDPOINTS.APPOINTMENTS.BASE}?consultantId=${consultantId}&page=${currentPage}&limit=${limit}`
       );
-      const userAppointments = response.data.filter(
-        (appointment: any) => appointment.consultant?.id === consultantId
-      );
-      setAppointments(userAppointments || []);
+      setAppointments(response.data || []);
+      setTotalAppointments(response.meta.totalItems);
     } catch (err: any) {
       console.error("Error fetching appointments:", err);
       setErrorAppointments(err?.message || "Lỗi khi tải danh sách cuộc hẹn");
@@ -269,7 +265,7 @@ function ConsultantDashboard() {
                         <TableCell>{appointment.id.substring(0, 8).toUpperCase()}</TableCell>
                         <TableCell>{`${appointment.user.firstName} ${appointment.user.lastName}`}</TableCell>
                         <TableCell>{format(new Date(appointment.appointmentDate), "dd/MM/yyyy HH:mm", { locale: vi })}</TableCell>
-                        <TableCell>{appointment.services && appointment.services.length > 0 ? appointment.services[0].name : "Tư vấn trực tuyến"}</TableCell>
+                        <TableCell>{appointment.service?.name || "Tư vấn trực tuyến"}</TableCell>
                         <TableCell>
                           <Badge>{translatedAppointmentStatus(appointment.status)}</Badge>
                         </TableCell>
@@ -296,9 +292,25 @@ function ConsultantDashboard() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() =>
-                                router.push(`/chat/${appointment.id}`)
-                              }
+                              onClick={async () => {
+                                try {
+                                  const chatRoom: ChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
+
+                                  // If appointment has no notes or empty notes, send a default message
+                                  if (!appointment.service?.name || appointment.service.name.trim() === "") {
+                                    await ChatService.sendMessage(chatRoom.id, { content: "Chào bạn" });
+                                  }
+
+                                  router.push(`/chat/${chatRoom.id}`);
+                                } catch (err: any) {
+                                  toast({
+                                    title: "Lỗi",
+                                    description: `Không thể vào phòng chat: ${err.message || "Đã xảy ra lỗi không xác định."}`,
+                                    variant: "destructive",
+                                  });
+                                  console.error("Error getting chat room or sending initial message:", err);
+                                }
+                              }}
                             >
                               Chat
                             </Button>
@@ -309,7 +321,57 @@ function ConsultantDashboard() {
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-muted-foreground text-center">Không có cuộc hẹn nào hôm nay.</p>
+                <p className="text-muted-foreground text-center">Không có cuộc hẹn nào.</p>
+              )}
+              {appointments.length > 0 && (
+                <div className="flex justify-between items-center mt-4">
+                  <PaginationInfo
+                    totalItems={totalAppointments}
+                    itemsPerPage={limit}
+                    currentPage={currentPage}
+                    itemName="cuộc hẹn"
+                  />
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(totalAppointments / limit)}
+                    pageNumbers={(() => {
+                      const pageNumbers = [];
+                      const maxPagesToShow = 5;
+                      let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+                      let endPage = Math.min(Math.ceil(totalAppointments / limit), startPage + maxPagesToShow - 1);
+
+                      if (endPage - startPage + 1 < maxPagesToShow) {
+                        startPage = Math.max(1, endPage - maxPagesToShow + 1);
+                      }
+
+                      if (startPage > 1) {
+                        pageNumbers.push(1);
+                        if (startPage > 2) {
+                          pageNumbers.push(-1);
+                        }
+                      }
+
+                      for (let i = startPage; i <= endPage; i++) {
+                        pageNumbers.push(i);
+                      }
+
+                      if (endPage < Math.ceil(totalAppointments / limit)) {
+                        if (endPage < Math.ceil(totalAppointments / limit) - 1) {
+                          pageNumbers.push(-1);
+                        }
+                        pageNumbers.push(Math.ceil(totalAppointments / limit));
+                      }
+                      return pageNumbers;
+                    })()}
+                    hasNextPage={currentPage < Math.ceil(totalAppointments / limit)}
+                    hasPreviousPage={currentPage > 1}
+                    onPageChange={setCurrentPage}
+                    onNextPage={() => setCurrentPage(prev => prev + 1)}
+                    onPreviousPage={() => setCurrentPage(prev => prev - 1)}
+                    onFirstPage={() => setCurrentPage(1)}
+                    onLastPage={() => setCurrentPage(Math.ceil(totalAppointments / limit))}
+                  />
+                </div>
               )}
             </CardContent>
           </Card>

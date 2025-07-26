@@ -4,6 +4,15 @@ import { Appointment } from "@/services/appointment.service"; // Import Appointm
 import { User } from "@/services/user.service"; // Import User type
 import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
 
+export interface ChatRoom {
+  id: string;
+  appointmentId: string;
+  userId: string;
+  consultantId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ChatMessage {
   id: string;
   appointmentId: string; // Changed from questionId to appointmentId
@@ -201,6 +210,11 @@ export const ChatService = {
 
   async markMessageAsRead(messageId: string) {
     return apiClient.patch(`/chat/messages/${messageId}/read`);
+  },
+
+  async getChatRoomByAppointmentId(appointmentId: string): Promise<ChatRoom> {
+    const res = await apiClient.get<ChatRoom>(`/appointments/${appointmentId}/chat-room`);
+    return res;
   },
 
   onNewMessage(

@@ -21,15 +21,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Appointment,
   AppointmentService,
   GetAppointmentsQuery,
-  AppointmentStatus,
   UpdateAppointmentDto,
   CancelAppointmentDto,
 } from "@/services/appointment.service";
 import { ChatService } from "@/services/chat.service";
-import { User, UserService } from "@/services/user.service"; // New import
+import { User, UserService } from "@/services/user.service";
+import { Appointment } from "@/types/api.d"; // Import Appointment from global types
+import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile for consultant type
 import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
 import { PaginationInfo } from "@/components/ui/pagination-info";
@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label"; // Ensure Label is imported
 import { MessageSquare } from "lucide-react";
+import { ChatRoom } from "@/services/chat.service"; // Import ChatRoom type
 
 export default function AppointmentManagementTable() {
   const { toast } = useToast();
@@ -78,7 +79,7 @@ export default function AppointmentManagementTable() {
       };
 
       if (filterStatus) {
-        query.status = filterStatus;
+        query.status = filterStatus as Appointment["status"] || undefined;
       }
       if (filterConsultantId) {
         query.consultantId = filterConsultantId;
@@ -150,7 +151,7 @@ export default function AppointmentManagementTable() {
       await AppointmentService.updateAppointmentStatus(id, { status: newStatus });
       toast({
         title: "Thành công",
-        description: `Trạng thái cuộc hẹn đã được cập nhật thành ${AppointmentService.getStatusText(newStatus)}`,
+        description: `Trạng thái cuộc hẹn đã được cập nhật thành ${AppointmentService.getStatusText(newStatus as Appointment["status"])}`,
       });
       fetchAppointments();
     } catch (err: any) {
@@ -260,18 +261,23 @@ export default function AppointmentManagementTable() {
     });
   };
 
-  const handleJoinChat = async (appointmentId: string) => {
+  const handleJoinChat = async (appointment: Appointment) => {
     try {
-      // Attempt to join the chat room. The backend should handle creation if it doesn't exist.
-      await ChatService.joinRoom(appointmentId);
-      router.push(`/chat/${appointmentId}`);
+      const chatRoom: ChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
+
+      // If appointment has no notes or empty notes, send a default message
+      if (!appointment.notes || appointment.notes.trim() === "") {
+        await ChatService.sendMessage(chatRoom.id, { content: "Chào bạn" });
+      }
+
+      router.push(`/chat/${chatRoom.id}`);
     } catch (err: any) {
       toast({
         title: "Lỗi",
         description: `Không thể vào phòng chat: ${err.message || "Đã xảy ra lỗi không xác định."}`,
         variant: "destructive",
       });
-      console.error("Error joining chat room:", err);
+      console.error("Error getting chat room or sending initial message:", err);
     }
   };
 
@@ -365,7 +371,7 @@ export default function AppointmentManagementTable() {
                   <TableCell>
                     {appointment.user ? `${appointment.user.firstName} ${appointment.user.lastName}` : "N/A"}
                   </TableCell>
-                  <TableCell>{appointment.consultant?.firstName} {appointment.consultant?.lastName || "N/A"}</TableCell>
+                  <TableCell>{appointment.consultant?.user?.firstName} {appointment.consultant?.user?.lastName || "N/A"}</TableCell>
                   <TableCell>{appointment.service?.name || "Tư vấn chung"}</TableCell>
                   <TableCell>
                     {format(new Date(appointment.appointmentDate), "dd/MM/yyyy HH:mm")}
@@ -373,7 +379,7 @@ export default function AppointmentManagementTable() {
                   <TableCell>{getLocationText(appointment.appointmentLocation)}</TableCell>
                   <TableCell>
                     <Badge variant={appointment.status === "completed" ? "default" : "secondary"}>
-                      {AppointmentService.getStatusText(appointment.status as AppointmentStatus)}
+                      {AppointmentService.getStatusText(appointment.status)}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -390,7 +396,7 @@ export default function AppointmentManagementTable() {
                           Check-in
                         </Button>
                       )}
-                      {AppointmentService.canCancel(appointment.status as AppointmentStatus) && (
+                      {AppointmentService.canCancel(appointment.status) && (
                         <Button
                           variant="destructive"
                           size="sm"
@@ -405,7 +411,7 @@ export default function AppointmentManagementTable() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleJoinChat(appointment.id)}
+                          onClick={() => handleJoinChat(appointment)}
                           className="flex items-center gap-2"
                         >
                           <MessageSquare className="w-4 h-4" />
@@ -525,7 +531,7 @@ export default function AppointmentManagementTable() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Tư vấn viên:</Label>
-                <span className="col-span-3">{selectedAppointment.consultant?.firstName} {selectedAppointment.consultant?.lastName || "N/A"}</span>
+                <span className="col-span-3">{selectedAppointment.consultant?.user?.firstName} {selectedAppointment.consultant?.user?.lastName || "N/A"}</span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Dịch vụ:</Label>
@@ -543,7 +549,7 @@ export default function AppointmentManagementTable() {
                 <Label className="text-right">Trạng thái:</Label>
                 <span className="col-span-3">
                   <Badge variant={selectedAppointment.status === "completed" ? "default" : "secondary"}>
-                    {AppointmentService.getStatusText(selectedAppointment.status as AppointmentStatus)}
+                    {AppointmentService.getStatusText(selectedAppointment.status)}
                   </Badge>
                 </span>
               </div>

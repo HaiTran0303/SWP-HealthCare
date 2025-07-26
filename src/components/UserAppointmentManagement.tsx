@@ -41,7 +41,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppointmentService, AppointmentStatus, Appointment as GeneralAppointmentType } from "@/services/appointment.service";
-import { ChatService } from "@/services/chat.service";
+import { ChatService, ChatRoom } from "@/services/chat.service"; // Import ChatRoom
 import { STITestingService, StiProcess as StiAppointmentType } from "@/services/sti-testing.service";
 import { FeedbackService } from "@/services/feedback.service"; // Import FeedbackService
 import { Feedback, CreateFeedbackDto } from "@/types/feedback"; // Import Feedback types
@@ -325,14 +325,20 @@ const AppointmentCard: React.FC<{
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">
-              {appointment.location === "online" ? "Tư vấn trực tuyến" : "Tại phòng khám"}
+              {appointment.services && appointment.services.length > 0 && appointment.services[0].name === "Tư vấn trực tuyến"
+                ? "Trực tuyến"
+                : (appointment.location === "online" || !appointment.location)
+                  ? "Trực tuyến"
+                  : "Tại phòng khám"}
             </span>
           </div>
           {appointment.services && (
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm">
-                {appointment.services.map(s => s.name).join(", ")}
+                {appointment.services && appointment.services.length > 0 && appointment.services[0].name
+                  ? appointment.services.map(s => s.name).join(", ")
+                  : "Tư vấn trực tuyến"}
                 {appointment.type === "sti_test" && appointment.testCode && ` (Mã: ${appointment.testCode})`}
               </span>
             </div>
@@ -675,8 +681,24 @@ const UserAppointmentManagement: React.FC = () => {
   };
 
   // New handler for chat button
-  const handleEnterChat = (appointment: AppointmentDetails) => {
-    router.push(`/chat/${appointment.id}`);
+  const handleEnterChat = async (appointment: AppointmentDetails) => {
+    try {
+      const chatRoom: ChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
+
+      // If appointment has no notes or empty notes, send a default message
+      if (!appointment.notes || appointment.notes.trim() === "") {
+        await ChatService.sendMessage(chatRoom.id, { content: "Chào bạn" });
+      }
+
+      router.push(`/chat/${chatRoom.id}`);
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: `Không thể vào phòng chat: ${err.message || "Đã xảy ra lỗi không xác định."}`,
+        variant: "destructive",
+      });
+      console.error("Error getting chat room or sending initial message:", err);
+    }
   };
 
   const handlePayAppointment = (appointment: AppointmentDetails) => {
@@ -1102,17 +1124,23 @@ const UserAppointmentManagement: React.FC = () => {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Hình thức:</Label>
                   <p className="text-sm">
-                    {selectedAppointment.location === "online" ? "Tư vấn trực tuyến" : "Tại phòng khám"}
+                    {selectedAppointment.services && selectedAppointment.services.length > 0 && selectedAppointment.services[0].name === "Tư vấn trực tuyến"
+                      ? "Trực tuyến"
+                      : (selectedAppointment.location === "online" || !selectedAppointment.location)
+                        ? "Trực tuyến"
+                        : "Tại phòng khám"}
                   </p>
                 </div>
                 {selectedAppointment.services && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Dịch vụ:</Label>
-                    <p className="text-sm">
-                      {selectedAppointment.services.map(s => s.name).join(", ")}
-                      {selectedAppointment.type === "sti_test" && selectedAppointment.testCode && ` (Mã: ${selectedAppointment.testCode})`}
-                    </p>
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Dịch vụ:</Label>
+                  <p className="text-sm">
+                    {selectedAppointment.services && selectedAppointment.services.length > 0 && selectedAppointment.services[0].name
+                      ? selectedAppointment.services.map(s => s.name).join(", ")
+                      : "Tư vấn trực tuyến"}
+                    {selectedAppointment.type === "sti_test" && selectedAppointment.testCode && ` (Mã: ${selectedAppointment.testCode})`}
+                  </p>
+                </div>
                 )}
               </div>
 

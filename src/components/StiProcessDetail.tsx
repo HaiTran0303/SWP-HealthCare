@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StiProcess, TestStatus, STITestingService } from "@/services/sti-testing.service";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
+import { TestResultResponseDto, TestResultItem } from "@/types/api.d"; // Import TestResultResponseDto and TestResultItem
+import { FileText } from "lucide-react"; // Import FileText icon
 
 interface StiProcessDetailProps {
   process: StiProcess;
@@ -42,6 +44,31 @@ export default function StiProcessDetail({ process, onUpdateStatusSuccess }: Sti
   const [resultEmailSent, setResultEmailSent] = useState<boolean>(false);
   const [requiresConsultation, setRequiresConsultation] = useState<boolean>(false);
   const [isConfidential, setIsConfidential] = useState<boolean>(false);
+  const [testResult, setTestResult] = useState<TestResultResponseDto | null>(null);
+  const [isLoadingResult, setIsLoadingResult] = useState(false);
+
+  useEffect(() => {
+    const fetchTestResult = async () => {
+      if (process.testResult?.id) {
+        setIsLoadingResult(true);
+        try {
+          const result = await STITestingService.getMyTestResultDetails(process.testResult.id);
+          setTestResult(result);
+        } catch (error) {
+          console.error("Failed to fetch test result details:", error);
+          toast({
+            title: "Lỗi",
+            description: "Không thể tải chi tiết kết quả xét nghiệm.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsLoadingResult(false);
+        }
+      }
+    };
+
+    fetchTestResult();
+  }, [process.testResult?.id]);
 
   if (!process) return <div>Đang tải...</div>;
 
@@ -94,6 +121,32 @@ export default function StiProcessDetail({ process, onUpdateStatusSuccess }: Sti
       toast({
         title: "Cập nhật trạng thái thất bại",
         description: "Đã có lỗi xảy ra khi cập nhật trạng thái xét nghiệm.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!process.id) return;
+    try {
+      const pdfBlob = await STITestingService.exportStiTestResultPdf(process.id);
+      const url = window.URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ket_qua_xet_nghiem_STI_${process.testCode}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast({
+        title: "Tải PDF thành công",
+        description: "Kết quả xét nghiệm đã được tải về.",
+      });
+    } catch (error) {
+      console.error("Failed to export STI test result PDF:", error);
+      toast({
+        title: "Tải PDF thất bại",
+        description: "Đã có lỗi xảy ra khi tải file PDF kết quả xét nghiệm.",
         variant: "destructive",
       });
     }
@@ -172,6 +225,138 @@ export default function StiProcessDetail({ process, onUpdateStatusSuccess }: Sti
         <div>
           <b>Đã gửi email kết quả:</b> {process.resultEmailSent ? "Có" : "Không"}
         </div>
+
+        {/* Display Test Result Details */}
+        {isLoadingResult ? (
+          <div>Đang tải kết quả xét nghiệm...</div>
+        ) : testResult ? (
+          <div className="space-y-4 border-t pt-4 mt-4">
+            <h3 className="text-lg font-semibold">Kết quả xét nghiệm chi tiết:</h3>
+            <div>
+              <b>Tên xét nghiệm:</b> {testResult.resultData.testName}
+            </div>
+            <div>
+              <b>Mã xét nghiệm:</b> {testResult.resultData.testCode || "N/A"}
+            </div>
+            <div>
+              <b>Trạng thái tổng quan:</b> {testResult.resultData.overallStatus}
+            </div>
+            {testResult.resultData.summary && (
+              <div>
+                <b>Tóm tắt:</b> {testResult.resultData.summary}
+              </div>
+            )}
+            {testResult.resultData.clinicalInterpretation && (
+              <div>
+                <b>Giải thích lâm sàng:</b> {testResult.resultData.clinicalInterpretation}
+              </div>
+            )}
+            {testResult.resultData.recommendations && testResult.resultData.recommendations.length > 0 && (
+              <div>
+                <b>Khuyến nghị:</b>
+                <ul className="list-disc pl-5">
+                  {testResult.resultData.recommendations.map((rec, index) => (
+                    <li key={index}>{rec}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {testResult.resultData.results && testResult.resultData.results.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium">Các chỉ số:</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="border p-2 text-left">Chỉ số</th>
+                        <th className="border p-2 text-left">Giá trị</th>
+                        <th className="border p-2 text-left">Đơn vị</th>
+                        <th className="border p-2 text-left">Khoảng tham chiếu</th>
+                        <th className="border p-2 text-left">Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {testResult.resultData.results.map((item: TestResultItem, index: number) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="border p-2">{item.displayName}</td>
+                          <td className="border p-2">{item.value}</td>
+                          <td className="border p-2">{item.unit}</td>
+                          <td className="border p-2">
+                            {item.referenceRange?.description ||
+                              (item.referenceRange?.normalValues?.join(", ") ||
+                                (item.referenceRange?.min !== undefined && item.referenceRange?.max !== undefined
+                                  ? `${item.referenceRange.min} - ${item.referenceRange.max}`
+                                  : "N/A"))}
+                          </td>
+                          <td className="border p-2">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                item.status === "normal"
+                                  ? "bg-green-100 text-green-800"
+                                  : item.status === "abnormal"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                              }`}
+                            >
+                              {item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {testResult.resultData.laboratoryInfo && (
+              <div className="space-y-2">
+                <h4 className="font-medium">Thông tin phòng Lab:</h4>
+                <div>
+                  <b>Tên:</b> {testResult.resultData.laboratoryInfo.name}
+                </div>
+                {testResult.resultData.laboratoryInfo.address && (
+                  <div>
+                    <b>Địa chỉ:</b> {testResult.resultData.laboratoryInfo.address}
+                  </div>
+                )}
+                {testResult.resultData.laboratoryInfo.contactInfo && (
+                  <div>
+                    <b>Liên hệ:</b> {testResult.resultData.laboratoryInfo.contactInfo}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {testResult.documents && testResult.documents.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium">Tài liệu đính kèm:</h4>
+                <ul className="list-disc pl-5">
+                  {testResult.documents.map((docId, index) => (
+                    <li key={index}>
+                      <a href={`/api/files/document/${docId}/access`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Tài liệu {index + 1} (ID: {docId})
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="pt-4">
+              <Button onClick={handleExportPdf} className="flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Tải PDF kết quả
+              </Button>
+            </div>
+          </div>
+        ) : (
+          process.status === "result_ready" || process.status === "result_delivered" ? (
+            <div>Không có kết quả xét nghiệm chi tiết nào được tìm thấy.</div>
+          ) : null
+        )}
+
         <div className="pt-4">
             <Button onClick={handleOpenUpdateStatusDialog}>Cập nhật trạng thái</Button>
         </div>

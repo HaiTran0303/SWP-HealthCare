@@ -20,20 +20,21 @@ import { useToast } from "@/components/ui/use-toast";
 import { apiClient } from "@/services/api";
 import { API_ENDPOINTS } from "@/config/api";
 import { appointmentStatusMap } from "@/lib/translations";
+import { Appointment } from "@/types/api.d"; // Import Appointment type
 
 interface UpdateAppointmentStatusDialogProps {
   appointmentId: string;
   onStatusUpdate: () => void;
 }
 
-const appointmentStatuses = Object.keys(appointmentStatusMap);
+const appointmentStatuses: (keyof typeof appointmentStatusMap & Appointment["status"])[] = Object.keys(appointmentStatusMap) as (keyof typeof appointmentStatusMap & Appointment["status"])[];
 
 export function UpdateAppointmentStatusDialog({
   appointmentId,
   onStatusUpdate,
 }: UpdateAppointmentStatusDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState("");
+  const [newStatus, setNewStatus] = useState<string>(""); // Keep as string for select input
   const { toast } = useToast();
 
   const handleStatusChange = async () => {
@@ -49,7 +50,7 @@ export function UpdateAppointmentStatusDialog({
     try {
       await apiClient.patch(
         `${API_ENDPOINTS.APPOINTMENTS.UPDATE_STATUS(appointmentId)}`,
-        { status: newStatus }
+        { status: newStatus as Appointment["status"] } // Cast to Appointment["status"]
       );
       toast({
         title: "Thành công",

@@ -55,8 +55,7 @@ export function useConsultationBooking() {
     selectedDate: Date,
     selectedTime: string,
     formData: BookingFormData,
-    appointmentLocation: "online", // Add appointmentLocation parameter
-    serviceId: string | undefined, // Accept serviceId as a single string or undefined
+    serviceId: string | undefined, // Removed appointmentLocation parameter
     meetingLink?: string // Make meetingLink optional
   ) => {
     setIsLoading(true);
@@ -105,21 +104,22 @@ export function useConsultationBooking() {
         notes: buildNotesString(formData),
         serviceIds: serviceId ? [serviceId] : [], // Convert single serviceId to an array if it exists
         meetingLink: meetingLink, // Pass meetingLink if provided, otherwise it will be undefined
-        appointmentLocation: appointmentLocation, // Use the passed location
+        appointmentLocation: "online", // Always set to "online" as per user feedback
       };
 
       console.log("[useConsultationBooking] Final appointmentData:", appointmentData); // Log the final data
 
       // Create appointment
-      await AppointmentService.createAppointment(appointmentData);
+      const createdAppointment = await AppointmentService.createAppointment(appointmentData);
       
       toast({
         title: "Đặt lịch thành công!",
-        description: "Tư vấn viên sẽ liên hệ với bạn trong thời gian sớm nhất",
+        description: "Lịch tư vấn của bạn đang chờ thanh toán. Vui lòng hoàn tất thanh toán để xác nhận.",
       });
 
-      // Chuyển hướng đến trang lịch hẹn của tôi
-      window.location.href = "/manage/appointments"; // Hoặc "/profile/appointments" tùy theo URL chính xác của trang lịch hẹn của bạn
+      // Redirect to the payment page for the newly created appointment
+      // Assuming a payment page exists at /appointments/payment/[id]
+      window.location.href = `/appointments/payment/${createdAppointment.id}`;
 
       return true;
     } catch (error: any) {

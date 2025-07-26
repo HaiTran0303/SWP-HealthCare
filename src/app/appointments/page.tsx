@@ -277,7 +277,7 @@ export default function AppointmentsPage() {
         // Handle General Appointment
         let appointmentDate = "";
         let consultantId: string | undefined = undefined;
-        let appointmentLocation = needsConsultant ? "online" : "office";
+        const appointmentLocation: "online" = "online"; // Default to online as per user feedback
 
         if (needsConsultant) {
           appointmentDate = selectedSlot.dateTime;
@@ -392,7 +392,7 @@ export default function AppointmentsPage() {
         )}
         <div>
           <span className="font-semibold">Nơi chốn:</span>{" "}
-          {needsConsultant ? "Online" : "Tại cơ sở"}
+          Online
         </div>
         {notes && (
           <div>
