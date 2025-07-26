@@ -328,7 +328,7 @@ export default function STITestingPage() {
         const payload: CreateStiAppointmentDto = {
           stiServiceId: serviceId,
           sampleCollectionDate: sampleCollectionDateTime.toISOString(),
-          sampleCollectionLocation: "office", // Default, ideally from UI
+          sampleCollectionLocation: "online", // Default, ideally from UI
           notes: notes,
           consultantId: selectedSlot.consultant?.id, // Pass consultantId from selected slot
         };

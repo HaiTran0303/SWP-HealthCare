@@ -122,6 +122,18 @@ export interface CreateServiceImageDto {
   imageId: string;
 }
 
+export interface Question {
+  id: string;
+  title: string;
+  content: string;
+  userId: string;
+  appointmentId?: string;
+  status: "pending" | "answered" | "closed"; // Thêm trạng thái cho câu hỏi chat
+  isAnonymous?: boolean; // Thêm thuộc tính ẩn danh
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Service {
   id: string;
   name: string;

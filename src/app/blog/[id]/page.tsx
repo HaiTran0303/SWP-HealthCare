@@ -43,10 +43,6 @@ export default function BlogDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleDirectPublish = () => {
-    setShowPublishDialog(true);
-  };
-
   const handlePublish = async () => {
     if (!blog) return;
     setActionLoading(true);
@@ -125,7 +121,6 @@ export default function BlogDetailPage() {
             setShowPublishDialog(false);
             router.refresh();
           }}
-          isDirectPublish={true}
         />
       )}
     </div>

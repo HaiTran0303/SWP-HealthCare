@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -27,9 +28,11 @@ import {
   UpdateAppointmentDto,
   CancelAppointmentDto,
 } from "@/services/appointment.service";
+import { ChatService } from "@/services/chat.service";
 import { User, UserService } from "@/services/user.service"; // New import
 import { API_FEATURES } from "@/config/api";
-import { Pagination, PaginationInfo } from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui/pagination";
+import { PaginationInfo } from "@/components/ui/pagination-info";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns"; // For date formatting
 import {
@@ -41,9 +44,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label"; // Ensure Label is imported
+import { MessageSquare } from "lucide-react";
 
 export default function AppointmentManagementTable() {
   const { toast } = useToast();
+  const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -255,6 +260,21 @@ export default function AppointmentManagementTable() {
     });
   };
 
+  const handleJoinChat = async (appointmentId: string) => {
+    try {
+      // Attempt to join the chat room. The backend should handle creation if it doesn't exist.
+      await ChatService.joinRoom(appointmentId);
+      router.push(`/chat/${appointmentId}`);
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: `Không thể vào phòng chat: ${err.message || "Đã xảy ra lỗi không xác định."}`,
+        variant: "destructive",
+      });
+      console.error("Error joining chat room:", err);
+    }
+  };
+
   const getLocationText = (location: string | undefined): string => {
     if (!location) {
       return "Địa điểm không xác định";
@@ -377,6 +397,19 @@ export default function AppointmentManagementTable() {
                           onClick={() => handleCancelAppointment(appointment.id)}
                         >
                           Hủy
+                        </Button>
+                      )}
+                      {["confirmed", "in_progress", "completed"].includes(
+                        appointment.status
+                      ) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleJoinChat(appointment.id)}
+                          className="flex items-center gap-2"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          Vào chat
                         </Button>
                       )}
                     </div>

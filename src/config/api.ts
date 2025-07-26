@@ -168,6 +168,11 @@ export const API_ENDPOINTS = {
     REPORT: "/revenue-stats/report",
   },
 
+  // Payments
+  PAYMENTS: {
+    GET_ALL: "/payments",
+  },
+
   // Roles
   ROLES: {
     GET_ALL: "/roles",

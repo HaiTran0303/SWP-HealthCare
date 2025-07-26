@@ -276,6 +276,15 @@ function ConsultantDashboard() {
                             >
                               Cập nhật trạng thái
                             </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                router.push(`/chat/${appointment.id}`)
+                              }
+                            >
+                              Chat
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>

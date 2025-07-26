@@ -55,8 +55,9 @@ export function useConsultationBooking() {
     selectedDate: Date,
     selectedTime: string,
     formData: BookingFormData,
+    appointmentLocation: "online", // Add appointmentLocation parameter
     serviceId: string | undefined, // Accept serviceId as a single string or undefined
-    meetingLink: string // Accept meetingLink directly
+    meetingLink?: string // Make meetingLink optional
   ) => {
     setIsLoading(true);
     setErrors({});
@@ -78,14 +79,13 @@ export function useConsultationBooking() {
       const [hours, minutes] = selectedTime.split(":").map(Number);
       const finalAppointmentDateTime = new Date(selectedDate.setHours(hours, minutes, 0, 0));
 
-      // Format to ISO 8601 string without converting to UTC, using local timezone
-      // Example: 2025-07-19T08:00:00.000
-      const formattedAppointmentDate = format(finalAppointmentDateTime, "yyyy-MM-dd'T'HH:mm:ss.SSS");
+      // Format to ISO 8601 string in UTC, as required by the backend API
+      const formattedAppointmentDate = finalAppointmentDateTime.toISOString();
 
       console.log("selectedDate (original):", selectedDate);
       console.log("selectedTime:", selectedTime);
       console.log("finalAppointmentDateTime (Date object, local timezone):", finalAppointmentDateTime);
-      console.log("formattedAppointmentDate (ISO local):", formattedAppointmentDate);
+      console.log("formattedAppointmentDate (ISO UTC):", formattedAppointmentDate);
 
       // Check if combined date and time is in the past
       if (finalAppointmentDateTime < new Date()) {
@@ -100,12 +100,12 @@ export function useConsultationBooking() {
 
       // Prepare appointment data
       const appointmentData: CreateAppointmentRequest = {
-        consultantId: consultant.user.id, // Use consultant.user.id
+        consultantId: consultant.user.id, // Use the nested user ID
         appointmentDate: formattedAppointmentDate, // Use the locally formatted date and time
         notes: buildNotesString(formData),
         serviceIds: serviceId ? [serviceId] : [], // Convert single serviceId to an array if it exists
-        meetingLink: meetingLink,
-        appointmentLocation: "online",
+        meetingLink: meetingLink, // Pass meetingLink if provided, otherwise it will be undefined
+        appointmentLocation: appointmentLocation, // Use the passed location
       };
 
       console.log("[useConsultationBooking] Final appointmentData:", appointmentData); // Log the final data

@@ -41,6 +41,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppointmentService, AppointmentStatus, Appointment as GeneralAppointmentType } from "@/services/appointment.service";
+import { ChatService } from "@/services/chat.service";
 import { STITestingService, StiProcess as StiAppointmentType } from "@/services/sti-testing.service";
 import { FeedbackService } from "@/services/feedback.service"; // Import FeedbackService
 import { Feedback, CreateFeedbackDto } from "@/types/feedback"; // Import Feedback types
@@ -49,7 +50,8 @@ import { vi } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DialogClose } from "@/components/ui/dialog";
-import { Pagination, PaginationInfo } from "@/components/ui/pagination"; // Import Pagination components
+import { Pagination } from "@/components/ui/pagination"; // Import Pagination components
+import { PaginationInfo } from "@/components/ui/pagination-info"; // Import PaginationInfo
 import { PaginationResponse } from "@/types/api.d"; // Import PaginationResponse
 
 interface ConsultantDetails {
@@ -262,8 +264,8 @@ const AppointmentCard: React.FC<{
   onCancel: (appointment: AppointmentDetails) => void;
   onViewDetails: (appointment: AppointmentDetails) => void;
   onEnterChat: (appointment: AppointmentDetails) => void;
-  onRateAppointment: (appointment: AppointmentDetails) => void; // New prop for rating
-  onPayAppointment: (appointment: AppointmentDetails) => void; // New prop for payment
+  onRateAppointment: (appointment: AppointmentDetails) => void;
+  onPayAppointment: (appointment: AppointmentDetails) => void;
   getStatusIcon: (status: AppointmentStatus) => JSX.Element;
   getStatusColor: (status: AppointmentStatus) => string;
 }> = ({ appointment, onCancel, onViewDetails, onEnterChat, onRateAppointment, onPayAppointment, getStatusIcon, getStatusColor }) => {
@@ -382,7 +384,9 @@ const AppointmentCard: React.FC<{
           )}
           
           {/* Add Chat Button */}
-          {appointment.questionId && ( // Only show if questionId exists
+          {["confirmed", "in_progress", "completed"].includes(
+            appointment.status
+          ) && (
             <Button
               variant="outline"
               size="sm"
@@ -671,31 +675,8 @@ const UserAppointmentManagement: React.FC = () => {
   };
 
   // New handler for chat button
-  const handleEnterChat = async (appointment: AppointmentDetails) => {
-    if (appointment.questionId) {
-      router.push(`/chat/${appointment.questionId}`);
-    } else {
-      // If questionId is not directly in appointment, try fetching it
-      try {
-        const chatRoom = await AppointmentService.getAppointmentChatRoom(appointment.id);
-        if (chatRoom && chatRoom.id) { // Assuming chatRoom has an 'id' property for the question
-          router.push(`/chat/${chatRoom.id}`);
-        } else {
-          toast({
-            title: "Lỗi",
-            description: "Không tìm thấy phòng chat cho lịch hẹn này.",
-            variant: "destructive",
-          });
-        }
-      } catch (error: any) {
-        console.error("Error fetching chat room for appointment:", error);
-        toast({
-          title: "Lỗi",
-          description: "Không thể truy cập phòng chat. Vui lòng thử lại.",
-          variant: "destructive",
-        });
-      }
-    }
+  const handleEnterChat = (appointment: AppointmentDetails) => {
+    router.push(`/chat/${appointment.id}`);
   };
 
   const handlePayAppointment = (appointment: AppointmentDetails) => {

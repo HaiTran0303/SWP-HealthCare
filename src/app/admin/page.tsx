@@ -36,6 +36,7 @@ import StiTestManagementTable from "@/components/StiTestManagementTable"; // Imp
 import ConsultantManagementTable from "@/components/ConsultantManagementTable"; // Import ConsultantManagementTable
 import ServiceManagementTable from "@/components/ServiceManagementTable"; // Import ServiceManagementTable
 import StiProcessTable from "@/components/StiProcessTable"; // Import StiProcessTable
+import PaymentManagementTable from "@/components/PaymentManagementTable"; // Import PaymentManagementTable
 
 interface UserOverviewResponse {
   totalUsers: number;
@@ -285,6 +286,7 @@ export default function AdminDashboard() {
           <TabsTrigger value="tests">Xét nghiệm</TabsTrigger>
           <TabsTrigger value="consultants">Tư vấn viên</TabsTrigger>
           <TabsTrigger value="services">Dịch vụ</TabsTrigger>
+          <TabsTrigger value="payments">Thanh toán</TabsTrigger>
           <TabsTrigger value="feedback">Đánh giá & Phản hồi</TabsTrigger>
         </TabsList>
 
@@ -295,6 +297,17 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <UserManagementTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payments">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý Thanh toán</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PaymentManagementTable />
             </CardContent>
           </Card>
         </TabsContent>

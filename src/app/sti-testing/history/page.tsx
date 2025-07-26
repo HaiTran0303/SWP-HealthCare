@@ -17,7 +17,7 @@ export default function StiHistoryPage() {
   }, [user?.id]);
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Lịch sử xét nghiệm STI</h1>
+      <h1 className="text-2xl font-bold mb-6" aria-label="Lịch sử xét nghiệm STI">Lịch sử xét nghiệm STI</h1>
       <StiProcessTable processes={processes} />
     </div>
   );
