@@ -129,9 +129,16 @@ function ConsultantDashboard() {
 
       const formattedSchedule = response.data.map((slot: any) => ({
         time: `${slot.startTime} - ${slot.endTime}`,
-        status: slot.isAvailable ? "Trống" : "Đã đặt", // Assuming 'isAvailable' means it's free
+        status: slot.isAvailable ? "Trống" : "Đã đặt",
       }));
-      setDailySchedule(formattedSchedule);
+
+      // Remove duplicates by creating a Set of unique time slots
+      const uniqueSchedule = Array.from(new Set(formattedSchedule.map(s => s.time)))
+        .map(time => {
+          return formattedSchedule.find(s => s.time === time)!;
+        });
+
+      setDailySchedule(uniqueSchedule);
     } catch (err) {
       console.error("Error fetching daily schedule:", err);
       setDailySchedule([]); // Clear schedule on error
