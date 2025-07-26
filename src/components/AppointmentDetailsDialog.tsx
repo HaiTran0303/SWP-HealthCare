@@ -38,7 +38,7 @@ export function AppointmentDetailsDialog({ appointment }: AppointmentDetailsDial
           {appointment.user && (
             <p><strong>Khách hàng:</strong> {`${appointment.user.firstName} ${appointment.user.lastName}`}</p>
           )}
-          {appointment.consultant && (
+          {appointment.consultant?.user && (
             <p><strong>Tư vấn viên:</strong> {`${appointment.consultant.user.firstName} ${appointment.consultant.user.lastName}`}</p>
           )}
           <p><strong>Thời gian:</strong> {format(new Date(appointment.appointmentDate), "dd/MM/yyyy HH:mm", { locale: vi })}</p>
