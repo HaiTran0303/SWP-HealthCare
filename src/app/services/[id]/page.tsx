@@ -80,9 +80,9 @@ export default function ServiceDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           {/* Service Image */}
           <div className="relative w-full h-96 rounded-2xl overflow-hidden shadow-2xl">
-            {service.imageUrl ? (
+            {service.images && service.images.length > 0 ? (
               <Image
-                src={service.imageUrl}
+                src={service.images[0].url}
                 alt={service.name}
                 fill
                 className="object-cover"

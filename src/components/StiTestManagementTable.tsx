@@ -23,7 +23,7 @@ import { RefreshCcw, Calendar as CalendarIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import DatePickerWithRange from "@/components/ui/date-picker-with-range";
 import {
-  StiTestProcess,
+  StiProcess as StiTestProcess,
   STITestingService,
   TestFilters,
   TestStatus,
@@ -32,8 +32,11 @@ import {
 } from "@/services/sti-testing.service";
 import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
+import { PaginationInfo } from "@/components/ui/pagination-info";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import StiProcessDetail from "@/components/StiProcessDetail";
 
 export default function StiTestManagementTable() {
   const { toast } = useToast();
@@ -41,6 +44,8 @@ export default function StiTestManagementTable() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(API_FEATURES.PAGINATION.DEFAULT_PAGE);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedTest, setSelectedTest] = useState<StiTestProcess | null>(null);
   const [totalTests, setTotalTests] = useState(0);
   const [searchQuery, setSearchQuery] = useState(""); // For testCode, patient name/email
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -103,7 +108,7 @@ export default function StiTestManagementTable() {
 
       const response = await STITestingService.getAllTests(filters);
       setTests(response.data);
-      setTotalTests(response.total);
+      setTotalTests(response.meta.totalItems);
     } catch (err: any) {
       console.error("Error fetching STI tests:", err);
       setError(err.message || "Lỗi khi tải danh sách xét nghiệm STI. Vui lòng thử lại.");
@@ -138,7 +143,6 @@ export default function StiTestManagementTable() {
   };
 
   const totalPages = Math.ceil(totalTests / limit);
-  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -158,6 +162,37 @@ export default function StiTestManagementTable() {
 
   const handleLastPage = () => {
     setCurrentPage(totalPages);
+  };
+
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+    if (endPage - startPage + 1 < maxPagesToShow) {
+      startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+
+    if (startPage > 1) {
+      pageNumbers.push(1);
+      if (startPage > 2) {
+        pageNumbers.push(-1);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        pageNumbers.push(-1);
+      }
+      pageNumbers.push(totalPages);
+    }
+
+    return pageNumbers;
   };
 
   return (
@@ -286,7 +321,7 @@ export default function StiTestManagementTable() {
               {tests.map((test) => (
                 <TableRow key={test.id}>
                   <TableCell>{test.testCode}</TableCell>
-                  <TableCell>{test.patient?.firstName} {test.patient?.lastName || "N/A"}</TableCell>
+                  <TableCell>{test.patient?.fullName || "N/A"}</TableCell>
                   <TableCell>{test.service?.name || "N/A"}</TableCell>
                   <TableCell>{test.sampleType}</TableCell>
                   <TableCell>{test.priority}</TableCell>
@@ -298,45 +333,28 @@ export default function StiTestManagementTable() {
                   <TableCell>{format(new Date(test.createdAt), "dd/MM/yyyy HH:mm")}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm">
-                        Chi tiết
-                      </Button>
-                      {test.status !== "completed" && test.status !== "cancelled" && (
-                        <Select onValueChange={(value: TestStatus) => handleUpdateStatus(test.id, value)}>
-                          <SelectTrigger className="w-[120px] h-8">
-                            <SelectValue placeholder="Cập nhật TT" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STITestingService.canTransitionTo(test.status, "sample_collection_scheduled") && (
-                              <SelectItem value="sample_collection_scheduled">Lên lịch lấy mẫu</SelectItem>
-                            )}
-                            {STITestingService.canTransitionTo(test.status, "sample_collected") && (
-                              <SelectItem value="sample_collected">Đã lấy mẫu</SelectItem>
-                            )}
-                            {STITestingService.canTransitionTo(test.status, "processing") && (
-                              <SelectItem value="processing">Đang xử lý</SelectItem>
-                            )}
-                            {STITestingService.canTransitionTo(test.status, "result_ready") && (
-                              <SelectItem value="result_ready">Có kết quả</SelectItem>
-                            )}
-                            {STITestingService.canTransitionTo(test.status, "result_delivered") && (
-                              <SelectItem value="result_delivered">Đã gửi kết quả</SelectItem>
-                            )}
-                            {STITestingService.canTransitionTo(test.status, "consultation_required") && (
-                              <SelectItem value="consultation_required">Yêu cầu tư vấn</SelectItem>
-                            )}
-                            {STITestingService.canTransitionTo(test.status, "follow_up_scheduled") && (
-                              <SelectItem value="follow_up_scheduled">Lên lịch tái khám</SelectItem>
-                            )}
-                            {STITestingService.canTransitionTo(test.status, "completed") && (
-                              <SelectItem value="completed">Hoàn thành</SelectItem>
-                            )}
-                            {STITestingService.canTransitionTo(test.status, "cancelled") && (
-                              <SelectItem value="cancelled">Hủy</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      )}
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedTest(test)}
+                          >
+                            Chi tiết
+                          </Button>
+                        </DialogTrigger>
+                        {selectedTest && (
+                          <DialogContent className="sm:max-w-[800px]">
+                            <StiProcessDetail
+                              process={selectedTest}
+                              onUpdateStatusSuccess={() => {
+                                fetchTests();
+                                setIsDetailDialogOpen(false);
+                              }}
+                            />
+                          </DialogContent>
+                        )}
+                      </Dialog>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -344,18 +362,26 @@ export default function StiTestManagementTable() {
             </TableBody>
           </Table>
 
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageNumbers={pageNumbers}
-            hasNextPage={currentPage < totalPages}
-            hasPreviousPage={currentPage > 1}
-            onPageChange={handlePageChange}
-            onNextPage={handleNextPage}
-            onPreviousPage={handlePreviousPage}
-            onFirstPage={handleFirstPage}
-            onLastPage={handleLastPage}
-          />
+          <div className="flex justify-between items-center mt-4">
+            <PaginationInfo
+              totalItems={totalTests}
+              itemsPerPage={limit}
+              currentPage={currentPage}
+              itemName="xét nghiệm"
+            />
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageNumbers={getPageNumbers()}
+              hasNextPage={currentPage < totalPages}
+              hasPreviousPage={currentPage > 1}
+              onPageChange={handlePageChange}
+              onNextPage={handleNextPage}
+              onPreviousPage={handlePreviousPage}
+              onFirstPage={handleFirstPage}
+              onLastPage={handleLastPage}
+            />
+          </div>
         </>
       )}
     </div>

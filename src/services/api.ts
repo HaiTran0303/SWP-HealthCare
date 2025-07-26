@@ -234,6 +234,54 @@ export const apiClient = {
     });
   },
 
+  async getBlob(endpoint: string, config?: RequestConfig): Promise<Blob> {
+    try {
+      let url = buildApiUrl(endpoint);
+
+      if (config?.params) {
+        const queryParams = new URLSearchParams();
+        for (const key in config.params) {
+          if (config.params.hasOwnProperty(key) && config.params[key] !== undefined) {
+            queryParams.append(key, String(config.params[key]));
+          }
+        }
+        const queryString = queryParams.toString();
+        if (queryString) {
+          url = `${url}?${queryString}`;
+        }
+      }
+
+      const { params, ...fetchConfig } = config || {};
+
+      const response = await fetchWithTimeout(url, fetchConfig);
+
+      if (!response.ok) {
+        await handleResponse(response); // Throw ApiError if response is not ok
+      }
+
+      return response.blob();
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      if (error instanceof Error) {
+        if (error.name === "AbortError") {
+          throw new ApiError(408, "Yêu cầu đã hết thời gian chờ. Vui lòng thử lại.");
+        }
+        if (error.message.includes("Failed to fetch")) {
+          throw new ApiError(
+            0,
+            "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
+          );
+        }
+        throw new ApiError(0, "Đã có lỗi xảy ra. Vui lòng thử lại sau.");
+      }
+
+      throw new ApiError(0, "Đã có lỗi xảy ra. Vui lòng thử lại sau.");
+    }
+  },
+
   async upload<T>(
     endpoint: string,
     file: File,

@@ -55,8 +55,8 @@ export function useConsultationBooking() {
     selectedDate: Date,
     selectedTime: string,
     formData: BookingFormData,
-    serviceId: string | undefined, // Accept serviceId as a single string or undefined
-    meetingLink: string // Accept meetingLink directly
+    serviceId: string | undefined, // Removed appointmentLocation parameter
+    meetingLink?: string // Make meetingLink optional
   ) => {
     setIsLoading(true);
     setErrors({});
@@ -78,14 +78,13 @@ export function useConsultationBooking() {
       const [hours, minutes] = selectedTime.split(":").map(Number);
       const finalAppointmentDateTime = new Date(selectedDate.setHours(hours, minutes, 0, 0));
 
-      // Format to ISO 8601 string without converting to UTC, using local timezone
-      // Example: 2025-07-19T08:00:00.000
-      const formattedAppointmentDate = format(finalAppointmentDateTime, "yyyy-MM-dd'T'HH:mm:ss.SSS");
+      // Format to ISO 8601 string in UTC, as required by the backend API
+      const formattedAppointmentDate = finalAppointmentDateTime.toISOString();
 
       console.log("selectedDate (original):", selectedDate);
       console.log("selectedTime:", selectedTime);
       console.log("finalAppointmentDateTime (Date object, local timezone):", finalAppointmentDateTime);
-      console.log("formattedAppointmentDate (ISO local):", formattedAppointmentDate);
+      console.log("formattedAppointmentDate (ISO UTC):", formattedAppointmentDate);
 
       // Check if combined date and time is in the past
       if (finalAppointmentDateTime < new Date()) {
@@ -100,26 +99,27 @@ export function useConsultationBooking() {
 
       // Prepare appointment data
       const appointmentData: CreateAppointmentRequest = {
-        consultantId: consultant.user.id, // Use consultant.user.id
+        consultantId: consultant.user.id, // Use the nested user ID
         appointmentDate: formattedAppointmentDate, // Use the locally formatted date and time
         notes: buildNotesString(formData),
         serviceIds: serviceId ? [serviceId] : [], // Convert single serviceId to an array if it exists
-        meetingLink: meetingLink,
-        appointmentLocation: "online",
+        meetingLink: meetingLink, // Pass meetingLink if provided, otherwise it will be undefined
+        appointmentLocation: "online", // Always set to "online" as per user feedback
       };
 
       console.log("[useConsultationBooking] Final appointmentData:", appointmentData); // Log the final data
 
       // Create appointment
-      await AppointmentService.createAppointment(appointmentData);
+      const createdAppointment = await AppointmentService.createAppointment(appointmentData);
       
       toast({
         title: "Đặt lịch thành công!",
-        description: "Tư vấn viên sẽ liên hệ với bạn trong thời gian sớm nhất",
+        description: "Lịch tư vấn của bạn đang chờ thanh toán. Vui lòng hoàn tất thanh toán để xác nhận.",
       });
 
-      // Chuyển hướng đến trang lịch hẹn của tôi
-      window.location.href = "/manage/appointments"; // Hoặc "/profile/appointments" tùy theo URL chính xác của trang lịch hẹn của bạn
+      // Redirect to the payment page for the newly created appointment
+      // Assuming a payment page exists at /appointments/payment/[id]
+      window.location.href = `/appointments/payment/${createdAppointment.id}`;
 
       return true;
     } catch (error: any) {

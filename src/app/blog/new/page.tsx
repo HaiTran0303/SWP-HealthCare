@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { BlogService, CreateBlogData } from "@/services/blog.service";
+import { BlogService, CreateBlogData, Blog } from "@/services/blog.service"; // Import Blog interface
 import { Category, CategoryService } from "@/services/category.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import BlogCreateWithImage from "@/components/BlogCreateWithImage";
 
 export default function CreateBlogPage() {
   const [title, setTitle] = useState("");
@@ -23,6 +31,8 @@ export default function CreateBlogPage() {
   const [excerpt, setExcerpt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showImageUploadModal, setShowImageUploadModal] = useState(false);
+  const [newlyCreatedBlogId, setNewlyCreatedBlogId] = useState<string | null>(null);
 
   const { user } = useAuth();
   const router = useRouter();
@@ -102,13 +112,14 @@ export default function CreateBlogPage() {
       seoTitle: seoTitle || title, // Fallback to title if seoTitle is empty
       seoDescription: seoDescription,
       excerpt: excerpt,
-      featuredImage: "",
+      featuredImage: "", // No featured image on initial creation
       relatedServicesIds: [],
     };
 
     try {
       console.log("Submitting blog with payload:", payload);
-      await BlogService.create(payload);
+      const response = await BlogService.create(payload); // Capture the response
+      const createdBlogId = response.id; // Assuming the response contains the ID
 
       toast({
         title: "Thành công!",
@@ -117,7 +128,8 @@ export default function CreateBlogPage() {
           : "Đã tạo blog mới thành công và gửi đi duyệt.",
       });
 
-      router.push(`/?blogSubmitted=true`);
+      setNewlyCreatedBlogId(createdBlogId);
+      setShowImageUploadModal(true);
 
     } catch (err: any) {
       console.error("Failed to create blog:", err.response?.data || err);
@@ -132,6 +144,15 @@ export default function CreateBlogPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImageUploadSuccess = () => {
+    setShowImageUploadModal(false);
+    toast({
+      title: "Thành công!",
+      description: "Ảnh nổi bật đã được tải lên và gắn vào blog.",
+    });
+    router.push(`/?blogSubmitted=true`); // Redirect after image upload is complete
   };
 
   return (
@@ -229,6 +250,23 @@ export default function CreateBlogPage() {
           {loading ? "Đang tạo..." : "Tạo Blog"}
         </Button>
       </form>
+
+      {newlyCreatedBlogId && (
+        <Dialog open={showImageUploadModal} onOpenChange={setShowImageUploadModal}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Tải ảnh nổi bật lên</DialogTitle>
+              <DialogDescription>
+                Blog của bạn đã được tạo. Bây giờ hãy tải ảnh nổi bật lên cho blog này.
+              </DialogDescription>
+            </DialogHeader>
+            <BlogCreateWithImage
+              blogId={newlyCreatedBlogId}
+              onImageUploaded={handleImageUploadSuccess}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

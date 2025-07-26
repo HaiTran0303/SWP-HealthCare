@@ -1,5 +1,6 @@
 import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
+import { format } from "date-fns";
 
 export interface UserProfile {
   id: string;
@@ -12,7 +13,6 @@ export interface UserProfile {
 
 export interface ConsultantProfile {
   id: string;
-  userId: string;
   specialties: string[];
   qualification: string;
   experience: string;
@@ -63,21 +63,37 @@ export interface GetConsultantsQuery {
   sortOrder?: "ASC" | "DESC";
 }
 
+// This comment is added to trigger a recompile and ensure the latest code is used.
 export const ConsultantService = {
   async getAll(query?: GetConsultantsQuery): Promise<{ data: ConsultantProfile[]; total: number }> {
     try {
-      const response = await apiClient.get<{ data: ConsultantProfile[]; total: number }>(API_ENDPOINTS.CONSULTANTS.GET_ALL, { params: query });
+      // Ensure that only active and available consultants are fetched by default
+      const defaultQuery = {
+        ...query,
+        status: "active", // Filter by active status
+        isAvailable: true, // Filter by available status
+      };
+      const response = await apiClient.get<{ data: ConsultantProfile[]; total: number }>(API_ENDPOINTS.CONSULTANTS.GET_ALL, { params: defaultQuery });
       return response;
     } catch (error) {
       console.error("[ConsultantService] Error fetching consultants:", error);
       throw error;
     }
   },
-  async getAvailability(consultantId: string, date: Date) {
-    const dayOfWeek = date.getDay(); // 0 for Sunday, 1 for Monday, etc.
-    let endpoint = `${API_ENDPOINTS.CONSULTANTS.AVAILABILITY}?consultantId=${consultantId}&dayOfWeek=${dayOfWeek}`;
-    const response = await apiClient.get<ConsultantAvailability[]>(endpoint);
-    console.log("ConsultantService.getAvailability Raw Response:", response); // Added log
+  async findConsultantAvailableSlots(consultantId: string, date: Date, serviceId?: string) {
+    const formattedDate = format(date, "yyyy-MM-dd");
+    const data: any = {
+      consultantId: consultantId,
+      startDate: formattedDate,
+      endDate: formattedDate, // For a single day, set endDate to be the same as startDate
+    };
+
+    if (serviceId) {
+      data.serviceIds = [serviceId];
+    }
+
+    const response = await apiClient.post<any>(API_ENDPOINTS.APPOINTMENTS.AVAILABLE_SLOTS, data);
+    console.log("ConsultantService.findConsultantAvailableSlots Raw Response:", response);
     return response;
   },
 

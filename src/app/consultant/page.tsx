@@ -22,17 +22,16 @@ import { apiClient } from "@/services/api";
 import { API_ENDPOINTS } from "@/config/api";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay } from "date-fns";
 import { vi } from "date-fns/locale"; // Import Vietnamese locale
-
-interface Appointment {
-  id: string;
-  appointmentDate: string;
-  status: string;
-  consultationType: string;
-  user: {
-    firstName: string;
-    lastName: string;
-  };
-}
+import { UpdateAppointmentStatusDialog } from "@/components/UpdateAppointmentStatusDialog";
+import { AppointmentDetailsDialog } from "@/components/AppointmentDetailsDialog";
+import { translatedAppointmentStatus } from "@/lib/translations";
+import { API_FEATURES } from "@/config/api";
+import { Pagination } from "@/components/ui/pagination";
+import { PaginationInfo } from "@/components/ui/pagination-info";
+import { ChatService, ChatRoom } from "@/services/chat.service"; // Import ChatService and ChatRoom
+import { Appointment } from "@/types/api.d"; // Import global Appointment type
+import { User } from "@/services/user.service"; // Import User type
+import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
 
 interface Feedback {
   id: string;
@@ -44,7 +43,6 @@ interface Feedback {
     lastName: string;
   };
 }
-
 
 export default function ConsultantPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -79,23 +77,28 @@ function ConsultantDashboard() {
   const [errorFeedbacks, setErrorFeedbacks] = useState<string | null>(null);
   const [dailySchedule, setDailySchedule] = useState<any[]>([]); // Placeholder for daily schedule
 
+  // Pagination states for appointments
+  const [currentPage, setCurrentPage] = useState(API_FEATURES.PAGINATION.DEFAULT_PAGE);
+  const [totalAppointments, setTotalAppointments] = useState(0);
+  const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
+
   useEffect(() => {
     if (user?.id) {
       fetchAppointments(user.id);
       fetchFeedbacks(user.id);
       fetchDailySchedule(user.id, selectedDate || new Date());
     }
-  }, [user, selectedDate]);
+  }, [user, selectedDate, currentPage]); // Add currentPage to dependencies
 
   const fetchAppointments = async (consultantId: string) => {
     setLoadingAppointments(true);
     setErrorAppointments(null);
     try {
-      const today = format(new Date(), "yyyy-MM-dd");
-      const response = await apiClient.get<{ data: Appointment[] }>(
-        `${API_ENDPOINTS.APPOINTMENTS.CONSULTANT_MY_APPOINTMENTS}?dateFrom=${today}&dateTo=${today}`
+      const response = await apiClient.get<{ data: Appointment[]; meta: { totalItems: number; totalPages: number } }>(
+        `${API_ENDPOINTS.APPOINTMENTS.BASE}?consultantId=${consultantId}&page=${currentPage}&limit=${limit}`
       );
       setAppointments(response.data || []);
+      setTotalAppointments(response.meta.totalItems);
     } catch (err: any) {
       console.error("Error fetching appointments:", err);
       setErrorAppointments(err?.message || "Lỗi khi tải danh sách cuộc hẹn");
@@ -127,11 +130,24 @@ function ConsultantDashboard() {
         `${API_ENDPOINTS.CONSULTANTS.AVAILABILITY}/consultant?consultantId=${consultantId}&dayOfWeek=${dayOfWeek}`
       );
 
-      const formattedSchedule = response.data.map((slot: any) => ({
-        time: `${slot.startTime} - ${slot.endTime}`,
-        status: slot.isAvailable ? "Trống" : "Đã đặt", // Assuming 'isAvailable' means it's free
+      const groupedSchedule: { [key: string]: { time: string; isBooked: boolean } } = {};
+
+      response.data.forEach((slot: any) => {
+        const timeSlot = `${slot.startTime} - ${slot.endTime}`;
+        if (!groupedSchedule[timeSlot]) {
+          groupedSchedule[timeSlot] = { time: timeSlot, isBooked: false };
+        }
+        if (!slot.isAvailable) {
+          groupedSchedule[timeSlot].isBooked = true;
+        }
+      });
+
+      const finalSchedule = Object.values(groupedSchedule).map(item => ({
+        time: item.time,
+        status: item.isBooked ? "Đã đặt" : "Trống",
       }));
-      setDailySchedule(formattedSchedule);
+
+      setDailySchedule(finalSchedule);
     } catch (err) {
       console.error("Error fetching daily schedule:", err);
       setDailySchedule([]); // Clear schedule on error
@@ -249,9 +265,9 @@ function ConsultantDashboard() {
                         <TableCell>{appointment.id.substring(0, 8).toUpperCase()}</TableCell>
                         <TableCell>{`${appointment.user.firstName} ${appointment.user.lastName}`}</TableCell>
                         <TableCell>{format(new Date(appointment.appointmentDate), "dd/MM/yyyy HH:mm", { locale: vi })}</TableCell>
-                        <TableCell>{appointment.consultationType}</TableCell>
+                        <TableCell>{appointment.service?.name || "Tư vấn trực tuyến"}</TableCell>
                         <TableCell>
-                          <Badge>{appointment.status}</Badge>
+                          <Badge>{translatedAppointmentStatus(appointment.status)}</Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
@@ -264,17 +280,39 @@ function ConsultantDashboard() {
                             >
                               Xác nhận
                             </Button>
-                            <Button variant="ghost" size="sm">
-                              Chi tiết
-                            </Button>
+                            <AppointmentDetailsDialog appointment={appointment} />
+                            <UpdateAppointmentStatusDialog
+                              appointmentId={appointment.id}
+                              onStatusUpdate={() => {
+                                if (user) {
+                                  fetchAppointments(user.id);
+                                }
+                              }}
+                            />
                             <Button
-                              variant="secondary"
+                              variant="outline"
                               size="sm"
-                              onClick={() =>
-                                router.push(`/appointments/update-status/${appointment.id}`)
-                              }
+                              onClick={async () => {
+                                try {
+                                  const chatRoom: ChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
+
+                                  // If appointment has no notes or empty notes, send a default message
+                                  if (!appointment.service?.name || appointment.service.name.trim() === "") {
+                                    await ChatService.sendMessage(chatRoom.id, { content: "Chào bạn" });
+                                  }
+
+                                  router.push(`/chat/${chatRoom.id}`);
+                                } catch (err: any) {
+                                  toast({
+                                    title: "Lỗi",
+                                    description: `Không thể vào phòng chat: ${err.message || "Đã xảy ra lỗi không xác định."}`,
+                                    variant: "destructive",
+                                  });
+                                  console.error("Error getting chat room or sending initial message:", err);
+                                }
+                              }}
                             >
-                              Cập nhật trạng thái
+                              Chat
                             </Button>
                           </div>
                         </TableCell>
@@ -283,7 +321,57 @@ function ConsultantDashboard() {
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-muted-foreground text-center">Không có cuộc hẹn nào hôm nay.</p>
+                <p className="text-muted-foreground text-center">Không có cuộc hẹn nào.</p>
+              )}
+              {appointments.length > 0 && (
+                <div className="flex justify-between items-center mt-4">
+                  <PaginationInfo
+                    totalItems={totalAppointments}
+                    itemsPerPage={limit}
+                    currentPage={currentPage}
+                    itemName="cuộc hẹn"
+                  />
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(totalAppointments / limit)}
+                    pageNumbers={(() => {
+                      const pageNumbers = [];
+                      const maxPagesToShow = 5;
+                      let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+                      let endPage = Math.min(Math.ceil(totalAppointments / limit), startPage + maxPagesToShow - 1);
+
+                      if (endPage - startPage + 1 < maxPagesToShow) {
+                        startPage = Math.max(1, endPage - maxPagesToShow + 1);
+                      }
+
+                      if (startPage > 1) {
+                        pageNumbers.push(1);
+                        if (startPage > 2) {
+                          pageNumbers.push(-1);
+                        }
+                      }
+
+                      for (let i = startPage; i <= endPage; i++) {
+                        pageNumbers.push(i);
+                      }
+
+                      if (endPage < Math.ceil(totalAppointments / limit)) {
+                        if (endPage < Math.ceil(totalAppointments / limit) - 1) {
+                          pageNumbers.push(-1);
+                        }
+                        pageNumbers.push(Math.ceil(totalAppointments / limit));
+                      }
+                      return pageNumbers;
+                    })()}
+                    hasNextPage={currentPage < Math.ceil(totalAppointments / limit)}
+                    hasPreviousPage={currentPage > 1}
+                    onPageChange={setCurrentPage}
+                    onNextPage={() => setCurrentPage(prev => prev + 1)}
+                    onPreviousPage={() => setCurrentPage(prev => prev - 1)}
+                    onFirstPage={() => setCurrentPage(1)}
+                    onLastPage={() => setCurrentPage(Math.ceil(totalAppointments / limit))}
+                  />
+                </div>
               )}
             </CardContent>
           </Card>

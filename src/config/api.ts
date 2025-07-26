@@ -168,6 +168,12 @@ export const API_ENDPOINTS = {
     REPORT: "/revenue-stats/report",
   },
 
+  // Payments
+  PAYMENTS: {
+    GET_ALL: "/payments/admin/all",
+    VERIFY: "/payments/verify", // New endpoint for payment verification
+  },
+
   // Roles
   ROLES: {
     GET_ALL: "/roles",

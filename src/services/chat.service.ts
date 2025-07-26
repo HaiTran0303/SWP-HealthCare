@@ -1,25 +1,21 @@
 import { apiClient } from "./api";
 import { io, Socket } from "socket.io-client";
+import { Appointment } from "@/services/appointment.service"; // Import Appointment type
+import { User } from "@/services/user.service"; // Import User type
+import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
 
-export interface ChatQuestion {
+export interface ChatRoom {
   id: string;
-  title: string;
-  content?: string;
-  isAnonymous?: boolean;
+  appointmentId: string;
+  userId: string;
+  consultantId: string;
   createdAt: string;
-  status: string;
-  customerId: string;
-  consultantId?: string;
-  lastMessage?: {
-    content: string;
-    createdAt: string;
-  };
-  unreadCount?: number;
+  updatedAt: string;
 }
 
 export interface ChatMessage {
   id: string;
-  questionId: string;
+  appointmentId: string; // Changed from questionId to appointmentId
   senderId: string;
   senderName?: string;
   content: string;
@@ -51,20 +47,17 @@ export function initializeSocket(): Socket {
       : undefined;
   const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-  // Initialize socket with proper configuration
   const newSocket = io(SOCKET_URL, {
     path: "/socket.io",
     auth: { token: `Bearer ${token}` },
     transports: ["websocket", "polling"],
-    autoConnect: false, // Don't connect automatically
+    autoConnect: false,
     withCredentials: true,
-    forceNew: true, // Force a new connection
+    forceNew: true,
   });
 
-  // Connection events
   newSocket.on("connect", () => {
     console.log("Connected to chat server");
-    // Join chat namespace after connection
     newSocket.emit("join_namespace", { namespace: "chat" }, (response: any) => {
       console.log("Namespace join response:", response);
     });
@@ -93,9 +86,7 @@ export function initializeSocket(): Socket {
     }, backoffTime);
   });
 
-  // Start connection
   newSocket.connect();
-
   return newSocket;
 }
 
@@ -107,113 +98,92 @@ export function getSocket(): Socket {
 }
 
 export const ChatService = {
-  // Room management
-  joinQuestion(questionId: string): Promise<void> {
+  async getAppointmentChatDetails(appointmentId: string): Promise<Appointment & { user: User, consultant: ConsultantProfile }> {
+    const res = await apiClient.get<Appointment & { user: User, consultant: ConsultantProfile }>(
+      `/appointments/${appointmentId}/chat-details`
+    );
+    return res;
+  },
+
+  async joinRoom(appointmentId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const socket = getSocket();
-      socket.emit("join_question", { questionId }, (ack: any) => {
+      getSocket().emit("join_appointment_chat", { appointmentId }, (ack: any) => {
         if (ack.status === "success") resolve();
         else reject(ack);
       });
     });
   },
 
-  leaveQuestion(questionId: string): Promise<void> {
+  async leaveRoom(appointmentId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const socket = getSocket();
-      socket.emit("leave_question", { questionId }, (ack: any) => {
+      getSocket().emit("leave_appointment_chat", { appointmentId }, (ack: any) => {
         if (ack.status === "success") resolve();
         else reject(ack);
       });
     });
   },
 
-  // Typing indicator
-  setTyping(questionId: string, isTyping: boolean) {
-    const socket = getSocket();
-    socket.emit("typing", { questionId, isTyping });
+  async setTyping(appointmentId: string, isTyping: boolean) {
+    try {
+        getSocket().emit("typing", { appointmentId, isTyping });
+    } catch (error) {
+        console.error("Could not set typing status:", error);
+    }
   },
 
-  handleTyping(questionId: string) {
-    this.setTyping(questionId, true);
+  handleTyping(appointmentId: string) {
+    this.setTyping(appointmentId, true);
     clearTimeout(typingTimeout);
     typingTimeout = setTimeout(() => {
-      this.setTyping(questionId, false);
+      this.setTyping(appointmentId, false);
     }, 3000);
   },
 
-  // Message management
-  async getQuestions(params: Record<string, any> = {}) {
-    const query = new URLSearchParams(params).toString();
-    return apiClient.get<PaginatedResponse<ChatQuestion>>(
-      `/chat/questions${query ? `?${query}` : ""}`
-    );
-  },
-
-  async getQuestionById(id: string) {
-    return apiClient.get<ChatQuestion>(`/chat/questions/${id}/summary`);
-  },
-
-  async createQuestion(data: {
-    title: string;
-    content: string;
-  }) {
-    return apiClient.post<ChatQuestion>(`/chat/questions`, data);
-  },
-
-  async getMessages(questionId: string, params: Record<string, any> = {}) {
+  async getMessages(appointmentId: string, params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();
     return apiClient.get<PaginatedResponse<ChatMessage>>(
-      `/chat/questions/${questionId}/messages${query ? `?${query}` : ""}`
+      `/appointments/${appointmentId}/messages?${query}`
     );
   },
 
   async getMessagesWithUrls(
-    questionId: string,
+    appointmentId: string,
     params: Record<string, any> = {}
   ) {
     const query = new URLSearchParams(params).toString();
     return apiClient.get<PaginatedResponse<ChatMessage>>(
-      `/chat/questions/${questionId}/messages/with-urls${query ? `?${query}` : ""}`
+      `/appointments/${appointmentId}/messages/with-urls?${query}`
     );
   },
 
   async sendMessage(
-    questionId: string,
+    appointmentId: string,
     data: { content: string; type?: string }
   ) {
-    // Adhere to the REST API for sending messages as per Swagger
     const payload = {
       content: data.content,
-      type: data.type || "text", // Default to 'text' if not provided
-      questionId: questionId,
-    };
-    return apiClient.post<ChatMessage>(`/chat/questions/${questionId}/messages`, payload);
-  },
-
-  async sendFile(questionId: string, formData: FormData) {
-    const config = {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+      type: data.type || "text",
+      appointmentId: appointmentId,
     };
     return apiClient.post<ChatMessage>(
-      `/chat/questions/${questionId}/messages/file`,
-      formData,
-      config
+      `/appointments/${appointmentId}/messages`,
+      payload
     );
   },
 
-  async sendPublicPdf(questionId: string, formData: FormData) {
-    const config = {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    };
+  async sendFile(appointmentId: string, formData: FormData) {
     return apiClient.post<ChatMessage>(
-      `/chat/questions/${questionId}/messages/public-pdf`,
+      `/appointments/${appointmentId}/messages/file`,
       formData,
-      config
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+  },
+
+  async sendPublicPdf(appointmentId: string, formData: FormData) {
+    return apiClient.post<ChatMessage>(
+      `/appointments/${appointmentId}/messages/public-pdf`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
     );
   },
 
@@ -223,87 +193,82 @@ export const ChatService = {
     );
   },
 
-  async markMessageAsRead(messageId: string) {
-    return apiClient.patch(`/chat/messages/${messageId}/read`);
-  },
-
-  async markAllMessagesAsRead(questionId: string) {
-    return apiClient.patch(`/chat/questions/${questionId}/messages/read-all`);
-  },
-
-  async markMessageAsReadRealtime(questionId: string, messageId: string) {
-    return new Promise((resolve, reject) => {
-      const socket = getSocket();
-      socket.emit("mark_as_read", { questionId, messageId }, (ack: any) => {
-        if (ack.status === "success") resolve(ack);
-        else reject(ack);
-      });
-    });
+  async markAllMessagesAsRead(appointmentId: string) {
+    return apiClient.patch(`/appointments/${appointmentId}/messages/read-all`);
   },
 
   async deleteMessage(messageId: string) {
     return apiClient.delete(`/chat/messages/${messageId}`);
   },
 
-  async getQuestionSummary(id: string) {
-    return apiClient.get<ChatQuestion>(`/chat/questions/${id}/summary`);
-  },
-
   async getUnreadCount() {
+    // This might need to be updated to be per-appointment or for all appointments for a user/consultant
     return apiClient.get<{ unreadCount: number }>(
       `/chat/messages/unread-count`
     );
   },
 
-  // Event listeners setup
-  onNewMessage(callback: (message: ChatMessage) => void) {
+  async markMessageAsRead(messageId: string) {
+    return apiClient.patch(`/chat/messages/${messageId}/read`);
+  },
+
+  async getChatRoomByAppointmentId(appointmentId: string): Promise<ChatRoom> {
+    const res = await apiClient.get<ChatRoom>(`/appointments/${appointmentId}/chat-room`);
+    return res;
+  },
+
+  onNewMessage(
+    appointmentId: string,
+    callback: (message: ChatMessage) => void
+  ) {
     const socket = getSocket();
-    socket.on("new_message", (data) => callback(data.data));
-    return () => socket.off("new_message");
+    const handler = (data: { data: ChatMessage }) => {
+      if (data.data.appointmentId === appointmentId) {
+        callback(data.data);
+      }
+    };
+    socket.on("new_message", handler);
+    return () => socket.off("new_message", handler);
   },
 
   onTypingStatus(
+    appointmentId: string,
     callback: (data: {
       userId: string;
       userName: string;
       isTyping: boolean;
-      questionId: string;
     }) => void
   ) {
     const socket = getSocket();
-    socket.on("typing_status", callback);
-    return () => socket.off("typing_status");
+    const handler = (data: {
+      userId: string;
+      userName: string;
+      isTyping: boolean;
+      appointmentId: string;
+    }) => {
+      if (data.appointmentId === appointmentId) {
+        callback(data);
+      }
+    };
+    socket.on("typing_status", handler);
+    return () => socket.off("typing_status", handler);
   },
 
   onMessageRead(
+    appointmentId: string,
     callback: (data: { messageId: string; userId: string }) => void
   ) {
     const socket = getSocket();
-    socket.on("message_read", callback);
-    return () => socket.off("message_read");
-  },
-
-  onUserJoined(
-    callback: (data: {
+    const handler = (data: {
+      messageId: string;
       userId: string;
-      userName: string;
-      questionId: string;
-    }) => void
-  ) {
-    const socket = getSocket();
-    socket.on("user_joined", callback);
-    return () => socket.off("user_joined");
-  },
-
-  onUserLeft(
-    callback: (data: {
-      userId: string;
-      userName: string;
-      questionId: string;
-    }) => void
-  ) {
-    const socket = getSocket();
-    socket.on("user_left", callback);
-    return () => socket.off("user_left");
+      appointmentId: string;
+    }) => {
+      if (data.appointmentId === appointmentId) {
+        callback(data);
+      }
+    };
+    socket.on("message_read", handler);
+    return () => socket.off("message_read", handler);
   },
 };

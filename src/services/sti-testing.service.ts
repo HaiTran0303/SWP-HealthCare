@@ -6,8 +6,13 @@ import {
   FindAvailableSlotsDto,
   FindAvailableSlotsResponseDto,
   StiProcess, // Exported
-  UpdateStiProcessStatusDto, // Exported
 } from "@/types/sti-appointment.d";
+import {
+  PaginationResponse,
+  TestResultResponseDto,
+  TestResultData,
+} from "@/types/api.d"; // Import PaginationResponse and TestResult related DTOs
+import { GetAppointmentsQuery } from "@/services/appointment.service"; // Import GetAppointmentsQuery
 
 export type SampleType = "blood" | "urine" | "swab" | "saliva" | "other";
 export type Priority = "normal" | "high" | "urgent";
@@ -63,7 +68,6 @@ export interface UpdateStiTestProcessDto {
   resultEmailSent?: boolean;
 }
 
-
 export interface TestFilters {
   status?: TestStatus;
   sampleType?: SampleType;
@@ -81,23 +85,6 @@ export interface TestFilters {
   sortOrder?: "ASC" | "DESC";
   page?: number;
   limit?: number;
-}
-
-export interface TestResult {
-  testName: string;
-  testCode: string;
-  resultDate: Date;
-  results: {
-    parameterName: string;
-    value: string;
-    unit: string;
-    referenceRange: string;
-    status: "normal" | "abnormal" | "critical";
-  }[];
-  summary: string;
-  recommendation: string;
-  doctorNotes?: string;
-  isConfidential: boolean;
 }
 
 export const STITestingService = {
@@ -127,9 +114,11 @@ export const STITestingService = {
     );
   },
 
-  async getAllTests(filters: TestFilters = {}): Promise<{ data: StiProcess[]; total: number }> {
+  async getAllTests(
+    filters: TestFilters = {}
+  ): Promise<PaginationResponse<StiProcess>> {
     try {
-      const response = await apiClient.post<{ data: StiProcess[]; total: number }>(
+      const response = await apiClient.post<PaginationResponse<StiProcess>>(
         API_ENDPOINTS.STI_TESTING.GET_ALL_PROCESSES,
         filters
       );
@@ -150,12 +139,20 @@ export const STITestingService = {
     );
   },
 
-  async updateTestProcess(id: string, data: UpdateStiTestProcessDto): Promise<StiProcess> {
-    return apiClient.put<StiProcess>(`${API_ENDPOINTS.STI_TESTING.BASE}/${id}`, data);
+  async updateTestProcess(
+    id: string,
+    data: UpdateStiTestProcessDto
+  ): Promise<StiProcess> {
+    return apiClient.put<StiProcess>(
+      `${API_ENDPOINTS.STI_TESTING.BASE}/${id}`,
+      data
+    );
   },
 
   async updateTestStatus(id: string, status: TestStatus): Promise<StiProcess> {
-    return apiClient.patch<StiProcess>(`${API_ENDPOINTS.STI_TESTING.BASE}/${id}/status?status=${status}`);
+    return apiClient.patch<StiProcess>(
+      `${API_ENDPOINTS.STI_TESTING.BASE}/${id}/status?status=${status}`
+    );
   },
 
   async getBookingEstimation(data: {
@@ -170,25 +167,35 @@ export const STITestingService = {
   },
 
   // Quản lý kết quả xét nghiệm
-  async submitTestResult(
-    testId: string,
-    resultData: Omit<TestResult, "testId">
-  ) {
-    const { resultDate, ...rest } = resultData;
-    const payload = {
-      testProcessId: testId,
-      ...rest,
-      resultDate: new Date(resultDate).toISOString(),
-    };
-    return apiClient.post(API_ENDPOINTS.STI_TESTING.RESULTS, payload);
+  async getMyTestResults(): Promise<TestResultResponseDto[]> {
+    const response = await apiClient.get<TestResultResponseDto[]>(
+      API_ENDPOINTS.STI_TESTING.MY_TEST_RESULTS
+    );
+    return response;
   },
 
-  async getTestResult(testId: string) {
-    return apiClient.get(`${API_ENDPOINTS.STI_TESTING.RESULTS}/${testId}`);
+  async getMyTestResultDetails(id: string): Promise<TestResultResponseDto> {
+    const response = await apiClient.get<TestResultResponseDto>(
+      API_ENDPOINTS.STI_TESTING.MY_TEST_RESULT_DETAILS(id)
+    );
+    return response;
   },
 
-  async getUserStiAppointments() {
-    return apiClient.get(API_ENDPOINTS.STI_TESTING.CREATE_STI_APPOINTMENT);
+  async exportStiTestResultPdf(stiProcessId: string): Promise<Blob> {
+    const response = await apiClient.getBlob(
+      API_ENDPOINTS.STI_TESTING.EXPORT_STI_TEST_RESULT_PDF(stiProcessId)
+    );
+    return response;
+  },
+
+  async getUserStiAppointments(query?: GetAppointmentsQuery): Promise<PaginationResponse<StiProcess>> {
+    try {
+      const response = await apiClient.get<PaginationResponse<StiProcess>>(API_ENDPOINTS.STI_TESTING.CREATE_STI_APPOINTMENT, { params: query });
+      return response;
+    } catch (error) {
+      console.error("[STITestingService] Error fetching user STI appointments:", error);
+      throw error;
+    }
   },
 
   async getTestTemplate(serviceType: string) {
@@ -281,7 +288,7 @@ export const STITestingService = {
   },
 
   // Kiểm tra xem kết quả có bất thường không
-  hasAbnormalResults(results: TestResult["results"]): boolean {
+  hasAbnormalResults(results: TestResultData["results"]): boolean {
     return results.some((result) => result.status !== "normal");
   },
 };

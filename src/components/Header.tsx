@@ -64,12 +64,20 @@ export default function Header() {
                   </DropdownMenuItem>
                   {user && (
                     <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/profile/appointments" className="w-full">
-                          <Calendar className="mr-2 h-4 w-4" />
-                          Lịch tư vấn của tôi
-                        </Link>
-                      </DropdownMenuItem>
+                      {!(
+                        (typeof user?.role === "string" &&
+                          (user.role === "admin" || user.role === "manager")) ||
+                        (typeof user?.role === "object" &&
+                          (user.role?.name === "admin" ||
+                            user.role?.name === "manager"))
+                      ) && (
+                        <DropdownMenuItem asChild>
+                          <Link href="/profile/appointments" className="w-full">
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Lịch tư vấn của tôi
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
                       {((typeof user?.role === "string" && user.role === "consultant") ||
                         (typeof user?.role === "object" &&
                           user.role?.name === "consultant")) && (
@@ -92,9 +100,11 @@ export default function Header() {
                       )}
                     </>
                   )}
-                  {((typeof user?.role === "string" && user.role === "admin") ||
+                  {((typeof user?.role === "string" &&
+                    (user.role === "admin" || user.role === "manager")) ||
                     (typeof user?.role === "object" &&
-                      user.role?.name === "admin")) && (
+                      (user.role?.name === "admin" ||
+                        user.role?.name === "manager"))) && (
                     <DropdownMenuItem asChild>
                       <Link href="/admin" className="w-full">
                         <User className="mr-2 h-4 w-4" />

@@ -49,24 +49,28 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { ConsultantService, ConsultantProfile } from "@/services/consultant.service";
-import { AppointmentService, Appointment } from "@/services/appointment.service";
+import { AppointmentService } from "@/services/appointment.service"; // Removed Appointment from here
+import { Appointment } from "@/types/api.d"; // Imported Appointment from global types
+import { APIService, Service } from "@/services/service.service"; // Import APIService and Service
 import { useConsultationBooking } from "@/hooks/use-consultation-booking";
 import { format, addDays, isBefore, isToday, isSameDay } from "date-fns";
 import { vi } from "date-fns/locale";
 
 interface TimeSlot {
-  id: string;
-  time: string;
-  isAvailable: boolean;
+  id: string; // This will be availabilityId from the API
+  time: string; // This will be derived from dateTime
+  isAvailable: boolean; // Based on remainingSlots > 0
   consultantId: string;
-  consultantName: string; // Keep this for display purposes
-  consultantAvatar?: string; // Keep this for display purposes
-  consultantRating?: number; // Keep this for display purposes
-  consultantExperience?: string; // Keep this for display purposes
-  consultantSpecialties?: string[]; // Keep this for display purposes
-  consultationFee?: number; // Keep this for display purposes
-  serviceId?: string; // Add serviceId, make it optional as it might not always be present for every slot
-  meetingLink?: string; // Add meetingLink
+  consultantName: string;
+  consultantAvatar?: string;
+  consultantRating?: number;
+  consultantExperience?: string;
+  consultantSpecialties?: string[];
+  consultationFee?: number;
+  location: "online"; // Added location based on ConsultantAvailability
+  serviceId?: string; // Added serviceId from ConsultantAvailability
+  // meetingLink is not directly available in FindAvailableSlotsResponseDto
+  // It is part of the appointment creation, not the availability itself.
 }
 
 interface BookingStep {
@@ -121,17 +125,23 @@ const OnlineConsultationBooking: React.FC = () => {
   const [additionalNotes, setAdditionalNotes] = useState("");
   const [preferredContactMethod, setPreferredContactMethod] = useState<"video" | "phone" | "chat">("video");
   
+  // New state for services
+  const [services, setServices] = useState<Service[]>([]);
+  const [defaultServiceId, setDefaultServiceId] = useState<string | undefined>(undefined);
+
   // Loading states
   const [isLoadingConsultants, setIsLoadingConsultants] = useState(false);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [isLoadingServices, setIsLoadingServices] = useState(false); // New loading state
   
   // Dialog states
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
 
-  // Fetch consultants on component mount
+  // Fetch consultants and services on component mount
   useEffect(() => {
     fetchConsultants();
+    fetchServices(); // Fetch services
   }, []);
 
   // Fetch available slots when consultant and date are selected
@@ -161,6 +171,31 @@ const OnlineConsultationBooking: React.FC = () => {
     }
   };
 
+  const fetchServices = async () => {
+    setIsLoadingServices(true);
+    try {
+      const response = await APIService.getAll();
+      console.log("APIService.getAll response:", response); // New log: inspect full response
+      setServices(response.data);
+      // Set the first service as default if available
+      if (response.data.length > 0) {
+        setDefaultServiceId(response.data[0].id);
+        console.log("Default Service ID set to:", response.data[0].id);
+      } else {
+        console.log("No services found, defaultServiceId remains undefined."); // New log
+      }
+    } catch (error: any) {
+      console.error("Error fetching services:", error);
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể tải danh sách dịch vụ.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingServices(false);
+    }
+  };
+
   const fetchAvailableSlots = async () => {
     if (!selectedConsultant || !selectedDate) {
       console.log("fetchAvailableSlots skipped: selectedConsultant or selectedDate is missing.");
@@ -168,34 +203,42 @@ const OnlineConsultationBooking: React.FC = () => {
     }
     setIsLoadingSlots(true);
     try {
-      console.log("Fetching availability for:", {
-        consultantId: selectedConsultant.id,
+    console.log("Fetching availability for:", {
+        consultantId: selectedConsultant.user.id, // Use consultant's user ID
         selectedDate: selectedDate,
       }); // Log parameters
-      const response: any = await ConsultantService.getAvailability(
-        selectedConsultant.id,
-        selectedDate
+      const response: any = await ConsultantService.findConsultantAvailableSlots(
+        selectedConsultant.user.id, // Use consultant's user ID
+        selectedDate,
+        defaultServiceId, // Pass the default service ID
       );
       console.log("Availability API Raw Response:", response); // Log the raw API response
       // Map the API response to the TimeSlot interface, extracting consultant details
-      const availableSlotsData: TimeSlot[] = Array.isArray(response?.data)
-        ? response.data.map((slot: any) => ({
-            id: slot.id,
-            time: slot.startTime, // Assuming startTime is the relevant time for the slot
-            isAvailable: slot.isAvailable,
-            consultantId: slot.consultantProfile.id,
-            consultantName: `${slot.consultantProfile.user?.firstName} ${slot.consultantProfile.user?.lastName}`, // Use user's first/last name
-            consultantAvatar: slot.consultantProfile.user?.profilePicture || slot.consultantProfile.avatar, // Use user's profile picture or consultant's avatar
-            consultantRating: slot.consultantProfile.rating,
-            consultantExperience: slot.consultantProfile.experience,
-            consultantSpecialties: slot.consultantProfile.specialties,
-            consultationFee: slot.consultantProfile.consultationFee,
-            serviceId: slot.serviceId || undefined, // Extract serviceId from the slot, ensure it's optional
-            meetingLink: slot.meetingLink || undefined, // Extract meetingLink from the slot, ensure it's optional
+      const availableSlotsData: TimeSlot[] = Array.isArray(response?.availableSlots)
+        ? response.availableSlots.map((slot: any) => ({
+            id: slot.availabilityId,
+            time: format(new Date(slot.dateTime), "HH:mm"),
+            isAvailable: slot.remainingSlots > 0,
+            consultantId: slot.consultant.id,
+            consultantName: `${slot.consultant.user?.firstName} ${slot.consultant.user?.lastName}`,
+            consultantAvatar: slot.consultant.user?.profilePicture,
+            consultantRating: slot.consultant.rating,
+            consultantExperience: slot.consultant.experience,
+            consultantSpecialties: slot.consultant.specialties,
+            consultationFee: slot.consultant.consultationFee,
+            location: "online", // Force location to "online" as per user feedback
+            serviceId: slot.serviceId, // Extract serviceId from the API response
+            // meetingLink is not directly available in FindAvailableSlotsResponseDto
+            // It is part of the appointment creation, not the availability itself.
           }))
         : [];
-      console.log("Mapped Available Slots:", availableSlotsData); // Log the mapped data
-      setAvailableSlots(availableSlotsData);
+      
+      console.log("Available Slots from API (mapped):", availableSlotsData);
+
+      // Deduplicate slots by time to ensure only unique time options are displayed
+      const uniqueSlots = Array.from(new Map(availableSlotsData.map(slot => [slot.time, slot])).values());
+      
+      setAvailableSlots(uniqueSlots);
     } catch (error: any) {
       console.error("Error fetching available slots:", error);
       toast({
@@ -213,7 +256,7 @@ const OnlineConsultationBooking: React.FC = () => {
     setSelectedConsultant(consultant);
     console.log("Selected Consultant Object:", consultant); // Add this log
     console.log("Selected Consultant ID:", consultant.id);
-    console.log("Selected Consultant User ID:", consultant.userId);
+    console.log("Selected Consultant User ID:", consultant.user.id);
     setCurrentStep(2);
     setSelectedDate(undefined);
     setSelectedSlot(null);
@@ -257,21 +300,25 @@ const OnlineConsultationBooking: React.FC = () => {
     if (!selectedConsultant || !selectedDate || !selectedSlot) return;
     
     console.log("Attempting to book appointment with consultantId:", selectedConsultant.id);
-    console.log("Attempting to book appointment with consultant.userId:", selectedConsultant.userId);
+    console.log("Attempting to book appointment with consultant.userId:", selectedConsultant.user.id);
+    console.log("Selected Slot Service ID:", selectedSlot.serviceId);
+    console.log("Default Service ID (from state):", defaultServiceId); // New log
+    const serviceIdToUse = selectedSlot.serviceId ?? defaultServiceId;
+    console.log("Service ID being passed to bookAppointment:", serviceIdToUse); // New log
 
-    const success = await bookAppointment(
-      selectedConsultant,
-      selectedDate,
-      selectedSlot.time,
-      {
-        consultationReason,
-        symptoms,
-        additionalNotes,
-        preferredContactMethod,
-      },
-      selectedSlot.serviceId, // Pass serviceId directly
-      selectedSlot.meetingLink || "https://meet.google.com/default-meeting-link" // Use meetingLink from slot, or a default
-    );
+      const success = await bookAppointment(
+        selectedConsultant,
+        selectedDate,
+        selectedSlot.time,
+        {
+          consultationReason,
+          symptoms,
+          additionalNotes,
+          preferredContactMethod,
+        },
+        serviceIdToUse, // Removed selectedSlot.location
+        undefined // meetingLink is not available from the available slots API
+      );
 
     if (success) {
       setIsConfirmDialogOpen(false);
@@ -440,11 +487,16 @@ const OnlineConsultationBooking: React.FC = () => {
             ) : (
               <div className="space-y-2">
                 <div className="text-sm font-medium mb-3">
-                  {format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
+                  {selectedDate && format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
                 </div>
                 {availableSlots.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <p>Không có lịch trống cho ngày này.</p>
+                    {/* Check if the message from the API indicates consultant issue */}
+                    {selectedConsultant && !selectedConsultant.isAvailable && selectedConsultant.profileStatus !== "active" ? (
+                      <p>Tư vấn viên này hiện không hoạt động hoặc không có lịch trống.</p>
+                    ) : (
+                      <p>Không có lịch trống cho ngày này.</p>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
