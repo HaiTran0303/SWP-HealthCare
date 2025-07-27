@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
-import { LogOut, User, Calendar, MessageSquare, LayoutDashboard, BookOpen } from "lucide-react";
+import { LogOut, User, Calendar, MessageSquare, LayoutDashboard, BookOpen, DollarSign } from "lucide-react";
 
 export default function Header() {
   const { user, logout, isAuthenticated, isLoading } = useAuth();

@@ -171,6 +171,7 @@ export const API_ENDPOINTS = {
   // Payments
   PAYMENTS: {
     GET_ALL: "/payments/admin/all",
+    GET_MY_PAYMENTS: "/payments/my-payments", // Added for customer payment history
     VERIFY: "/payments/verify", // New endpoint for payment verification
   },
 

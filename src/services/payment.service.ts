@@ -14,6 +14,16 @@ export const PaymentService = {
     }
   },
 
+  getMyPayments: async (params?: PaymentGetAllParams): Promise<PaymentListResponse> => { // Added getMyPayments method
+    try {
+      const response = await apiClient.get<PaymentListResponse>(API_ENDPOINTS.PAYMENTS.GET_MY_PAYMENTS, { params });
+      return response;
+    } catch (error) {
+      console.error("Error fetching my payments:", error);
+      throw error;
+    }
+  },
+
   // Add other payment-related service methods here (e.g., getById, updateStatus)
 
   verifyPayment: async (orderCode: string, appointmentId: string): Promise<Appointment> => {
