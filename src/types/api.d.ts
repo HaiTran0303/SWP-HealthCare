@@ -124,6 +124,13 @@ export interface CreateServiceImageDto {
   imageId: string;
 }
 
+export interface CreateQuestionDto {
+  title: string;
+  content: string;
+  appointmentId?: string;
+  isAnonymous?: boolean;
+}
+
 export interface Question {
   id: string;
   title: string;

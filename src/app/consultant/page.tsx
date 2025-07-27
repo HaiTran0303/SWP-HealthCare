@@ -298,7 +298,7 @@ function ConsultantDashboard() {
 
                                   // If appointment has no notes or empty notes, send a default message
                                   if (!appointment.service?.name || appointment.service.name.trim() === "") {
-                                    await ChatService.sendMessage(chatRoom.id, { content: "Chào bạn" });
+                                    await ChatService.sendAppointmentMessage(chatRoom.id, { content: "Chào bạn" }); // Changed to sendAppointmentMessage
                                   }
 
                                   router.push(`/chat/${chatRoom.id}`);

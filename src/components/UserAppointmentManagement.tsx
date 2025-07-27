@@ -41,7 +41,6 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppointmentService, AppointmentStatus, Appointment as GeneralAppointmentType } from "@/services/appointment.service";
-import { ChatService, ChatRoom } from "@/services/chat.service"; // Import ChatRoom
 import { STITestingService, StiProcess as StiAppointmentType } from "@/services/sti-testing.service";
 import { FeedbackService } from "@/services/feedback.service"; // Import FeedbackService
 import { Feedback, CreateFeedbackDto } from "@/types/feedback"; // Import Feedback types
@@ -53,6 +52,8 @@ import { DialogClose } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/pagination"; // Import Pagination components
 import { PaginationInfo } from "@/components/ui/pagination-info"; // Import PaginationInfo
 import { PaginationResponse } from "@/types/api.d"; // Import PaginationResponse
+import { CreateChatDialog } from "@/components/CreateChatDialog"; // Import CreateChatDialog
+import { ChatService } from "@/services/chat.service"; // Import ChatService
 
 interface ConsultantDetails {
   id: string;
@@ -86,7 +87,7 @@ interface AppointmentDetails {
   updatedAt: string;
   cancellationReason?: string;
   services?: ServiceDetails[];
-  questionId?: string;
+  chatRoomId?: string; // Changed from questionId to chatRoomId
   type: "consultation" | "sti_test";
   sampleCollectionDate?: string;
   sampleCollectionLocation?: "online" | "office";
@@ -268,7 +269,8 @@ const AppointmentCard: React.FC<{
   onPayAppointment: (appointment: AppointmentDetails) => void;
   getStatusIcon: (status: AppointmentStatus) => JSX.Element;
   getStatusColor: (status: AppointmentStatus) => string;
-}> = ({ appointment, onCancel, onViewDetails, onEnterChat, onRateAppointment, onPayAppointment, getStatusIcon, getStatusColor }) => {
+  isLoadingChat: boolean; // Add isLoadingChat prop
+}> = ({ appointment, onCancel, onViewDetails, onEnterChat, onRateAppointment, onPayAppointment, getStatusIcon, getStatusColor, isLoadingChat }) => {
 
   const canCancel = AppointmentService.canCancel(appointment.status);
   const isPastAppointment = AppointmentService.isPastAppointment(appointment.appointmentDate);
@@ -397,10 +399,15 @@ const AppointmentCard: React.FC<{
               variant="outline"
               size="sm"
               onClick={() => onEnterChat(appointment)}
+              disabled={isLoadingChat}
               className="flex items-center gap-2"
             >
-              <MessageSquare className="w-4 h-4" />
-              Vào chat
+              {isLoadingChat ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <MessageSquare className="w-4 h-4" />
+              )}
+              {isLoadingChat ? "Đang tải..." : "Vào chat"}
             </Button>
           )}
 
@@ -458,6 +465,9 @@ const UserAppointmentManagement: React.FC = () => {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [isCreateChatDialogOpen, setIsCreateChatDialogOpen] = useState(false); // State for chat dialog
+  const [appointmentForChat, setAppointmentForChat] = useState<AppointmentDetails | null>(null); // State to hold appointment for chat
+  const [isLoadingChat, setIsLoadingChat] = useState(false); // State for loading chat
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -555,7 +565,7 @@ const UserAppointmentManagement: React.FC = () => {
                 price: s.price,
                 type: s.type,
               })),
-              questionId: apt.questionId,
+              chatRoomId: apt.chatRoomId, // Use chatRoomId from API
               type: "consultation",
               feedbackId: apt.feedbackId,
               feedback: undefined,
@@ -619,10 +629,11 @@ const UserAppointmentManagement: React.FC = () => {
               services: apt.service ? [{
                 id: apt.service.id,
                 name: apt.service.name,
-                description: apt.service.description,
-                price: apt.service.price,
-                type: apt.service.type,
+                description: apt.service.description, // Sửa lại thành apt.service.description
+                price: apt.service.price, // Sửa lại thành apt.service.price
+                type: apt.service.type, // Sửa lại thành apt.service.type
               }] : [],
+              chatRoomId: apt.chatRoomId, // Use chatRoomId from API for STI appointments too
               type: "sti_test",
               sampleCollectionDate: apt.sampleCollectionDate,
               sampleCollectionLocation: apt.sampleCollectionLocation,
@@ -680,24 +691,36 @@ const UserAppointmentManagement: React.FC = () => {
     }
   };
 
-  // New handler for chat button
+  // Handler for chat button
   const handleEnterChat = async (appointment: AppointmentDetails) => {
+    setIsLoadingChat(true);
     try {
-      const chatRoom: ChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
-
-      // If appointment has no notes or empty notes, send a default message
-      if (!appointment.notes || appointment.notes.trim() === "") {
-        await ChatService.sendMessage(chatRoom.id, { content: "Chào bạn" });
+      // Check if a chat room already exists for this appointment
+      const existingQuestion = await ChatService.getQuestionByAppointmentId(appointment.id);
+      if (existingQuestion && existingQuestion.id) {
+        // If it exists, navigate to the chat room
+        router.push(`/chat/${existingQuestion.id}`);
+      } else {
+        // This case should ideally not be reached if the API returns a proper 404
+        setAppointmentForChat(appointment);
+        setIsCreateChatDialogOpen(true);
       }
-
-      router.push(`/chat/${chatRoom.id}`);
-    } catch (err: any) {
-      toast({
-        title: "Lỗi",
-        description: `Không thể vào phòng chat: ${err.message || "Đã xảy ra lỗi không xác định."}`,
-        variant: "destructive",
-      });
-      console.error("Error getting chat room or sending initial message:", err);
+    } catch (error: any) {
+      // If API returns 404 or another error, it means no chat room exists yet
+      if (error.response && error.response.status === 404) {
+        // Open the dialog to create a new chat
+        setAppointmentForChat(appointment);
+        setIsCreateChatDialogOpen(true);
+      } else {
+        console.error("Error checking for existing chat room:", error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể kiểm tra phòng chat. Vui lòng thử lại.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsLoadingChat(false);
     }
   };
 
@@ -947,6 +970,7 @@ const UserAppointmentManagement: React.FC = () => {
                   onPayAppointment={handlePayAppointment}
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
+                  isLoadingChat={isLoadingChat}
                 />
               ))}
             </div>
@@ -977,6 +1001,7 @@ const UserAppointmentManagement: React.FC = () => {
                   onPayAppointment={handlePayAppointment}
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
+                  isLoadingChat={isLoadingChat}
                 />
               ))}
             </div>
@@ -1011,6 +1036,7 @@ const UserAppointmentManagement: React.FC = () => {
                     onPayAppointment={handlePayAppointment}
                     getStatusIcon={getStatusIcon}
                     getStatusColor={getStatusColor}
+                    isLoadingChat={isLoadingChat}
                   />
                 ))}
               </div>
@@ -1208,6 +1234,18 @@ const UserAppointmentManagement: React.FC = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Create Chat Dialog */}
+      {appointmentForChat && (
+        <CreateChatDialog
+          isOpen={isCreateChatDialogOpen}
+          onClose={() => {
+            setIsCreateChatDialogOpen(false);
+            setAppointmentForChat(null);
+          }}
+          appointmentId={appointmentForChat.id}
+        />
       )}
     </div>
   );

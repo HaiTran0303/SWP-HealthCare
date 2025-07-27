@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation"; // Import useParams
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { PaymentService } from "@/services/payment.service";
+import { AppointmentService } from "@/services/appointment.service"; // Import AppointmentService
 import { Appointment } from "@/types/api.d";
 
 export default function PaymentSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const params = useParams(); // Get params from URL
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("Đang xử lý thanh toán thành công...");
@@ -18,7 +21,7 @@ export default function PaymentSuccessPage() {
 
   useEffect(() => {
     const orderCode = searchParams.get("orderCode");
-    const appointmentId = searchParams.get("appointmentId"); // Assuming appointmentId is passed
+    const appointmentId = searchParams.get("paymentId") as string; // Get appointmentId from URL query params
 
     const handlePaymentVerification = async () => {
       if (!orderCode || !appointmentId) {
@@ -34,7 +37,25 @@ export default function PaymentSuccessPage() {
 
       try {
         setMessage("Đang xác minh thanh toán...");
-        const updatedAppointment: Appointment = await PaymentService.verifyPayment(orderCode, appointmentId);
+        let updatedAppointment: Appointment = await PaymentService.verifyPayment(orderCode, appointmentId);
+
+        // Nếu backend không tự động cập nhật trạng thái cuộc hẹn sau khi verify payment
+        if (updatedAppointment.paymentStatus === "completed" && updatedAppointment.status !== "confirmed") {
+          try {
+            const confirmedAppointment = await AppointmentService.updateAppointmentStatus(appointmentId, { status: "confirmed" });
+            updatedAppointment = { ...updatedAppointment, ...confirmedAppointment }; // Cập nhật lại đối tượng appointment
+          } catch (updateError) {
+            console.error("Error updating appointment status after payment:", updateError);
+            setMessage("Thanh toán thành công nhưng không thể cập nhật trạng thái lịch hẹn.");
+            toast({
+              title: "Lỗi cập nhật trạng thái",
+              description: "Vui lòng liên hệ hỗ trợ để xác nhận lịch hẹn.",
+              variant: "destructive",
+            });
+            setLoading(false);
+            return;
+          }
+        }
 
         if (updatedAppointment.paymentStatus === "completed" && updatedAppointment.status === "confirmed") {
           setMessage(`Thanh toán thành công! Mã đơn hàng: ${orderCode}. Lịch hẹn đã được xác nhận.`);
@@ -45,6 +66,7 @@ export default function PaymentSuccessPage() {
           });
           setChatRoomId(updatedAppointment.chatRoomId || null);
           setIsPaymentConfirmed(true);
+          router.push("/profile/appointments"); // Chuyển hướng về trang lịch hẹn
         } else {
           setMessage("Thanh toán không thành công hoặc trạng thái lịch hẹn chưa được cập nhật.");
           toast({

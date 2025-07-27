@@ -1,10 +1,11 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation"; // Import useSearchParams
 import ChatRoom from "../../../components/ChatRoom";
 import { useAuth } from "@/contexts/AuthContext";
-import { AppointmentService, Appointment } from "@/services/appointment.service";
+import { ChatService } from "@/services/chat.service"; // Import ChatService
+import { Question } from "@/types/api.d"; // Import Question type
 import { Loader2 } from "lucide-react";
 
 function ChatRoomErrorBoundary({ children }: { children: React.ReactNode }) {
@@ -31,57 +32,80 @@ function ChatRoomErrorBoundary({ children }: { children: React.ReactNode }) {
 
 export default function ChatRoomPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const searchParams = useSearchParams(); // Initialize useSearchParams
   const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [isLoadingAppointment, setIsLoadingAppointment] = useState(true);
+  const [chatQuestion, setChatQuestion] = useState<Question | null>(null); // Renamed from chatRoom to chatQuestion for clarity
+  const [isLoadingChatRoom, setIsLoadingChatRoom] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
 
-  const appointmentId = params.id;
+  const questionId = params.id;
+  const initialTitle = searchParams.get("title");
+  const initialContent = searchParams.get("content");
+  console.log("[ChatRoomPage] Received questionId from params:", questionId);
+  console.log("[ChatRoomPage] Received initialTitle from query:", initialTitle);
+  console.log("[ChatRoomPage] Received initialContent from query:", initialContent);
 
   useEffect(() => {
-    const fetchAppointmentAndAuthorize = async () => {
+    const fetchChatDataAndAuthorize = async () => {
       if (!isAuthenticated || !user) {
-        // If not authenticated, redirect to login after auth loading is complete
         if (!isAuthLoading) {
           router.push("/auth/login");
         }
         return;
       }
 
-      setIsLoadingAppointment(true);
-      try {
-        const fetchedAppointment = await AppointmentService.getAppointmentById(appointmentId);
-        setAppointment(fetchedAppointment);
+      setIsLoadingChatRoom(true);
+      let fetchedQuestion: Question | null = null;
 
-        if (!fetchedAppointment) {
-          router.push("/404"); // Appointment not found
+      try {
+        // Try to fetch Question by questionId first
+        fetchedQuestion = await ChatService.getQuestionById(questionId);
+        setChatQuestion(fetchedQuestion);
+        console.log("[ChatRoomPage] Fetched Question by ID:", fetchedQuestion);
+      } catch (questionError: any) {
+        console.error("[ChatRoomPage] Error fetching question by ID:", questionError);
+        // If fetching Question fails, try to construct a Question from query params
+        if (initialTitle && initialContent) {
+          fetchedQuestion = {
+            id: questionId,
+            title: decodeURIComponent(initialTitle),
+            content: decodeURIComponent(initialContent),
+            userId: user.id, // Assume current user is the creator if created via dialog
+            status: "pending", // Default status for newly created chat
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          setChatQuestion(fetchedQuestion);
+          console.log("[ChatRoomPage] Constructed Question from query params:", fetchedQuestion);
+        }
+      } finally {
+        if (!fetchedQuestion) {
+          router.push("/404");
+          setIsLoadingChatRoom(false);
           return;
         }
 
-        // Check authorization
-        const currentUserIsCustomer = fetchedAppointment.userId === user.id;
-        const currentUserIsConsultant = fetchedAppointment.consultantId === user.id;
+        // Authorization logic
+        const currentUserIsCreator = fetchedQuestion.userId === user.id;
+        // For now, only the creator (userId) is authorized.
+        // If consultants need access, the backend Question DTO must include consultantId.
+        // const currentUserIsConsultant = fetchedQuestion.consultantId === user.id; // This line will cause TS error if consultantId is not in Question
 
-        if (currentUserIsCustomer || currentUserIsConsultant) {
+        if (currentUserIsCreator /* || currentUserIsConsultant */) {
           setIsAuthorized(true);
         } else {
-          // Not authorized, redirect to a forbidden page or home
-          router.push("/403"); // Or any other appropriate page
+          router.push("/403");
         }
-      } catch (error) {
-        console.error("Error fetching appointment or authorizing user:", error);
-        router.push("/404"); // Appointment not found or other error
-      } finally {
-        setIsLoadingAppointment(false);
+        setIsLoadingChatRoom(false);
       }
     };
 
-    if (!isAuthLoading) { // Only fetch if authentication state is resolved
-      fetchAppointmentAndAuthorize();
+    if (!isAuthLoading) {
+      fetchChatDataAndAuthorize();
     }
-  }, [appointmentId, user, isAuthenticated, isAuthLoading, router]);
+  }, [questionId, initialTitle, initialContent, user, isAuthenticated, isAuthLoading, router]);
 
-  if (isAuthLoading || isLoadingAppointment) {
+  if (isAuthLoading || isLoadingChatRoom) { // Use new loading state
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -90,13 +114,22 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
     );
   }
 
-  if (!isAuthorized || !appointment) {
+  if (isAuthLoading || isLoadingChatRoom) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Đang tải phòng chat...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthorized || !chatQuestion) { // Use chatQuestion
     // This case should be handled by redirects in useEffect, but as a fallback
     return (
       <div className="container mx-auto p-8 text-center">
         <h1 className="text-2xl font-bold mb-4">Truy cập bị từ chối</h1>
         <p className="text-muted-foreground">
-          Bạn không có quyền truy cập vào phòng chat này hoặc lịch hẹn không tồn tại.
+          Bạn không có quyền truy cập vào phòng chat này hoặc phòng chat không tồn tại.
         </p>
       </div>
     );
@@ -105,7 +138,11 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
   return (
     <Suspense fallback={<div className="flex justify-center items-center h-64">Đang tải phòng chat...</div>}>
       <ChatRoomErrorBoundary>
-        <ChatRoom appointmentId={appointmentId} />
+        <ChatRoom
+          questionId={questionId}
+          initialTitle={initialTitle || undefined}
+          initialContent={initialContent || undefined}
+        /> {/* Pass questionId and optional initialTitle/initialContent to ChatRoom */}
       </ChatRoomErrorBoundary>
     </Suspense>
   );

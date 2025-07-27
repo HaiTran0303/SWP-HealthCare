@@ -156,4 +156,14 @@ export const ConsultantService = {
       throw error;
     }
   },
+
+  async getConsultantProfile(id: string): Promise<ConsultantProfile> {
+    try {
+      const response = await apiClient.get<ConsultantProfile>(`${API_ENDPOINTS.CONSULTANTS.BASE}/${id}`);
+      return response;
+    } catch (error) {
+      console.error(`Error fetching consultant profile ${id}:`, error);
+      throw error;
+    }
+  },
 };
