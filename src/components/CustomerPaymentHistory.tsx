@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { API_ENDPOINTS } from "@/config/api"; // Import API_ENDPOINTS
 import {
   Table,
   TableBody,
@@ -20,54 +19,43 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Pagination } from "@/components/ui/pagination";
-import { PaymentService } from "@/services/payment.service"; // Assuming a payment service exists
-import { Payment, PaymentGetAllParams } from "@/types/payment"; // Assuming a payment type definition exists
+import { PaymentService } from "@/services/payment.service";
+import { Payment, PaymentGetAllParams } from "@/types/payment";
 
 type PaymentStatusFilter = "completed" | "pending" | "failed" | "all";
 
-export default function PaymentManagementTable() {
+export default function CustomerPaymentHistory() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<PaymentStatusFilter>("all");
 
   useEffect(() => {
     fetchPayments();
-  }, [currentPage, pageSize, searchTerm, filterStatus]);
+  }, [currentPage, pageSize, filterStatus]);
 
   const fetchPayments = async () => {
     setLoading(true);
     setError(null);
     try {
-      // This is a placeholder. You'll need to implement PaymentService.getAll
-      // with pagination, search, and filter capabilities.
-      // This is a placeholder. You'll need to implement PaymentService.getAll
-      // with pagination, search, and filter capabilities.
-      const response = await PaymentService.getAll({
+      const response = await PaymentService.getMyPayments({ // Use getMyPayments
         page: currentPage,
         pageSize,
-        searchTerm,
         status: filterStatus === "all" ? undefined : filterStatus,
       });
-      console.log("API Response:", response); // Log the entire response
+      console.log("Customer Payment History API Response:", response);
       // Assuming the API returns the array of payments directly
       setPayments(Array.isArray(response) ? response : []);
       // If response.totalPages is not available, default to 1 page
       setTotalPages(response?.totalPages || 1);
     } catch (err: any) {
-      setError(err?.message || "Lỗi khi tải danh sách thanh toán");
+      setError(err?.message || "Lỗi khi tải lịch sử thanh toán");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(event.target.value);
-    setCurrentPage(1); // Reset to first page on new search
   };
 
   const handleStatusFilterChange = (value: string) => {
@@ -85,7 +73,7 @@ export default function PaymentManagementTable() {
   };
 
   if (loading) {
-    return <div className="text-center">Đang tải thanh toán...</div>;
+    return <div className="text-center">Đang tải lịch sử thanh toán...</div>;
   }
 
   if (error) {
@@ -94,14 +82,7 @@ export default function PaymentManagementTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col md:flex-row gap-4">
-        <Input
-          type="text"
-          placeholder="Tìm kiếm theo ID hoặc tên người dùng..."
-          value={searchTerm}
-          onChange={handleSearchChange}
-          className="max-w-sm"
-        />
+      <div className="flex justify-end gap-4 mb-4">
         <Select value={filterStatus || "all"} onValueChange={(value) => handleStatusFilterChange(value as PaymentStatusFilter)}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Lọc theo trạng thái" />
@@ -119,9 +100,9 @@ export default function PaymentManagementTable() {
         <TableHeader>
           <TableRow>
             <TableHead>ID Thanh toán</TableHead>
-            <TableHead>Người dùng</TableHead>
+            <TableHead>Người dùng</TableHead> {/* This will be the current user */}
             <TableHead>Số tiền</TableHead>
-            <TableHead>Dịch vụ</TableHead> {/* Changed from Phương thức */}
+            <TableHead>Dịch vụ</TableHead>
             <TableHead>Trạng thái</TableHead>
             <TableHead>Ngày</TableHead>
             <TableHead>Hành động</TableHead>
@@ -138,11 +119,11 @@ export default function PaymentManagementTable() {
             payments.map((payment) => (
               <TableRow key={payment.id}>
                 <TableCell>{payment.id}</TableCell>
-                <TableCell>{`${payment.user?.firstName || ''} ${payment.user?.lastName || ''}`}</TableCell> {/* Display full user name */}
-                <TableCell>{parseFloat(payment.amount).toLocaleString()}đ</TableCell> {/* Parsed amount */}
-                <TableCell>{payment.servicePackage?.name || payment.service?.name || 'Tư vấn trực tuyến'}</TableCell> {/* Display service name, default to 'Tư vấn trực tuyến' */}
+                <TableCell>{`${payment.user?.firstName || ''} ${payment.user?.lastName || ''}`}</TableCell>
+                <TableCell>{parseFloat(payment.amount).toLocaleString()}đ</TableCell>
+                <TableCell>{payment.servicePackage?.name || payment.service?.name || 'Tư vấn trực tuyến'}</TableCell>
                 <TableCell>{payment.status}</TableCell>
-                <TableCell>{new Date(payment.paymentDate).toLocaleDateString()}</TableCell> {/* Used paymentDate */}
+                <TableCell>{new Date(payment.paymentDate).toLocaleDateString()}</TableCell>
                 <TableCell>
                   <Button variant="outline" size="sm">
                     Chi tiết
@@ -157,7 +138,7 @@ export default function PaymentManagementTable() {
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
-        pageNumbers={Array.from({ length: totalPages }, (_, i) => i + 1)} // Simple page numbers for now
+        pageNumbers={Array.from({ length: totalPages }, (_, i) => i + 1)}
         hasNextPage={currentPage < totalPages}
         hasPreviousPage={currentPage > 1}
         onPageChange={handlePageChange}

@@ -3,6 +3,7 @@ import { io, Socket } from "socket.io-client";
 import { Appointment } from "@/services/appointment.service"; // Import Appointment type
 import { User } from "@/services/user.service"; // Import User type
 import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
+import { ApiResponse, CreateQuestionDto, Question } from "@/types/api.d"; // Import ApiResponse, CreateQuestionDto and Question
 
 export interface ChatRoom {
   id: string;
@@ -15,7 +16,8 @@ export interface ChatRoom {
 
 export interface ChatMessage {
   id: string;
-  appointmentId: string; // Changed from questionId to appointmentId
+  appointmentId?: string; // Make optional, for appointment-based chats
+  questionId?: string; // Make optional, for question-based chats
   senderId: string;
   senderName?: string;
   content: string;
@@ -139,14 +141,15 @@ export const ChatService = {
     }, 3000);
   },
 
-  async getMessages(appointmentId: string, params: Record<string, any> = {}) {
+  // Appointment-based chat methods (restored/renamed for clarity)
+  async getAppointmentMessages(appointmentId: string, params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();
     return apiClient.get<PaginatedResponse<ChatMessage>>(
       `/appointments/${appointmentId}/messages?${query}`
     );
   },
 
-  async getMessagesWithUrls(
+  async getAppointmentMessagesWithUrls(
     appointmentId: string,
     params: Record<string, any> = {}
   ) {
@@ -156,7 +159,7 @@ export const ChatService = {
     );
   },
 
-  async sendMessage(
+  async sendAppointmentMessage(
     appointmentId: string,
     data: { content: string; type?: string }
   ) {
@@ -171,7 +174,7 @@ export const ChatService = {
     );
   },
 
-  async sendFile(appointmentId: string, formData: FormData) {
+  async sendAppointmentFile(appointmentId: string, formData: FormData) {
     return apiClient.post<ChatMessage>(
       `/appointments/${appointmentId}/messages/file`,
       formData,
@@ -179,9 +182,58 @@ export const ChatService = {
     );
   },
 
-  async sendPublicPdf(appointmentId: string, formData: FormData) {
+  async sendAppointmentPublicPdf(appointmentId: string, formData: FormData) {
     return apiClient.post<ChatMessage>(
       `/appointments/${appointmentId}/messages/public-pdf`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+  },
+
+  // Question-based chat methods
+  async getQuestionMessages(questionId: string, params: Record<string, any> = {}) {
+    const query = new URLSearchParams(params).toString();
+    return apiClient.get<PaginatedResponse<ChatMessage>>(
+      `/chat/questions/${questionId}/messages?${query}`
+    );
+  },
+
+  async getQuestionMessagesWithUrls(
+    questionId: string,
+    params: Record<string, any> = {}
+  ) {
+    const query = new URLSearchParams(params).toString();
+    return apiClient.get<PaginatedResponse<ChatMessage>>(
+      `/chat/questions/${questionId}/messages/with-urls?${query}`
+    );
+  },
+
+  async sendQuestionMessage(
+    questionId: string,
+    data: { content: string; type?: string }
+  ) {
+    const payload = {
+      content: data.content,
+      type: data.type || "text",
+      questionId: questionId,
+    };
+    return apiClient.post<ChatMessage>(
+      `/chat/questions/${questionId}/messages`,
+      payload
+    );
+  },
+
+  async sendQuestionFile(questionId: string, formData: FormData) {
+    return apiClient.post<ChatMessage>(
+      `/chat/questions/${questionId}/messages/file`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+  },
+
+  async sendQuestionPublicPdf(questionId: string, formData: FormData) {
+    return apiClient.post<ChatMessage>(
+      `/chat/questions/${questionId}/messages/public-pdf`,
       formData,
       { headers: { "Content-Type": "multipart/form-data" } }
     );
@@ -193,8 +245,12 @@ export const ChatService = {
     );
   },
 
-  async markAllMessagesAsRead(appointmentId: string) {
+  async markAllAppointmentMessagesAsRead(appointmentId: string) {
     return apiClient.patch(`/appointments/${appointmentId}/messages/read-all`);
+  },
+
+  async markAllQuestionMessagesAsRead(questionId: string) {
+    return apiClient.patch(`/chat/questions/${questionId}/messages/read-all`);
   },
 
   async deleteMessage(messageId: string) {
@@ -212,31 +268,57 @@ export const ChatService = {
     return apiClient.patch(`/chat/messages/${messageId}/read`);
   },
 
+  async createQuestion(data: CreateQuestionDto): Promise<ApiResponse<Question>> {
+    return apiClient.post<ApiResponse<Question>>("/chat/questions", data);
+  },
+
+  async getQuestionById(questionId: string): Promise<Question> {
+    try {
+      console.log(`[ChatService] Attempting to fetch question with ID: ${questionId}`);
+      const res = await apiClient.get<Question>(`/chat/questions/${questionId}`);
+      console.log(`[ChatService] Successfully fetched question ${questionId}:`, res);
+      return res;
+    } catch (error: any) {
+      console.error(`[ChatService] Error fetching question ${questionId}:`, error);
+      if (error.response) {
+        console.error("[ChatService] API Error Response Data:", error.response.data);
+        console.error("[ChatService] API Error Response Status:", error.response.status);
+      }
+      throw error;
+    }
+  },
+
   async getChatRoomByAppointmentId(appointmentId: string): Promise<ChatRoom> {
     const res = await apiClient.get<ChatRoom>(`/appointments/${appointmentId}/chat-room`);
     return res;
   },
 
+  // This is a new method to get a Question by appointmentId, which might be what getChatRoomByAppointmentId does.
+  // We add this for clarity and to handle cases where a Question object is expected.
+  async getQuestionByAppointmentId(appointmentId: string): Promise<Question> {
+    // Assuming the /chat-room endpoint returns a Question object or something compatible.
+    // If the backend returns a different structure, this will need adjustment.
+    return apiClient.get<Question>(`/appointments/${appointmentId}/chat-room`);
+  },
+
   onNewMessage(
-    appointmentId: string,
     callback: (message: ChatMessage) => void
   ) {
     const socket = getSocket();
     const handler = (data: { data: ChatMessage }) => {
-      if (data.data.appointmentId === appointmentId) {
-        callback(data.data);
-      }
+      callback(data.data);
     };
     socket.on("new_message", handler);
     return () => socket.off("new_message", handler);
   },
 
   onTypingStatus(
-    appointmentId: string,
     callback: (data: {
       userId: string;
       userName: string;
       isTyping: boolean;
+      appointmentId?: string; // Can be for appointment or question
+      questionId?: string; // Can be for appointment or question
     }) => void
   ) {
     const socket = getSocket();
@@ -244,29 +326,26 @@ export const ChatService = {
       userId: string;
       userName: string;
       isTyping: boolean;
-      appointmentId: string;
+      appointmentId?: string;
+      questionId?: string;
     }) => {
-      if (data.appointmentId === appointmentId) {
-        callback(data);
-      }
+      callback(data);
     };
     socket.on("typing_status", handler);
     return () => socket.off("typing_status", handler);
   },
 
   onMessageRead(
-    appointmentId: string,
-    callback: (data: { messageId: string; userId: string }) => void
+    callback: (data: { messageId: string; userId: string; appointmentId?: string; questionId?: string }) => void
   ) {
     const socket = getSocket();
     const handler = (data: {
       messageId: string;
       userId: string;
-      appointmentId: string;
+      appointmentId?: string;
+      questionId?: string;
     }) => {
-      if (data.appointmentId === appointmentId) {
-        callback(data);
-      }
+      callback(data);
     };
     socket.on("message_read", handler);
     return () => socket.off("message_read", handler);

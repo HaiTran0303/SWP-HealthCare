@@ -143,10 +143,11 @@ export default function UserProfileManagement({
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4 mb-8">
+        <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-5 mb-8"> {/* Increased grid columns */}
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="test-history">Test History</TabsTrigger>
           <TabsTrigger value="consultation-history">Consultations</TabsTrigger>
+          <TabsTrigger value="payments">Payment History</TabsTrigger> {/* Added Payment History tab */}
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { ConsultantProfile } from "@/services/consultant.service";
 import { AppointmentService, CreateAppointmentRequest } from "@/services/appointment.service";
-import { format } from "date-fns"; // Import format from date-fns
+import { format } from "date-fns";
 
 interface BookingFormData {
   consultationReason: string;
@@ -55,8 +55,8 @@ export function useConsultationBooking() {
     selectedDate: Date,
     selectedTime: string,
     formData: BookingFormData,
-    serviceId: string | undefined, // Removed appointmentLocation parameter
-    meetingLink?: string // Make meetingLink optional
+    serviceId: string | undefined,
+    meetingLink?: string
   ) => {
     setIsLoading(true);
     setErrors({});
@@ -99,26 +99,21 @@ export function useConsultationBooking() {
 
       // Prepare appointment data
       const appointmentData: CreateAppointmentRequest = {
-        consultantId: consultant.user.id, // Use the nested user ID
-        appointmentDate: formattedAppointmentDate, // Use the locally formatted date and time
+        consultantId: consultant.user.id,
+        appointmentDate: formattedAppointmentDate,
         notes: buildNotesString(formData),
-        serviceIds: serviceId ? [serviceId] : [], // Convert single serviceId to an array if it exists
-        meetingLink: meetingLink, // Pass meetingLink if provided, otherwise it will be undefined
-        appointmentLocation: "online", // Always set to "online" as per user feedback
+        serviceIds: serviceId ? [serviceId] : [],
+        meetingLink: meetingLink,
+        appointmentLocation: "online",
       };
 
-      console.log("[useConsultationBooking] Final appointmentData:", appointmentData); // Log the final data
+      console.log("[useConsultationBooking] Final appointmentData:", appointmentData);
 
       // Create appointment
       const createdAppointment = await AppointmentService.createAppointment(appointmentData);
-      
-      toast({
-        title: "Đặt lịch thành công!",
-        description: "Lịch tư vấn của bạn đang chờ thanh toán. Vui lòng hoàn tất thanh toán để xác nhận.",
-      });
+      console.log("[useConsultationBooking] Created Appointment:", createdAppointment);
 
       // Redirect to the payment page for the newly created appointment
-      // Assuming a payment page exists at /appointments/payment/[id]
       window.location.href = `/appointments/payment/${createdAppointment.id}`;
 
       return true;

@@ -36,8 +36,9 @@ export interface GetAppointmentsQuery {
 }
 
 export interface UpdateAppointmentDto {
-  status: AppointmentStatus; // Use status from global Appointment type
+  status?: AppointmentStatus; // Make optional
   meetingLink?: string;
+  chatRoomId?: string; // Add chatRoomId
 }
 
 export interface CancelAppointmentDto {
@@ -121,6 +122,21 @@ export const AppointmentService = {
   },
 
   // Cập nhật trạng thái appointment
+  updateAppointment: async (id: string, data: Partial<Appointment>): Promise<Appointment> => {
+    try {
+      console.log("[AppointmentService] Updating appointment:", id, data);
+      const response = await apiClient.patch<Appointment>(
+        `${API_ENDPOINTS.APPOINTMENTS.BASE}/${id}`, // Assuming PATCH /appointments/{id} is the general update endpoint
+        data
+      );
+      return response;
+    } catch (error) {
+      console.error("[AppointmentService] Error updating appointment:", error);
+      throw error;
+    }
+  },
+
+  // Cập nhật trạng thái appointment (giữ lại cho các trường hợp chỉ cập nhật trạng thái)
   updateAppointmentStatus: async (id: string, data: UpdateAppointmentDto): Promise<Appointment> => {
     try {
       console.log("[AppointmentService] Updating appointment status:", id, data);
