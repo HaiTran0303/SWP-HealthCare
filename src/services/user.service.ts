@@ -1,5 +1,6 @@
 import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
+import { ConsultantProfile } from "./consultant.service"; // Import ConsultantProfile
 
 export interface User {
   id: string;
@@ -16,6 +17,7 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   roleId?: string; // Add roleId here for convenience in forms
+  consultantProfile?: ConsultantProfile; // Add consultantProfile
 }
 
 export interface Role {

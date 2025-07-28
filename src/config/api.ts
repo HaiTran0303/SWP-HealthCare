@@ -58,6 +58,8 @@ export const API_ENDPOINTS = {
     REGISTER: "/consultant-profiles/register",
     APPROVE: (id: string) => `/consultant-profiles/${id}/approve`,
     REJECT: (id: string) => `/consultant-profiles/${id}/reject`,
+    ME: "/consultant-profiles/me", // Endpoint to get my consultant profile
+    UPDATE_MY_PROFILE: "/consultant-profiles/me", // Endpoint to update my consultant profile
     SCHEDULE: (id: string) => `/consultant-profiles/${id}/working-hours`,
     PENDING_APPROVAL: "/consultant-profiles/pending-approval",
     UPDATE_WORKING_HOURS: (id: string) => `/consultant-profiles/${id}/working-hours`,

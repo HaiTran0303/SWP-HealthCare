@@ -63,6 +63,21 @@ export interface GetConsultantsQuery {
   sortOrder?: "ASC" | "DESC";
 }
 
+export interface UpdateConsultantProfileDto {
+  userId?: string;
+  specialties?: string[];
+  qualification?: string;
+  experience?: string;
+  bio?: string;
+  consultationFee?: number;
+  consultationFeeType?: "hourly" | "per_session" | "per_service";
+  sessionDurationMinutes?: number;
+  isAvailable?: boolean;
+  profileStatus?: "active" | "on_leave" | "training" | "inactive" | "pending_approval" | "rejected";
+  languages?: string[];
+  consultationTypes?: ("online" | "office")[];
+}
+
 // This comment is added to trigger a recompile and ensure the latest code is used.
 export const ConsultantService = {
   async getAll(query?: GetConsultantsQuery): Promise<{ data: ConsultantProfile[]; total: number }> {
@@ -163,6 +178,16 @@ export const ConsultantService = {
       return response;
     } catch (error) {
       console.error(`Error fetching consultant profile ${id}:`, error);
+      throw error;
+    }
+  },
+
+  async updateMyProfile(payload: UpdateConsultantProfileDto): Promise<ConsultantProfile> {
+    try {
+      const response = await apiClient.put<ConsultantProfile>(API_ENDPOINTS.CONSULTANTS.UPDATE_MY_PROFILE, payload);
+      return response;
+    } catch (error) {
+      console.error("Error updating consultant profile:", error);
       throw error;
     }
   },
