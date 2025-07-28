@@ -321,7 +321,7 @@ export default function StiTestManagementTable() {
               {tests.map((test) => (
                 <TableRow key={test.id}>
                   <TableCell>{test.testCode}</TableCell>
-                  <TableCell>{test.patient?.fullName || "N/A"}</TableCell>
+                  <TableCell>{test.patient?.firstName} {test.patient?.lastName || "N/A"}</TableCell>
                   <TableCell>{test.service?.name || "N/A"}</TableCell>
                   <TableCell>{test.sampleType}</TableCell>
                   <TableCell>{test.priority}</TableCell>
