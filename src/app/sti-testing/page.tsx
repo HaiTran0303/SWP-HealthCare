@@ -353,7 +353,7 @@ export default function STITestingPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8 items-start">
-      <div className="flex-1 max-w-2xl min-h-[600px]">
+      <div className="flex-1 max-w-3xl min-h-[600px]">
         <StiStepper step={step} steps={steps} />
         {step === 0 && (
           <div>
