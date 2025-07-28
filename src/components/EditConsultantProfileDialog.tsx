@@ -40,9 +40,9 @@ const formSchema = z.object({
   qualification: z.string().min(1, "Vui lòng nhập trình độ học vấn."),
   experience: z.string().min(1, "Vui lòng nhập kinh nghiệm làm việc."),
   bio: z.string().optional(),
-  consultationFee: z.coerce.number().min(0, "Phí tư vấn phải là số dương."),
+  consultationFee: z.number().min(0, "Phí tư vấn phải là số dương."),
   consultationFeeType: z.enum(["hourly", "per_session", "per_service"]),
-  sessionDurationMinutes: z.coerce.number().min(1, "Thời lượng phiên phải là số dương."),
+  sessionDurationMinutes: z.number().min(1, "Thời lượng phiên phải là số dương."),
   languages: z.array(z.string()).min(1, "Vui lòng chọn ít nhất một ngôn ngữ."),
   consultationTypes: z.array(z.enum(["online", "office"])).min(1, "Vui lòng chọn ít nhất một loại hình tư vấn."),
 });
@@ -83,16 +83,16 @@ export function EditConsultantProfileDialog({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      specialties: currentProfile?.specialties || [],
-      qualification: currentProfile?.qualification || "",
-      experience: currentProfile?.experience || "",
-      bio: currentProfile?.bio || "",
-      consultationFee: currentProfile?.consultationFee || 0,
-      consultationFeeType: currentProfile?.consultationFeeType || "per_session",
-      sessionDurationMinutes: currentProfile?.sessionDurationMinutes || 60,
-      languages: currentProfile?.languages || ["Tiếng Việt"],
-      consultationTypes: currentProfile?.consultationTypes || ["online"],
-    },
+      specialties: currentProfile?.specialties ?? [],
+      qualification: currentProfile?.qualification ?? "",
+      experience: currentProfile?.experience ?? "",
+      bio: currentProfile?.bio ?? "",
+      consultationFee: currentProfile?.consultationFee ?? 0,
+      consultationFeeType: currentProfile?.consultationFeeType ?? "per_session",
+      sessionDurationMinutes: currentProfile?.sessionDurationMinutes ?? 60,
+      languages: currentProfile?.languages ?? ["Tiếng Việt"],
+      consultationTypes: currentProfile?.consultationTypes ?? ["online"],
+    } as z.infer<typeof formSchema>,
   });
 
   useEffect(() => {
@@ -241,7 +241,12 @@ export function EditConsultantProfileDialog({
                 <FormItem>
                   <FormLabel>Phí tư vấn (VND)</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="Ví dụ: 500000" {...field} />
+                    <Input
+                      type="number"
+                      placeholder="Ví dụ: 500000"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -276,7 +281,12 @@ export function EditConsultantProfileDialog({
                 <FormItem>
                   <FormLabel>Thời lượng phiên (phút)</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="Ví dụ: 60" {...field} />
+                    <Input
+                      type="number"
+                      placeholder="Ví dụ: 60"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
