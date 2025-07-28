@@ -98,7 +98,7 @@ export default function BlogDetailPage() {
         </div>
         {/* Content section (takes full width on small screens, 1/2 on medium and up) */}
         <div className="w-full md:w-1/2 flex flex-col">
-          <div className="bg-white dark:bg-card/80 rounded-lg shadow-lg p-6 flex-1">
+          <div className="p-6 flex-1">
             <h1 className="text-3xl font-bold mb-4 text-primary leading-tight">
               {blog.title}
             </h1>
