@@ -32,6 +32,7 @@ import { ChatService, ChatRoom } from "@/services/chat.service"; // Import ChatS
 import { Appointment } from "@/types/api.d"; // Import global Appointment type
 import { User } from "@/services/user.service"; // Import User type
 import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
+import { EditConsultantProfileDialog } from "@/components/EditConsultantProfileDialog"; // Import the new dialog
 
 interface Feedback {
   id: string;
@@ -48,8 +49,12 @@ export default function ConsultantPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
 
+  console.log("ConsultantPage: user", user);
+  console.log("ConsultantPage: isAuthLoading", isAuthLoading);
+
   // If user is loading or not a consultant, show appropriate message/component
   if (isAuthLoading) {
+    console.log("ConsultantPage: Auth is loading.");
     return (
       <div className="flex justify-center items-center h-screen">
         <p>Đang tải...</p>
@@ -58,14 +63,59 @@ export default function ConsultantPage() {
   }
 
   if (!user || (typeof user.role === "string" && user.role !== "consultant") || (typeof user.role === "object" && user.role?.name !== "consultant")) {
+    console.log("ConsultantPage: User is not a consultant or not logged in.");
     return <OnlineConsultationBooking />;
+  }
+
+  console.log("ConsultantPage: user.consultantProfile", user.consultantProfile);
+  if (!user.consultantProfile) {
+    console.log("ConsultantPage: User is a consultant but has no profile. Showing CreateConsultantProfile.");
+    return <CreateConsultantProfile />;
   }
 
   return <ConsultantDashboard />;
 }
 
+function CreateConsultantProfile() {
+  const { user, setUser } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = useState(false);
+
+  const handleSaveProfile = (updatedProfile: ConsultantProfile) => {
+    // This function is called when the dialog saves a profile
+    // The AuthContext's user state is already updated by the dialog's onSubmit
+    // We just need to close the dialog and potentially refresh the page if needed
+    setIsEditProfileDialogOpen(false);
+    toast({
+      title: "Thành công",
+      description: "Đã tạo hồ sơ tư vấn viên. Hồ sơ đang chờ duyệt.",
+    });
+    // router.refresh(); // No need to refresh here, AuthContext update should trigger re-render
+  };
+
+  return (
+    <div className="container mx-auto px-4 py-8 text-center">
+      <h1 className="text-3xl font-bold mb-6">Tạo hồ sơ tư vấn viên</h1>
+      <p className="text-lg mb-8">
+        Bạn chưa có hồ sơ tư vấn viên. Vui lòng tạo hồ sơ để bắt đầu quản lý lịch làm việc và cuộc hẹn.
+      </p>
+      <Button onClick={() => setIsEditProfileDialogOpen(true)} disabled={loading}>
+        {loading ? "Đang tải..." : "Tạo hồ sơ tư vấn viên"}
+      </Button>
+
+      <EditConsultantProfileDialog
+        isOpen={isEditProfileDialogOpen}
+        onClose={() => setIsEditProfileDialogOpen(false)}
+        currentProfile={null} // No current profile to edit, so pass null
+        onSave={handleSaveProfile}
+      />
+    </div>
+  );
+}
+
 function ConsultantDashboard() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth(); // Ensure setUser is available for dashboard to update profile
   const { toast } = useToast();
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -76,6 +126,7 @@ function ConsultantDashboard() {
   const [loadingFeedbacks, setLoadingFeedbacks] = useState(true);
   const [errorFeedbacks, setErrorFeedbacks] = useState<string | null>(null);
   const [dailySchedule, setDailySchedule] = useState<any[]>([]); // Placeholder for daily schedule
+  const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = useState(false); // State for dialog
 
   // Pagination states for appointments
   const [currentPage, setCurrentPage] = useState(API_FEATURES.PAGINATION.DEFAULT_PAGE);
@@ -184,6 +235,17 @@ function ConsultantDashboard() {
     }
   };
 
+  const handleSaveProfile = (updatedProfile: ConsultantProfile) => {
+    // This function is called when the dialog saves a profile
+    // The AuthContext's user state is already updated by the dialog's onSubmit
+    // We just need to close the dialog
+    setIsEditProfileDialogOpen(false);
+    toast({
+      title: "Thành công",
+      description: "Đã cập nhật hồ sơ tư vấn viên.",
+    });
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Dashboard tư vấn viên</h1>
@@ -202,6 +264,12 @@ function ConsultantDashboard() {
               <CardTitle>Quản lý lịch làm việc</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <Button
+                onClick={() => setIsEditProfileDialogOpen(true)}
+                className="mb-4"
+              >
+                Chỉnh sửa hồ sơ
+              </Button>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Calendar
                   mode="single"
@@ -415,6 +483,14 @@ function ConsultantDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+      {user?.consultantProfile && (
+        <EditConsultantProfileDialog
+          isOpen={isEditProfileDialogOpen}
+          onClose={() => setIsEditProfileDialogOpen(false)}
+          currentProfile={user.consultantProfile}
+          onSave={handleSaveProfile}
+        />
+      )}
     </div>
   );
 }

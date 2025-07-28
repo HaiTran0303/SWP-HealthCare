@@ -11,22 +11,8 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { apiClient } from "@/services/api";
 import { API_ENDPOINTS } from "@/config/api";
-
-export interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  fullName?: string;
-  role:
-    | string
-    | { id: string; name: string; description?: string; [key: string]: any };
-  profilePicture?: string;
-  phone?: string;
-  address?: string;
-  gender?: "M" | "F" | "O" | string;
-  healthDataConsent?: boolean; // Add healthDataConsent to User interface
-}
+import { User } from "@/services/user.service"; // Import User from user.service
+import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile
 
 interface LoginResponse {
   user: User;
@@ -62,7 +48,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isLoading: boolean;
   isAuthenticated: boolean;
-  setUser: (user: User | null) => void;
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
   setAccessToken: (accessToken: string) => void;
 }
 
