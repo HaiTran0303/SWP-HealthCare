@@ -702,7 +702,7 @@ export default function ConsultantManagementTable() {
 
       {/* View Consultant Detail Dialog */}
       <Dialog open={isViewConsultantDetailDialogOpen} onOpenChange={setIsViewConsultantDetailDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Chi tiết tư vấn viên</DialogTitle>
             <DialogDescription>

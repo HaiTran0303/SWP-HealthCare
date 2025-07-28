@@ -496,7 +496,7 @@ export default function ServiceManagementTable() {
             </DialogDescription>
           </DialogHeader>
           {selectedService && (
-            <div className="grid gap-4 py-4">
+            <div className="max-h-[700px] overflow-y-auto p-4 border rounded-md grid gap-4 py-4">
               {selectedService.images && selectedService.images.length > 0 ? (
                 <div className="col-span-4 flex justify-center">
                   <img
@@ -510,6 +510,7 @@ export default function ServiceManagementTable() {
                   Không có ảnh
                 </div>
               )}
+              <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">ID:</Label>
                 <span className="col-span-3">{selectedService.id}</span>
@@ -575,6 +576,7 @@ export default function ServiceManagementTable() {
                 <span className="col-span-3">{format(new Date(selectedService.updatedAt), "dd/MM/yyyy HH:mm")}</span>
               </div>
             </div>
+          </div>
           )}
           <DialogFooter>
             <Button onClick={handleCloseViewServiceDetailDialog}>Đóng</Button>

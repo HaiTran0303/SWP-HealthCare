@@ -29,7 +29,7 @@ import {
 import { ChatService } from "@/services/chat.service";
 import { User, UserService } from "@/services/user.service";
 import { Appointment } from "@/types/api.d"; // Import Appointment from global types
-import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile for consultant type
+import { ConsultantProfile, ConsultantService } from "@/services/consultant.service"; // Import ConsultantProfile and ConsultantService
 import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
 import { PaginationInfo } from "@/components/ui/pagination-info";
@@ -59,7 +59,8 @@ export default function AppointmentManagementTable() {
   const [filterStatus, setFilterStatus] = useState<string>(""); // For filtering by appointment status
   const [filterConsultantId, setFilterConsultantId] = useState<string>(""); // For filtering by consultant
   const [filterUserId, setFilterUserId] = useState<string>(""); // For filtering by user/customer
-  const [usersMap, setUsersMap] = useState<Map<string, User>>(new Map()); // Cache for user details
+const [usersMap, setUsersMap] = useState<Map<string, User>>(new Map()); // Cache for user details
+const [consultantsMap, setConsultantsMap] = useState<Map<string, ConsultantProfile>>(new Map()); // Cache for consultant details
   const [isViewAppointmentDetailDialogOpen, setIsViewAppointmentDetailDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isAddAppointmentDialogOpen, setIsAddAppointmentDialogOpen] = useState(false);
@@ -67,7 +68,7 @@ export default function AppointmentManagementTable() {
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
 
-  const fetchAppointments = async () => {
+const fetchAppointments = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -87,48 +88,69 @@ export default function AppointmentManagementTable() {
       if (filterUserId) {
         query.userId = filterUserId;
       }
-      // Note: Backend API for appointments doesn't directly support search by name/email in a single query param.
-      // For `searchQuery`, you might need to fetch all, then filter client-side, or add specific backend endpoints.
-      // For now, `searchQuery` will not be directly applied as a filter to the API call.
 
       const response = await AppointmentService.getAllAppointments(query);
       let fetchedAppointments = response.data;
 
-      // Collect all unique user IDs from fetched appointments that are not yet in usersMap
+      // Fetch user details
       const userIdsToFetch = new Set<string>();
       fetchedAppointments.forEach(app => {
         if (app.userId && !usersMap.has(app.userId)) {
           userIdsToFetch.add(app.userId);
         }
       });
-
-      // Fetch details for new users
       const newUsersPromises = Array.from(userIdsToFetch).map(userId =>
-        UserService.getUserById(userId).catch(err => {
+        UserService.getUserById(userId).catch((err: any) => {
           console.error(`Error fetching user details for ${userId}:`, err);
-          return null; // Return null for failed fetches
+          return null;
         })
       );
       const fetchedNewUsers = (await Promise.all(newUsersPromises)).filter(Boolean) as User[];
-
-      // Update the usersMap with newly fetched users
       const updatedUsersMap = new Map(usersMap);
       fetchedNewUsers.forEach(user => updatedUsersMap.set(user.id, user));
-      setUsersMap(updatedUsersMap); // Update the state once
+      setUsersMap(updatedUsersMap);
 
-      // Map user details into appointments
-      const appointmentsWithUserDetails = fetchedAppointments.map(app => {
-        if (app.userId && updatedUsersMap.has(app.userId)) {
-          return { ...app, user: updatedUsersMap.get(app.userId) };
+      // Fetch consultant details
+      const consultantIdsToFetch = new Set<string>();
+      fetchedAppointments.forEach(app => {
+        if (app.consultantId && !consultantsMap.has(app.consultantId)) {
+          consultantIdsToFetch.add(app.consultantId);
         }
-        // If user was already in map but not attached to appointment (e.g., initial load)
-        if (app.userId && usersMap.has(app.userId)) {
-          return { ...app, user: usersMap.get(app.userId) };
-        }
-        return app;
       });
 
-      setAppointments(appointmentsWithUserDetails);
+      const newConsultantsPromises = Array.from(consultantIdsToFetch).map(consultantId =>
+        ConsultantService.getConsultantProfile(consultantId).catch(err => {
+          console.error(`Error fetching consultant details for ${consultantId}:`, err);
+          return null;
+        })
+      );
+      const fetchedNewConsultants = (await Promise.all(newConsultantsPromises)).filter(Boolean) as ConsultantProfile[];
+
+      const updatedConsultantsMap = new Map(consultantsMap);
+      fetchedNewConsultants.forEach(consultant => updatedConsultantsMap.set(consultant.id, consultant));
+      setConsultantsMap(updatedConsultantsMap);
+
+      // Map user and consultant details into appointments
+      const appointmentsWithDetails = fetchedAppointments.map(app => {
+        const appointmentWithDetails = { ...app }; // Create a mutable copy
+
+        // Map user details
+        if (app.userId && updatedUsersMap.has(app.userId)) {
+          appointmentWithDetails.user = updatedUsersMap.get(app.userId);
+        } else if (app.userId && usersMap.has(app.userId)) { // Fallback for already mapped users
+          appointmentWithDetails.user = usersMap.get(app.userId);
+        }
+
+        // Map consultant details
+        if (app.consultantId && updatedConsultantsMap.has(app.consultantId)) {
+          appointmentWithDetails.consultant = updatedConsultantsMap.get(app.consultantId);
+        } else if (app.consultantId && consultantsMap.has(app.consultantId)) { // Fallback for already mapped consultants
+          appointmentWithDetails.consultant = consultantsMap.get(app.consultantId);
+        }
+        return appointmentWithDetails;
+      });
+
+      setAppointments(appointmentsWithDetails);
       setTotalAppointments(response.meta.totalItems);
     } catch (err: any) {
       console.error("Error fetching appointments:", err);
@@ -371,8 +393,8 @@ export default function AppointmentManagementTable() {
                   <TableCell>
                     {appointment.user ? `${appointment.user.firstName} ${appointment.user.lastName}` : "N/A"}
                   </TableCell>
-                  <TableCell>{appointment.consultant?.user?.firstName} {appointment.consultant?.user?.lastName || "N/A"}</TableCell>
-                  <TableCell>{appointment.service?.name || "Tư vấn chung"}</TableCell>
+                  <TableCell>{appointment.consultant?.firstName} {appointment.consultant?.lastName || "N/A"}</TableCell>
+                  <TableCell>{appointment.service?.name || "Tư vấn trực tuyến"}</TableCell>
                   <TableCell>
                     {format(new Date(appointment.appointmentDate), "dd/MM/yyyy HH:mm")}
                   </TableCell>
