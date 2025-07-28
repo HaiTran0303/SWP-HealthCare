@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import BlogPublishModal from "@/components/BlogPublishModal";
 import DeleteConfirmationDialog from "@/components/DeleteConfirmationDialog";
-import { Pagination, PaginationInfo } from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { PaginationResponse } from "@/types/api.d"; // Import PaginationResponse
 
 export default function BlogManagePage() {
@@ -372,7 +372,7 @@ export default function BlogManagePage() {
                           </Button>
                         )}
                       </div>
-                      {showImageModal === blog.id && (
+                      {blog.id && showImageModal === blog.id && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
                           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg relative">
                             <button
@@ -388,7 +388,7 @@ export default function BlogManagePage() {
                           </div>
                         </div>
                       )}
-                      {editBlog && editBlog.id === blog.id && (
+                      {blog.id && editBlog && editBlog.id === blog.id && (
                         <EditBlogModal
                           blog={editBlog}
                           onClose={() => setEditBlog(null)}
@@ -404,24 +404,18 @@ export default function BlogManagePage() {
               </tbody>
             </table>
             <div className="flex justify-between items-center mt-4">
-              <PaginationInfo
-                totalItems={totalBlogs}
-                itemsPerPage={itemsPerPage}
-                currentPage={currentPage}
-                itemName="bài viết"
-              />
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                pageNumbers={getPageNumbers()}
-                hasNextPage={currentPage < totalPages}
-                hasPreviousPage={currentPage > 1}
-                onPageChange={handlePageChange}
-                onNextPage={handleNextPage}
-                onPreviousPage={handlePreviousPage}
-                onFirstPage={handleFirstPage}
-                onLastPage={handleLastPage}
-              />
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageNumbers={getPageNumbers()}
+              hasNextPage={currentPage < totalPages}
+              hasPreviousPage={currentPage > 1}
+              onPageChange={handlePageChange}
+              onNextPage={handleNextPage}
+              onPreviousPage={handlePreviousPage}
+              onFirstPage={handleFirstPage}
+              onLastPage={handleLastPage}
+            />
             </div>
           </div>
         ))}
