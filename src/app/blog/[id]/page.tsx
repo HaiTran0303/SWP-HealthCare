@@ -102,9 +102,12 @@ export default function BlogDetailPage() {
             <h1 className="text-3xl font-bold mb-4 text-primary leading-tight">
               {blog.title}
             </h1>
-            <div className="mb-6 text-sm font-medium text-gray-600">
+            <div className="mb-2 text-sm font-medium text-gray-600">
               Chủ đề: {categoryName}
             </div>
+            <div className="text-gray-500 text-sm mb-5">
+                  Tác giả: {blog.author.firstName} {blog.author.lastName}
+                </div>
             <div className="prose prose-lg max-w-none text-gray-800 dark:text-gray-200 leading-relaxed">
               {/* Render HTML content directly if blog.content is HTML */}
               <div dangerouslySetInnerHTML={{ __html: blog.content }} />
