@@ -4,6 +4,7 @@ import { ConsultantProfile } from "./consultant.service"; // Import ConsultantPr
 
 export interface User {
   id: string;
+  fullName?: string;
   firstName: string;
   lastName: string;
   email: string;

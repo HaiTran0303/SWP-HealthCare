@@ -26,31 +26,6 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Kiểm tra quyền admin
-  // if (adminRoutes.some((route) => pathname.startsWith(route))) {
-  //   try {
-  //     if (!currentUser) {
-  //       return NextResponse.redirect(new URL("/", request.url));
-  //     }
-  //     // Giải mã token và kiểm tra quyền admin (linh hoạt, chấp nhận isAdmin)
-  //     const userData = JSON.parse(atob(currentUser.value.split(".")[1]));
-  //     console.log("[MIDDLEWARE] Decoded userData:", userData);
-  //     const isAdmin =
-  //       (typeof userData.isAdmin === "boolean" && userData.isAdmin === true) ||
-  //       (typeof userData.role === "string" &&
-  //         userData.role.toLowerCase() === "admin") ||
-  //       (Array.isArray(userData.roles) &&
-  //         (userData.roles as any[])
-  //           .map((r: any) => r.toLowerCase())
-  //           .includes("admin"));
-  //     if (!isAdmin) {
-  //       return NextResponse.redirect(new URL("/", request.url));
-  //     }
-  //   } catch {
-  //     return NextResponse.redirect(new URL("/", request.url));
-  //   }
-  // }
-
   // Kiểm tra quyền consultant (hiện tại không áp dụng vì /consultant được dùng cho cả user và consultant)
   if (consultantRoutes.some((route) => pathname.startsWith(route))) {
     try {
@@ -73,13 +48,7 @@ export function middleware(request: NextRequest) {
 // Cấu hình các route áp dụng middleware
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public (public files)
-     */
+    
     "/((?!_next/static|_next/image|favicon.ico|public).*)",
   ],
 };
