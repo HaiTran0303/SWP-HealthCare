@@ -247,6 +247,9 @@ export default function HomePage() {
                 >
                   {blog.title}
                 </h3>
+                <div className="text-gray-500 text-sm mb-1">
+                  Tác giả: {blog.author.firstName} {blog.author.lastName}
+                </div>
                 <p className="text-base text-muted-foreground line-clamp-3">
                   {blog.summary || blog.content?.slice(0, 100) + "..."}
                 </p>
