@@ -2,6 +2,11 @@ import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
 import { format } from "date-fns";
 
+export const registerConsultant = async (formData: FormData) => {
+  const response = await apiClient.post(API_ENDPOINTS.CONSULTANTS.REGISTER, formData);
+  return response;
+};
+
 export interface UserProfile {
   id: string;
   firstName: string;
@@ -158,6 +163,16 @@ export const ConsultantService = {
       return response;
     } catch (error) {
       console.error(`Error ensuring upcoming schedule for consultant ${id}:`, error);
+      throw error;
+    }
+  },
+
+  async getPendingConsultants(): Promise<{ data: ConsultantProfile[]; total: number }> {
+    try {
+      const response = await apiClient.get<{ data: ConsultantProfile[]; total: number }>(API_ENDPOINTS.CONSULTANTS.PENDING_APPROVAL);
+      return response;
+    } catch (error) {
+      console.error("[ConsultantService] Error fetching pending consultants:", error);
       throw error;
     }
   },

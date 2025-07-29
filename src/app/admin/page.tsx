@@ -37,6 +37,7 @@ import ConsultantManagementTable from "@/components/ConsultantManagementTable"; 
 import ServiceManagementTable from "@/components/ServiceManagementTable"; // Import ServiceManagementTable
 import StiProcessTable from "@/components/StiProcessTable"; // Import StiProcessTable
 import PaymentManagementTable from "@/components/PaymentManagementTable"; // Import PaymentManagementTable
+import PendingConsultantTable from "@/components/PendingConsultantTable";
 
 interface UserOverviewResponse {
   totalUsers: number;
@@ -340,7 +341,18 @@ export default function AdminDashboard() {
               <CardTitle>Quản lý tư vấn viên</CardTitle>
             </CardHeader>
             <CardContent>
-              <ConsultantManagementTable />
+              <Tabs defaultValue="list" className="space-y-4">
+                <TabsList>
+                  <TabsTrigger value="list">Danh sách</TabsTrigger>
+                  <TabsTrigger value="pending">Chờ duyệt</TabsTrigger>
+                </TabsList>
+                <TabsContent value="list">
+                  <ConsultantManagementTable />
+                </TabsContent>
+                <TabsContent value="pending">
+                  <PendingConsultantTable />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>

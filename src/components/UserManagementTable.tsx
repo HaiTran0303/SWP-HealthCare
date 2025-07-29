@@ -443,7 +443,7 @@ export default function UserManagementTable() {
                     <TableCell>{user.firstName} {user.lastName}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.phone || "N/A"}</TableCell>
-                    <TableCell>{userRole?.description || userRole?.name || "N/A"}</TableCell>
+                    <TableCell>{user.role.description || "N/A"}</TableCell>
                     <TableCell>
                       <Badge variant={user.isActive ? "default" : "secondary"}>
                         {user.isActive ? "Đang hoạt động" : "Không hoạt động"}

@@ -14,6 +14,8 @@ import { API_ENDPOINTS } from "@/config/api";
 import { User } from "@/services/user.service"; // Import User from user.service
 import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile
 
+export type { User };
+
 interface LoginResponse {
   user: User;
   accessToken: string;
