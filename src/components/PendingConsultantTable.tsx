@@ -37,7 +37,8 @@ export default function PendingConsultantTable() {
     setIsLoading(true);
     try {
       const response = await ConsultantService.getPendingConsultants();
-      setPendingConsultants(response.data);
+      console.log("Pending Consultants API Response:", response); // Add log here
+      setPendingConsultants(response || []); // Use response directly as it is the array
     } catch (err) {
       setError("Không thể tải danh sách tư vấn viên chờ duyệt.");
       toast({

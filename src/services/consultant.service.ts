@@ -167,9 +167,9 @@ export const ConsultantService = {
     }
   },
 
-  async getPendingConsultants(): Promise<{ data: ConsultantProfile[]; total: number }> {
+  async getPendingConsultants(): Promise<ConsultantProfile[]> {
     try {
-      const response = await apiClient.get<{ data: ConsultantProfile[]; total: number }>(API_ENDPOINTS.CONSULTANTS.PENDING_APPROVAL);
+      const response = await apiClient.get<ConsultantProfile[]>(API_ENDPOINTS.CONSULTANTS.PENDING_APPROVAL);
       return response;
     } catch (error) {
       console.error("[ConsultantService] Error fetching pending consultants:", error);
