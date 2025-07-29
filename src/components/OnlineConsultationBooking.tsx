@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import AuthDialog from "@/components/AuthDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -775,9 +776,9 @@ const OnlineConsultationBooking: React.FC = () => {
           <p className="text-muted-foreground mb-6">
             Vui lòng đăng nhập để sử dụng dịch vụ tư vấn trực tuyến
           </p>
-          <Button onClick={() => window.location.href = '/auth/login'}>
-            Đăng nhập ngay
-          </Button>
+          <AuthDialog
+            trigger={<Button variant="outline">Đăng nhập ngay</Button>}
+          />
         </div>
       </div>
     );
