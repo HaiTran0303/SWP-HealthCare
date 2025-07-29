@@ -30,6 +30,7 @@ import { CredentialResponse } from "@react-oauth/google";
 import { User, RegisterDto } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { forgotPassword } from "@/services/auth.service";
+import ConsultantRegistrationForm from "./ConsultantRegistrationForm";
 
 interface AuthDialogProps {
   trigger: React.ReactNode;
@@ -204,9 +205,10 @@ export default function AuthDialog({
         </DialogHeader>
 
         <Tabs defaultValue={defaultTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="signin">Đăng nhập</TabsTrigger>
             <TabsTrigger value="register">Đăng ký</TabsTrigger>
+            <TabsTrigger value="register-consultant">Tư vấn viên</TabsTrigger>
           </TabsList>
 
           <TabsContent value="signin" className="space-y-4">
@@ -411,6 +413,9 @@ export default function AuthDialog({
               Chính sách bảo mật của chúng tôi.
             </p>
           </form>
+          </TabsContent>
+          <TabsContent value="register-consultant" className="space-y-4">
+            <ConsultantRegistrationForm setOpen={setOpen} />
           </TabsContent>
         </Tabs>
       </DialogContent>

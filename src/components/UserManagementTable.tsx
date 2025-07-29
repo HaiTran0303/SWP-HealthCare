@@ -48,7 +48,16 @@ export default function UserManagementTable() {
   const [isViewUserDetailDialogOpen, setIsViewUserDetailDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false); // New state for edit dialog
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [editUserData, setEditUserData] = useState<Partial<User>>({}); // New state for editing user data
+  const [editUserData, setEditUserData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    address: "",
+    gender: "",
+    role: "",
+    dateOfBirth: "",
+  });
   const [roles, setRoles] = useState<Role[]>([]); // State to store roles
 
   // State for new user form
@@ -60,7 +69,7 @@ export default function UserManagementTable() {
     phone: "",
     address: "",
     gender: "",
-    roleId: "", // Assuming roleId is used for creation
+    role: "", // Assuming role is used for creation
   });
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
@@ -225,7 +234,7 @@ export default function UserManagementTable() {
       phone: "",
       address: "",
       gender: "",
-      roleId: "",
+      role: "",
     });
   };
 
@@ -248,8 +257,8 @@ export default function UserManagementTable() {
       phone: user.phone || "",
       address: user.address || "",
       gender: user.gender || "",
-      roleId: user.role?.id || "",
-      dateOfBirth: user.dateOfBirth,
+      role: user.role?.id || "",
+      dateOfBirth: user.dateOfBirth || "",
     });
     setIsEditUserDialogOpen(true);
   };
@@ -257,7 +266,16 @@ export default function UserManagementTable() {
   const handleCloseEditUserDialog = () => {
     setIsEditUserDialogOpen(false);
     setSelectedUser(null);
-    setEditUserData({});
+    setEditUserData({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      address: "",
+      gender: "",
+      role: "",
+      dateOfBirth: "",
+    });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -292,7 +310,7 @@ export default function UserManagementTable() {
 
   const handleCreateUser = async () => {
     // Basic validation for required fields
-    if (!newUserData.firstName || !newUserData.lastName || !newUserData.email || !newUserData.password || !newUserData.roleId) {
+    if (!newUserData.firstName || !newUserData.lastName || !newUserData.email || !newUserData.password || !newUserData.role) {
       toast({
         title: "Lỗi",
         description: "Vui lòng điền đầy đủ các trường bắt buộc (Họ, Tên, Email, Mật khẩu, Vai trò).",
@@ -307,7 +325,7 @@ export default function UserManagementTable() {
         lastName: newUserData.lastName,
         email: newUserData.email,
         password: newUserData.password,
-        roleId: newUserData.roleId,
+        role: newUserData.role,
         phone: newUserData.phone || undefined,
         gender: newUserData.gender || undefined, // Include gender if it has a value
         address: newUserData.address || undefined, // Include address if it has a value
@@ -342,7 +360,7 @@ export default function UserManagementTable() {
     }
 
     // Basic validation for required fields
-    if (!editUserData.firstName || !editUserData.lastName || !editUserData.email || !editUserData.roleId) {
+    if (!editUserData.firstName || !editUserData.lastName || !editUserData.email || !editUserData.role) {
       toast({
         title: "Lỗi",
         description: "Vui lòng điền đầy đủ các trường bắt buộc (Họ, Tên, Email, Vai trò).",
@@ -359,7 +377,7 @@ export default function UserManagementTable() {
         phone: editUserData.phone || undefined,
         address: editUserData.address || undefined,
         gender: editUserData.gender || undefined,
-        roleId: editUserData.roleId,
+        role: editUserData.role,
         dateOfBirth: editUserData.dateOfBirth ? new Date(editUserData.dateOfBirth).toISOString() : undefined,
       };
 
@@ -443,7 +461,7 @@ export default function UserManagementTable() {
                     <TableCell>{user.firstName} {user.lastName}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.phone || "N/A"}</TableCell>
-                    <TableCell>{userRole?.description || userRole?.name || "N/A"}</TableCell>
+                    <TableCell>{user.role.description || "N/A"}</TableCell>
                     <TableCell>
                       <Badge variant={user.isActive ? "default" : "secondary"}>
                         {user.isActive ? "Đang hoạt động" : "Không hoạt động"}
@@ -567,10 +585,10 @@ export default function UserManagementTable() {
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="roleId" className="text-right">
+              <Label htmlFor="role" className="text-right">
                 Vai trò
               </Label>
-              <Select value={newUserData.roleId} onValueChange={(value) => handleSelectChange("roleId", value)}>
+              <Select value={newUserData.role} onValueChange={(value) => handleSelectChange("role", value)}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
@@ -719,10 +737,10 @@ export default function UserManagementTable() {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="roleId" className="text-right">
+                <Label htmlFor="role" className="text-right">
                   Vai trò
                 </Label>
-                <Select value={editUserData.roleId || ""} onValueChange={(value) => handleEditSelectChange("roleId", value)}>
+                <Select value={editUserData.role || ""} onValueChange={(value) => handleEditSelectChange("role", value)}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Chọn vai trò" />
                   </SelectTrigger>
