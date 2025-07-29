@@ -50,7 +50,7 @@ export interface CreateUserPayload {
   phone?: string;
   address?: string;
   gender?: string;
-  roleId: string;
+  role: string;
 }
 
 export interface UpdateUserPayload {
@@ -62,7 +62,7 @@ export interface UpdateUserPayload {
   gender?: string;
   phone?: string;
   address?: string;
-  roleId?: string;
+  role?: string;
   profilePicture?: string;
   locale?: string;
   healthDataConsent?: boolean;
