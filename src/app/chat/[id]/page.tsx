@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"; // Import useSearc
 import ChatRoom from "../../../components/ChatRoom";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatService } from "@/services/chat.service"; // Import ChatService
+import { AppointmentService } from "@/services/appointment.service"; // Import AppointmentService
 import { Question } from "@/types/api.d"; // Import Question type
 import { Loader2 } from "lucide-react";
 
@@ -41,9 +42,11 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
   const questionId = params.id;
   const initialTitle = searchParams.get("title");
   const initialContent = searchParams.get("content");
+  const appointmentId = searchParams.get("appointmentId"); // Get appointmentId from query params
   console.log("[ChatRoomPage] Received questionId from params:", questionId);
   console.log("[ChatRoomPage] Received initialTitle from query:", initialTitle);
   console.log("[ChatRoomPage] Received initialContent from query:", initialContent);
+  console.log("[ChatRoomPage] Received appointmentId from query:", appointmentId);
 
   useEffect(() => {
     const fetchChatDataAndAuthorize = async () => {
@@ -74,6 +77,7 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
             status: "pending", // Default status for newly created chat
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
+            appointmentId: appointmentId || undefined, // Include appointmentId if present
           };
           setChatQuestion(fetchedQuestion);
           console.log("[ChatRoomPage] Constructed Question from query params:", fetchedQuestion);
@@ -93,6 +97,18 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
 
         if (currentUserIsCreator /* || currentUserIsConsultant */) {
           setIsAuthorized(true);
+
+          // If appointmentId is present in query params and not already linked in fetchedQuestion,
+          // update the appointment with this questionId
+          if (appointmentId && fetchedQuestion.id && fetchedQuestion.appointmentId !== appointmentId) {
+            try {
+              await AppointmentService.updateAppointment(appointmentId, { chatRoomId: fetchedQuestion.id });
+              console.log(`[ChatRoomPage] Updated appointment ${appointmentId} with chatRoomId: ${fetchedQuestion.id}`);
+            } catch (updateError) {
+              console.error(`[ChatRoomPage] Error updating appointment ${appointmentId} with chatRoomId:`, updateError);
+              // Handle error, e.g., show a toast
+            }
+          }
         } else {
           router.push("/403");
         }
@@ -103,7 +119,7 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
     if (!isAuthLoading) {
       fetchChatDataAndAuthorize();
     }
-  }, [questionId, initialTitle, initialContent, user, isAuthenticated, isAuthLoading, router]);
+  }, [questionId, initialTitle, initialContent, appointmentId, user, isAuthenticated, isAuthLoading, router]);
 
   if (isAuthLoading || isLoadingChatRoom) { // Use new loading state
     return (

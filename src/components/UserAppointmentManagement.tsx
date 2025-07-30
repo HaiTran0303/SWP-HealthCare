@@ -696,10 +696,10 @@ const UserAppointmentManagement: React.FC = () => {
     setIsLoadingChat(true);
     try {
       // Check if a chat room already exists for this appointment
-      const existingQuestion = await ChatService.getQuestionByAppointmentId(appointment.id);
-      if (existingQuestion && existingQuestion.id) {
+      const existingChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
+      if (existingChatRoom && existingChatRoom.id) {
         // If it exists, navigate to the chat room
-        router.push(`/chat/${existingQuestion.id}`);
+        router.push(`/chat/${existingChatRoom.id}`);
       } else {
         // This case should ideally not be reached if the API returns a proper 404
         setAppointmentForChat(appointment);

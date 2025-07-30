@@ -363,12 +363,6 @@ function ConsultantDashboard() {
                               onClick={async () => {
                                 try {
                                   const chatRoom: ChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
-
-                                  // If appointment has no notes or empty notes, send a default message
-                                  if (!appointment.service?.name || appointment.service.name.trim() === "") {
-                                    await ChatService.sendAppointmentMessage(chatRoom.id, { content: "Chào bạn" }); // Changed to sendAppointmentMessage
-                                  }
-
                                   router.push(`/chat/${chatRoom.id}`);
                                 } catch (err: any) {
                                   toast({

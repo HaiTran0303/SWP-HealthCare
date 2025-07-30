@@ -293,14 +293,6 @@ export const ChatService = {
     return res;
   },
 
-  // This is a new method to get a Question by appointmentId, which might be what getChatRoomByAppointmentId does.
-  // We add this for clarity and to handle cases where a Question object is expected.
-  async getQuestionByAppointmentId(appointmentId: string): Promise<Question> {
-    // Assuming the /chat-room endpoint returns a Question object or something compatible.
-    // If the backend returns a different structure, this will need adjustment.
-    return apiClient.get<Question>(`/appointments/${appointmentId}/chat-room`);
-  },
-
   onNewMessage(
     callback: (message: ChatMessage) => void
   ) {

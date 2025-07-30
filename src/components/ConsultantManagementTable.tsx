@@ -222,6 +222,8 @@ export default function ConsultantManagementTable() {
       qualification: consultant.qualification,
       experience: consultant.experience,
       bio: consultant.bio,
+      consultationFee: consultant.consultationFee,
+      consultationFeeType: consultant.consultationFeeType,
     });
     setIsEditConsultantDialogOpen(true);
   };
@@ -284,6 +286,12 @@ export default function ConsultantManagementTable() {
       }
       if (editConsultantData.bio !== undefined) {
         payload.bio = editConsultantData.bio;
+      }
+      if (editConsultantData.consultationFee !== undefined) {
+        payload.consultationFee = editConsultantData.consultationFee;
+      }
+      if (editConsultantData.consultationFeeType !== undefined) {
+        payload.consultationFeeType = editConsultantData.consultationFeeType;
       }
 
       const response = await apiClient.patch<ConsultantProfile>(`/consultant-profiles/${selectedConsultant.id}`, payload);
@@ -865,6 +873,37 @@ export default function ConsultantManagementTable() {
                   onChange={(e) => setEditConsultantData(prev => ({ ...prev, bio: e.target.value }))}
                   className="md:col-span-3"
                 />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+                <Label htmlFor="consultationFee" className="md:text-right">
+                  Phí tư vấn (VND)
+                </Label>
+                <Input
+                  id="consultationFee"
+                  type="number"
+                  value={editConsultantData.consultationFee || 0}
+                  onChange={(e) => setEditConsultantData(prev => ({ ...prev, consultationFee: Number(e.target.value) }))}
+                  className="md:col-span-3"
+                  placeholder="Ví dụ: 500000"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+                <Label htmlFor="consultationFeeType" className="md:text-right">
+                  Loại phí tư vấn
+                </Label>
+                <Select
+                  value={editConsultantData.consultationFeeType || "per_session"}
+                  onValueChange={(value: "hourly" | "per_session" | "per_service") => setEditConsultantData(prev => ({ ...prev, consultationFeeType: value }))}
+                >
+                  <SelectTrigger className="md:col-span-3">
+                    <SelectValue placeholder="Chọn loại phí" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hourly">Theo giờ</SelectItem>
+                    <SelectItem value="per_session">Theo phiên</SelectItem>
+                    <SelectItem value="per_service">Theo dịch vụ</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}
