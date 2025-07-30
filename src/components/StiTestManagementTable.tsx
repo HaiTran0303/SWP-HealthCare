@@ -35,7 +35,14 @@ import { Pagination } from "@/components/ui/pagination";
 import { PaginationInfo } from "@/components/ui/pagination-info";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import StiProcessDetail from "@/components/StiProcessDetail";
 
 export default function StiTestManagementTable() {
@@ -345,6 +352,12 @@ export default function StiTestManagementTable() {
                         </DialogTrigger>
                         {selectedTest && (
                           <DialogContent className="sm:max-w-[800px]">
+                            <DialogHeader>
+                              <DialogTitle>Chi tiết quy trình xét nghiệm</DialogTitle>
+                              <DialogDescription>
+                                Xem chi tiết và cập nhật trạng thái cho mã xét nghiệm {selectedTest.testCode}.
+                              </DialogDescription>
+                            </DialogHeader>
                             <StiProcessDetail
                               process={selectedTest}
                               onUpdateStatusSuccess={() => {
