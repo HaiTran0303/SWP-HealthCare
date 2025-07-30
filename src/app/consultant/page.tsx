@@ -29,10 +29,12 @@ import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
 import { PaginationInfo } from "@/components/ui/pagination-info";
 import { ChatService, ChatRoom } from "@/services/chat.service"; // Import ChatService and ChatRoom
+import { AppointmentService } from "@/services/appointment.service"; // Import AppointmentService
 import { Appointment } from "@/types/api.d"; // Import global Appointment type
 import { User } from "@/services/user.service"; // Import User type
 import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
 import { EditConsultantProfileDialog } from "@/components/EditConsultantProfileDialog"; // Import the new dialog
+import { EnterChatIdDialog } from "@/components/EnterChatIdDialog"; // Import the new dialog
 
 interface Feedback {
   id: string;
@@ -127,6 +129,7 @@ function ConsultantDashboard() {
   const [errorFeedbacks, setErrorFeedbacks] = useState<string | null>(null);
   const [dailySchedule, setDailySchedule] = useState<any[]>([]); // Placeholder for daily schedule
   const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = useState(false); // State for dialog
+  const [isEnterChatIdDialogOpen, setIsEnterChatIdDialogOpen] = useState(false); // State for EnterChatIdDialog
 
   // Pagination states for appointments
   const [currentPage, setCurrentPage] = useState(API_FEATURES.PAGINATION.DEFAULT_PAGE);
@@ -360,19 +363,7 @@ function ConsultantDashboard() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={async () => {
-                                try {
-                                  const chatRoom: ChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
-                                  router.push(`/chat/${chatRoom.id}`);
-                                } catch (err: any) {
-                                  toast({
-                                    title: "Lỗi",
-                                    description: `Không thể vào phòng chat: ${err.message || "Đã xảy ra lỗi không xác định."}`,
-                                    variant: "destructive",
-                                  });
-                                  console.error("Error getting chat room or sending initial message:", err);
-                                }
-                              }}
+                              onClick={() => setIsEnterChatIdDialogOpen(true)}
                             >
                               Chat
                             </Button>
@@ -485,6 +476,14 @@ function ConsultantDashboard() {
           onSave={handleSaveProfile}
         />
       )}
+
+      <EnterChatIdDialog
+        isOpen={isEnterChatIdDialogOpen}
+        onClose={() => setIsEnterChatIdDialogOpen(false)}
+        onEnterChat={(questionId) => {
+          router.push(`/chat/${questionId}`);
+        }}
+      />
     </div>
   );
 }

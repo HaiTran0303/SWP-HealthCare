@@ -228,7 +228,7 @@ const OnlineConsultationBooking: React.FC = () => {
             consultantSpecialties: slot.consultant.specialties,
             consultationFee: slot.consultant.consultationFee,
             location: "online", // Force location to "online" as per user feedback
-            serviceId: slot.serviceId, // Extract serviceId from the API response
+            serviceId: "", // Extract serviceId from the API response
             // meetingLink is not directly available in FindAvailableSlotsResponseDto
             // It is part of the appointment creation, not the availability itself.
           }))
@@ -304,7 +304,7 @@ const OnlineConsultationBooking: React.FC = () => {
     console.log("Attempting to book appointment with consultant.userId:", selectedConsultant.user.id);
     console.log("Selected Slot Service ID:", selectedSlot.serviceId);
     console.log("Default Service ID (from state):", defaultServiceId); // New log
-    const serviceIdToUse = selectedSlot.serviceId ?? defaultServiceId;
+    const serviceIdToUse = ""; // Always use an empty string for serviceId as per requirement
     console.log("Service ID being passed to bookAppointment:", serviceIdToUse); // New log
 
       const success = await bookAppointment(
@@ -317,7 +317,7 @@ const OnlineConsultationBooking: React.FC = () => {
           additionalNotes,
           preferredContactMethod,
         },
-        serviceIdToUse, // Removed selectedSlot.location
+        serviceIdToUse,
         undefined // meetingLink is not available from the available slots API
       );
 

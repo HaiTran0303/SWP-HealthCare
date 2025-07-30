@@ -91,24 +91,22 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
 
         // Authorization logic
         const currentUserIsCreator = fetchedQuestion.userId === user.id;
-        // For now, only the creator (userId) is authorized.
-        // If consultants need access, the backend Question DTO must include consultantId.
-        // const currentUserIsConsultant = fetchedQuestion.consultantId === user.id; // This line will cause TS error if consultantId is not in Question
+        let currentUserIsConsultant = false;
 
-        if (currentUserIsCreator /* || currentUserIsConsultant */) {
-          setIsAuthorized(true);
-
-          // If appointmentId is present in query params and not already linked in fetchedQuestion,
-          // update the appointment with this questionId
-          if (appointmentId && fetchedQuestion.id && fetchedQuestion.appointmentId !== appointmentId) {
-            try {
-              await AppointmentService.updateAppointment(appointmentId, { chatRoomId: fetchedQuestion.id });
-              console.log(`[ChatRoomPage] Updated appointment ${appointmentId} with chatRoomId: ${fetchedQuestion.id}`);
-            } catch (updateError) {
-              console.error(`[ChatRoomPage] Error updating appointment ${appointmentId} with chatRoomId:`, updateError);
-              // Handle error, e.g., show a toast
+        // Check if the user is a consultant and is linked to this question's appointment
+        if (user.role?.name === "consultant" && fetchedQuestion.appointmentId) {
+          try {
+            const appointment = await AppointmentService.getAppointmentById(fetchedQuestion.appointmentId);
+            if (appointment && appointment.consultantId === user.id) {
+              currentUserIsConsultant = true;
             }
+          } catch (aptError) {
+            console.error("[ChatRoomPage] Error fetching appointment for consultant authorization:", aptError);
           }
+        }
+
+        if (currentUserIsCreator || currentUserIsConsultant) {
+          setIsAuthorized(true);
         } else {
           router.push("/403");
         }
@@ -121,15 +119,6 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
     }
   }, [questionId, initialTitle, initialContent, appointmentId, user, isAuthenticated, isAuthLoading, router]);
 
-  if (isAuthLoading || isLoadingChatRoom) { // Use new loading state
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2">Đang tải phòng chat...</p>
-      </div>
-    );
-  }
-
   if (isAuthLoading || isLoadingChatRoom) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -139,8 +128,19 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
     );
   }
 
-  if (!isAuthorized || !chatQuestion) { // Use chatQuestion
+  if (!isAuthorized || !chatQuestion) {
     // This case should be handled by redirects in useEffect, but as a fallback
+    // Also handle the "Khách hàng chưa có câu hỏi" message for consultants
+    if (user?.role?.name === "consultant" && !chatQuestion) {
+      return (
+        <div className="container mx-auto p-8 text-center">
+          <h1 className="text-2xl font-bold mb-4">Khách hàng chưa có câu hỏi</h1>
+          <p className="text-muted-foreground">
+            Phòng chat này chưa được khách hàng khởi tạo hoặc đã bị đóng.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="container mx-auto p-8 text-center">
         <h1 className="text-2xl font-bold mb-4">Truy cập bị từ chối</h1>
