@@ -61,12 +61,34 @@ export interface Payment {
   currency: string;
   paymentMethod: string; // Changed from 'method' to 'paymentMethod'
   status: "completed" | "pending" | "failed";
-  paymentDate: string; // Changed from 'date' to 'paymentDate'
+  paymentDate: string | null; // Changed to string | null based on sample
   transactionId?: string;
+  gatewayResponse?: { // Added gatewayResponse based on sample
+    bin?: string;
+    amount?: number;
+    qrCode?: string;
+    status?: string;
+    currency?: string;
+    orderCode?: number;
+    accountName?: string;
+    checkoutUrl?: string;
+    description?: string;
+    accountNumber?: string;
+    paymentLinkId?: string;
+    frontendCancelUrl?: string;
+    frontendReturnUrl?: string;
+  };
+  refunded: boolean; // Added based on sample
+  refundAmount: string; // Added based on sample
+  refundReason: string | null; // Added based on sample
+  invoiceNumber: string; // Added based on sample
+  createdAt: string; // Added based on sample
+  updatedAt: string; // Added based on sample
+  deletedAt: string | null; // Added based on sample
   user?: User; // Added User interface
   servicePackage?: ServicePackage; // Added ServicePackage interface
   service?: ServicePackage; // Assuming service has similar structure to ServicePackage, or adjust if different
-  // Add any other relevant payment fields
+  appointment?: Appointment; // Added Appointment interface based on sample
 }
 
 export interface PaymentListResponse {

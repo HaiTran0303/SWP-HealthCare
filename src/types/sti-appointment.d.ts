@@ -58,12 +58,7 @@ export interface StiProcess {
   isConfidential: boolean;
   createdAt: string;
   updatedAt: string;
-  patient: {
-    id: string;
-    name: string;
-    fullName: string;
-    // Add other patient details if available from swagger if needed
-  } | null;
+  patient: User | null; // Use the User interface
   service: {
     id: string;
     name: string;
@@ -71,14 +66,29 @@ export interface StiProcess {
   } | null;
   appointment: {
     id: string;
-    // Add other appointment details if available from swagger if needed
+    appointmentDate: string;
+    status: string; // Use a more specific type if available, e.g., AppointmentStatus
+    notes: string | null;
+    meetingLink: string | null;
+    reminderSent: boolean;
+    reminderSentAt: string | null;
+    checkInTime: string | null;
+    checkOutTime: string | null;
+    fixedPrice: string;
+    consultantSelectionType: string; // Use a more specific type if available
+    appointmentLocation: string; // Use a more specific type if available, e.g., "online" | "office"
+    cancellationReason: string | null;
+    createdAt: string;
+    updatedAt: string;
+    deletedAt: string | null;
+    user: User | null; // Patient user
+    cancelledBy: string | null; // User ID
+    consultant: User | null; // Consultant user
+    consultantAvailability: any | null; // Define a proper type if available
+    question: any | null; // Define a proper type if available
   } | null;
   testResult: any | null; // Define a proper type for TestResult if available
-  consultantDoctor: {
-    id: string;
-    name: string;
-    // Add other consultant details if available from swagger if needed
-  } | null;
+  consultantDoctor: User | null; // Use the User interface
 }
 
 export interface UpdateStiProcessStatusDto {

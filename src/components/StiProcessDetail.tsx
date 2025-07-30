@@ -107,7 +107,7 @@ export default function StiProcessDetail({ process, onUpdateStatusSuccess }: Sti
 
       Object.keys(updatePayload).forEach(key => updatePayload[key] === undefined && delete updatePayload[key]);
 
-      await STITestingService.updateTestProcess(process.id, updatePayload);
+      await STITestingService.updateTestStatus(process.id, newStatus);
       toast({
         title: "Cập nhật trạng thái thành công",
         description: `Trạng thái của xét nghiệm ${process.testCode} đã được cập nhật thành ${STITestingService.getStatusText(newStatus)}.`,
@@ -169,34 +169,74 @@ export default function StiProcessDetail({ process, onUpdateStatusSuccess }: Sti
     <>
       <div className="space-y-4">
         <div>
-          <b>Bệnh nhân:</b> {process.patient?.fullName || "N/A"}
+          <b>Bệnh nhân:</b> {process.patient?.firstName} {process.patient?.lastName || "Không có"}
         </div>
         <div>
-          <b>Dịch vụ:</b> {process.service?.name || "N/A"}
+          <b>Dịch vụ:</b> {process.service?.name || "Không có"}
+        </div>
+        {process.appointment && (
+          <>
+            <div>
+              <b>ID Cuộc hẹn:</b> {process.appointment.id || "Không có"}
+            </div>
+            <div>
+              <b>Ngày cuộc hẹn:</b> {process.appointment.appointmentDate ? new Date(process.appointment.appointmentDate).toLocaleString() : "Không có"}
+            </div>
+            <div>
+              <b>Trạng thái cuộc hẹn:</b> {process.appointment.status || "Không có"}
+            </div>
+            <div>
+              <b>Địa điểm cuộc hẹn:</b> {process.appointment.appointmentLocation || "Không có"}
+            </div>
+            <div>
+              <b>Ghi chú cuộc hẹn:</b> {process.appointment.notes || "Không có"}
+            </div>
+            <div>
+              <b>Link cuộc hẹn:</b> {process.appointment.meetingLink || "Không có"}
+            </div>
+            <div>
+              <b>Giá cố định:</b> {process.appointment.fixedPrice ? parseFloat(process.appointment.fixedPrice).toLocaleString() + "đ" : "Không có"}
+            </div>
+            <div>
+              <b>Loại chọn TVV:</b> {process.appointment.consultantSelectionType || "Không có"}
+            </div>
+            <div>
+              <b>Lý do hủy:</b> {process.appointment.cancellationReason || "Không có"}
+            </div>
+            <div>
+              <b>Thời gian check-in:</b> {process.appointment.checkInTime ? new Date(process.appointment.checkInTime).toLocaleString() : "Không có"}
+            </div>
+            <div>
+              <b>Thời gian check-out:</b> {process.appointment.checkOutTime ? new Date(process.appointment.checkOutTime).toLocaleString() : "Không có"}
+            </div>
+            <div>
+              <b>Người dùng cuộc hẹn:</b> {process.appointment.user?.firstName} {process.appointment.user?.lastName || "Không có"}
+            </div>
+            <div>
+              <b>TVV cuộc hẹn:</b> {process.appointment.consultant?.firstName} {process.appointment.consultant?.lastName || "Không có"}
+            </div>
+          </>
+        )}
+        <div>
+          <b>Bác sĩ tư vấn:</b> {process.consultantDoctor?.firstName} {process.consultantDoctor?.lastName || "Không có"}
         </div>
         <div>
-          <b>ID cuộc hẹn lấy mẫu:</b> {process.appointment?.id || "N/A"}
+          <b>Ngày tạo:</b> {process.createdAt ? new Date(process.createdAt).toLocaleDateString() : "Không có"}
         </div>
         <div>
-          <b>ID bác sĩ tư vấn:</b> {process.consultantDoctor?.id || "N/A"}
+          <b>Loại mẫu:</b> {process.sampleType || "Không có"}
         </div>
         <div>
-          <b>Ngày tạo:</b> {new Date(process.createdAt).toLocaleDateString()}
+          <b>Độ ưu tiên:</b> {process.priority || "Không có"}
         </div>
         <div>
-          <b>Loại mẫu:</b> {process.sampleType}
+          <b>Thời gian dự kiến có kết quả:</b> {process.estimatedResultDate ? new Date(process.estimatedResultDate).toLocaleDateString() : "Không có"}
         </div>
         <div>
-          <b>Độ ưu tiên:</b> {process.priority}
+          <b>Địa điểm lấy mẫu:</b> {process.sampleCollectionLocation || "Không có"}
         </div>
         <div>
-          <b>Thời gian dự kiến có kết quả:</b> {process.estimatedResultDate ? new Date(process.estimatedResultDate).toLocaleDateString() : "-"}
-        </div>
-        <div>
-          <b>Địa điểm lấy mẫu:</b> {process.sampleCollectionLocation}
-        </div>
-        <div>
-          <b>Ghi chú về quá trình:</b> {process.processNotes}
+          <b>Ghi chú về quá trình:</b> {process.processNotes || "Không có"}
         </div>
         <div>
           <b>Yêu cầu tư vấn:</b> {process.requiresConsultation ? "Có" : "Không"}
@@ -205,19 +245,19 @@ export default function StiProcessDetail({ process, onUpdateStatusSuccess }: Sti
           <b>Bảo mật:</b> {process.isConfidential ? "Có" : "Không"}
         </div>
         <div>
-          <b>Thời gian thực tế có kết quả:</b> {process.actualResultDate ? new Date(process.actualResultDate).toLocaleDateString() : "-"}
+          <b>Thời gian thực tế có kết quả:</b> {process.actualResultDate ? new Date(process.actualResultDate).toLocaleDateString() : "Không có"}
         </div>
         <div>
-          <b>Thời gian lấy mẫu:</b> {process.sampleCollectionDate ? new Date(process.sampleCollectionDate).toLocaleDateString() : "-"}
+          <b>Thời gian lấy mẫu:</b> {process.sampleCollectionDate ? new Date(process.sampleCollectionDate).toLocaleDateString() : "Không có"}
         </div>
         <div>
-          <b>Ghi chú từ phòng lab:</b> {process.labNotes}
+          <b>Ghi chú từ phòng lab:</b> {process.labNotes || "Không có"}
         </div>
         <div>
-          <b>Người lấy mẫu:</b> {process.sampleCollectedBy}
+          <b>Người lấy mẫu:</b> {process.sampleCollectedBy || "Không có"}
         </div>
         <div>
-          <b>Phòng lab xử lý:</b> {process.labProcessedBy}
+          <b>Phòng lab xử lý:</b> {process.labProcessedBy || "Không có"}
         </div>
         <div>
           <b>Đã thông báo cho bệnh nhân:</b> {process.patientNotified ? "Có" : "Không"}
@@ -236,7 +276,7 @@ export default function StiProcessDetail({ process, onUpdateStatusSuccess }: Sti
               <b>Tên xét nghiệm:</b> {testResult.resultData.testName}
             </div>
             <div>
-              <b>Mã xét nghiệm:</b> {testResult.resultData.testCode || "N/A"}
+              <b>Mã xét nghiệm:</b> {testResult.resultData.testCode || "Không có"}
             </div>
             <div>
               <b>Trạng thái tổng quan:</b> {testResult.resultData.overallStatus}
@@ -287,7 +327,7 @@ export default function StiProcessDetail({ process, onUpdateStatusSuccess }: Sti
                               (item.referenceRange?.normalValues?.join(", ") ||
                                 (item.referenceRange?.min !== undefined && item.referenceRange?.max !== undefined
                                   ? `${item.referenceRange.min} - ${item.referenceRange.max}`
-                                  : "N/A"))}
+                                  : "Không có"))}
                           </td>
                           <td className="border p-2">
                             <span
@@ -299,7 +339,7 @@ export default function StiProcessDetail({ process, onUpdateStatusSuccess }: Sti
                                   : "bg-yellow-100 text-yellow-800"
                               }`}
                             >
-                              {item.status}
+                              {item.status === "normal" ? "Bình thường" : item.status === "abnormal" ? "Bất thường" : item.status}
                             </span>
                           </td>
                         </tr>
