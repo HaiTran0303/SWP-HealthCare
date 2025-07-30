@@ -53,11 +53,8 @@ export default function PaymentManagementTable() {
         searchTerm,
         status: filterStatus === "all" ? undefined : filterStatus,
       });
-      console.log("API Response:", response); // Log the entire response
-      // Assuming the API returns the array of payments directly
-      setPayments(Array.isArray(response) ? response : []);
-      // If response.totalPages is not available, default to 1 page
-      setTotalPages(response?.totalPages || 1);
+      setPayments(response.data);
+      setTotalPages(response.totalPages);
     } catch (err: any) {
       setError(err?.message || "Lỗi khi tải danh sách thanh toán");
     } finally {
@@ -169,7 +166,7 @@ export default function PaymentManagementTable() {
 
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="flex-1 text-sm text-muted-foreground">
-          Hiển thị {payments.length} trên tổng số {payments.length} thanh toán.
+          Hiển thị {payments.length} trên tổng số {totalPages * pageSize} thanh toán.
         </div>
         <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
           <SelectTrigger className="w-[100px]">

@@ -40,6 +40,7 @@ import {
 import { Label } from "@/components/ui/label"; // Ensure Label is imported
 import { Textarea } from "@/components/ui/textarea"; // For description
 import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
+import { Category, CategoryService } from "@/services/category.service"; // Import CategoryService and Category
 
 export default function ServiceManagementTable() {
   const { toast } = useToast();
@@ -58,6 +59,21 @@ export default function ServiceManagementTable() {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [isUploadImageDialogOpen, setIsUploadImageDialogOpen] = useState(false); // New state for image upload dialog
   const [selectedServiceForImage, setSelectedServiceForImage] = useState<Service | null>(null); // New state for selected service for image upload
+  const [categories, setCategories] = useState<Category[]>([]); // State for categories
+  const [newService, setNewService] = useState<Partial<Service>>({ // State for new service form
+    name: "",
+    description: "",
+    shortDescription: "",
+    price: 0,
+    duration: 30,
+    categoryId: "",
+    location: undefined, // Changed to undefined to match type
+    requiresConsultant: false,
+    isActive: true,
+    featured: false,
+    prerequisites: "",
+    postInstructions: "",
+  });
 
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
@@ -99,6 +115,7 @@ export default function ServiceManagementTable() {
 
   useEffect(() => {
     fetchServices();
+    fetchCategories(); // Fetch categories when component mounts
   }, [currentPage, searchQuery, filterCategory, filterActiveStatus, filterRequiresConsultant]);
 
   const handlePageChange = (page: number) => {
@@ -195,7 +212,90 @@ export default function ServiceManagementTable() {
     setSelectedService(null);
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await CategoryService.getAllCategories();
+      setCategories(response); // Removed .data
+    } catch (err) {
+      console.error("Error fetching categories:", err);
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh mục.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setNewService((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleSelectChange = (id: string, value: string | boolean) => {
+    setNewService((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleAddNewService = async () => {
+    try {
+      // Ensure all required fields are present before sending
+      const serviceToCreate = {
+        name: newService.name || "",
+        description: newService.description || "",
+        price: newService.price ?? 0,
+        duration: newService.duration ?? 0,
+        categoryId: newService.categoryId || "",
+        isActive: newService.isActive ?? true,
+        shortDescription: newService.shortDescription || "",
+        prerequisites: newService.prerequisites || "",
+        postInstructions: newService.postInstructions || "",
+        featured: newService.featured ?? false,
+        requiresConsultant: newService.requiresConsultant ?? false,
+        location: newService.location,
+      };
+
+      // Basic validation for required fields
+      if (!serviceToCreate.name || !serviceToCreate.description || !serviceToCreate.categoryId) {
+        toast({
+          title: "Lỗi",
+          description: "Vui lòng điền đầy đủ các trường bắt buộc (Tên, Mô tả, Danh mục).",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await APIService.createService(serviceToCreate);
+      toast({
+        title: "Thành công",
+        description: "Dịch vụ mới đã được thêm.",
+      });
+      setIsAddServiceDialogOpen(false);
+      setNewService({ // Reset form
+        name: "",
+        description: "",
+        shortDescription: "",
+        price: 0,
+        duration: 30,
+        categoryId: "",
+        location: undefined, // Changed to undefined to match type
+        requiresConsultant: false,
+        isActive: true,
+        featured: false,
+        prerequisites: "",
+        postInstructions: "",
+      });
+      fetchServices(); // Refresh service list
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: `Không thể thêm dịch vụ: ${err.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleServiceAdded = () => {
+    // This function is now redundant as handleAddNewService handles the success toast and fetchServices
+    // Keeping it for now in case it's called elsewhere, but it should be replaced by handleAddNewService
     setIsAddServiceDialogOpen(false);
     fetchServices(); // Refresh service list
     toast({
@@ -378,43 +478,60 @@ export default function ServiceManagementTable() {
               <Label htmlFor="name" className="text-right">
                 Tên dịch vụ
               </Label>
-              <Input id="name" defaultValue="" className="col-span-3" />
+              <Input id="name" value={newService.name} onChange={handleInputChange} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="description" className="text-right">
                 Mô tả chi tiết
               </Label>
-              <Textarea id="description" defaultValue="" className="col-span-3" />
+              <Textarea id="description" value={newService.description} onChange={handleInputChange} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="shortDescription" className="text-right">
                 Mô tả ngắn
               </Label>
-              <Input id="shortDescription" defaultValue="" className="col-span-3" />
+              <Input id="shortDescription" value={newService.shortDescription} onChange={handleInputChange} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="price" className="text-right">
                 Giá (VND)
               </Label>
-              <Input id="price" type="number" defaultValue={0} className="col-span-3" />
+              <Input id="price" type="number" value={newService.price ?? 0} onChange={handleInputChange} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="duration" className="text-right">
                 Thời lượng (phút)
               </Label>
-              <Input id="duration" type="number" defaultValue={30} className="col-span-3" />
+              <Input id="duration" type="number" value={newService.duration ?? 0} onChange={handleInputChange} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="categoryId" className="text-right">
-                ID Danh mục
+                Danh mục
               </Label>
-              <Input id="categoryId" defaultValue="" className="col-span-3" placeholder="ID của danh mục dịch vụ" />
+              <Select
+                value={newService.categoryId}
+                onValueChange={(value) => handleSelectChange("categoryId", value)}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Chọn danh mục" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="location" className="text-right">
                 Địa điểm
               </Label>
-              <Select>
+              <Select
+                value={newService.location}
+                onValueChange={(value) => handleSelectChange("location", value)}
+              >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Chọn địa điểm" />
                 </SelectTrigger>
@@ -428,7 +545,10 @@ export default function ServiceManagementTable() {
               <Label htmlFor="requiresConsultant" className="text-right">
                 Yêu cầu TVV
               </Label>
-              <Select>
+              <Select
+                value={newService.requiresConsultant?.toString()}
+                onValueChange={(value) => handleSelectChange("requiresConsultant", value === "true")}
+              >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Chọn" />
                 </SelectTrigger>
@@ -442,7 +562,10 @@ export default function ServiceManagementTable() {
               <Label htmlFor="isActive" className="text-right">
                 Hoạt động
               </Label>
-              <Select>
+              <Select
+                value={newService.isActive?.toString()}
+                onValueChange={(value) => handleSelectChange("isActive", value === "true")}
+              >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Chọn" />
                 </SelectTrigger>
@@ -456,7 +579,10 @@ export default function ServiceManagementTable() {
               <Label htmlFor="featured" className="text-right">
                 Nổi bật
               </Label>
-              <Select>
+              <Select
+                value={newService.featured?.toString()}
+                onValueChange={(value) => handleSelectChange("featured", value === "true")}
+              >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Chọn" />
                 </SelectTrigger>
@@ -470,18 +596,18 @@ export default function ServiceManagementTable() {
               <Label htmlFor="prerequisites" className="text-right">
                 Điều kiện tiên quyết
               </Label>
-              <Textarea id="prerequisites" defaultValue="" className="col-span-3" />
+              <Textarea id="prerequisites" value={newService.prerequisites} onChange={handleInputChange} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="postInstructions" className="text-right">
                 Hướng dẫn sau dịch vụ
               </Label>
-              <Textarea id="postInstructions" defaultValue="" className="col-span-3" />
+              <Textarea id="postInstructions" value={newService.postInstructions} onChange={handleInputChange} className="col-span-3" />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseAddServiceDialog}>Hủy</Button>
-            <Button onClick={handleServiceAdded}>Thêm dịch vụ</Button>
+            <Button onClick={handleAddNewService}>Thêm dịch vụ</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
