@@ -272,6 +272,11 @@ export const ChatService = {
     return apiClient.post<ApiResponse<Question>>("/chat/questions", data);
   },
 
+  async getQuestions(params: { search?: string; page?: number; limit?: number } = {}): Promise<PaginatedResponse<Question>> {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return apiClient.get<PaginatedResponse<Question>>(`/chat/questions${query ? `?${query}` : ""}`);
+  },
+
   async getQuestionById(questionId: string): Promise<Question> {
     try {
       console.log(`[ChatService] Attempting to fetch question with ID: ${questionId}`);

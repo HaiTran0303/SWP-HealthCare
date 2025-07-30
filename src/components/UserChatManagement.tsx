@@ -26,7 +26,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { ChatService, ChatQuestion } from "@/services/chat.service";
+import { ChatService } from "@/services/chat.service";
+import { Question } from "@/types/api";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useRouter } from "next/navigation";
@@ -57,7 +58,7 @@ const CreateQuestionDialog: React.FC<{
     setIsLoading(true); // Set loading true at the start
     try {
       const response = await ChatService.createQuestion({ title, content });
-      const newQuestionId = response.id;
+      const newQuestionId = response.data.id;
       
       toast({
         title: "Thành công",
@@ -137,7 +138,7 @@ const CreateQuestionDialog: React.FC<{
 const UserChatManagement: React.FC = () => {
   const { toast } = useToast();
   const router = useRouter();
-  const [questions, setQuestions] = useState<ChatQuestion[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateQuestionDialogOpen, setIsCreateQuestionDialogOpen] =

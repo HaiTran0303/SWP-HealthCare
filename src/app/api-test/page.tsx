@@ -31,7 +31,7 @@ export default function ApiTestPage() {
       const response = await fetch(url, options);
       const data = await response.json();
       
-      setResults(prev => ({
+      setResults((prev: any) => ({
         ...prev,
         [endpoint]: {
           status: response.status,
@@ -41,7 +41,7 @@ export default function ApiTestPage() {
         }
       }));
     } catch (error) {
-      setResults(prev => ({
+      setResults((prev: any) => ({
         ...prev,
         [endpoint]: {
           error: error instanceof Error ? error.message : "Unknown error"
@@ -166,4 +166,4 @@ export default function ApiTestPage() {
       </Card>
     </div>
   );
-} 
+}

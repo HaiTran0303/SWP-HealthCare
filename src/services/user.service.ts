@@ -15,6 +15,7 @@ export interface User {
   profilePicture?: string;
   role: Role;
   isActive: boolean;
+  healthDataConsent?: boolean;
   createdAt: string;
   updatedAt: string;
   roleId?: string; // Add roleId here for convenience in forms

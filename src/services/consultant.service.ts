@@ -100,7 +100,7 @@ export const ConsultantService = {
       throw error;
     }
   },
-  async findConsultantAvailableSlots(consultantId: string, date: Date, serviceId?: string) {
+  async findConsultantAvailableSlots(consultantId: string, date: Date, serviceId?: string): Promise<ConsultantAvailability[]> {
     const formattedDate = format(date, "yyyy-MM-dd");
     const data: any = {
       consultantId: consultantId,

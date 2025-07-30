@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Blog, BlogService } from "@/services/blog.service";
 import { cn } from "@/lib/utils";
+import { ReviewBlogDto } from "@/types/api";
 
 interface BlogReviewModalProps {
   blog: Blog | null;
@@ -15,7 +16,7 @@ export default function BlogReviewModal({
   onClose,
   onReviewSuccess,
 }: BlogReviewModalProps) {
-  const [reviewStatus, setReviewStatus] = useState("approved");
+  const [reviewStatus, setReviewStatus] = useState<"approved" | "needs_revision" | "rejected">("approved");
   const [reason, setReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -36,7 +37,7 @@ export default function BlogReviewModal({
     setError("");
     setSuccess("");
 
-    const reviewPayload: { status: string; rejectionReason?: string; revisionNotes?: string } = {
+    const reviewPayload: ReviewBlogDto = {
       status: reviewStatus,
     };
 
@@ -96,7 +97,7 @@ export default function BlogReviewModal({
             className="w-full border rounded px-2 py-1 mt-1"
             value={reviewStatus}
             onChange={(e) => {
-              setReviewStatus(e.target.value);
+              setReviewStatus(e.target.value as "approved" | "needs_revision" | "rejected");
               setReason("");
             }}
           >

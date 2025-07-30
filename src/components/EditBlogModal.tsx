@@ -3,6 +3,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { BlogService, Blog } from "@/services/blog.service";
 import { CategoryService, Category } from "@/services/category.service";
+import { UpdateBlogDto } from "@/types/api";
 
 interface EditBlogModalProps {
   blog: Blog; // Use Blog interface for better type safety
@@ -38,7 +39,7 @@ export default function EditBlogModal({
   const [success, setSuccess] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [catLoading, setCatLoading] = useState(true);
-  const [status, setStatus] = useState(blog.status || "draft");
+  const [status, setStatus] = useState<"draft" | "pending_review" | "needs_revision" | "rejected" | "approved" | "published" | "archived">(blog.status || "draft");
 
   useEffect(() => {
     setCatLoading(true);
@@ -68,7 +69,7 @@ export default function EditBlogModal({
         .map((id) => id.trim())
         .filter(Boolean);
 
-      const updateData: Partial<Blog> = {
+      const updateData: UpdateBlogDto = {
         title: title.trim(),
         content: content.trim(),
         categoryId,
@@ -208,7 +209,7 @@ export default function EditBlogModal({
             <select
               className="w-full border rounded px-3 py-2"
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => setStatus(e.target.value as "draft" | "pending_review" | "needs_revision" | "rejected" | "approved" | "published" | "archived")}
               required
             >
               {STATUS_OPTIONS.map((option) => (

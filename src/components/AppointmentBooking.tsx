@@ -74,7 +74,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
   const { toast } = useToast();
   const [consultants, setConsultants] = useState<ConsultantProfile[]>([]);
   const [selectedConsultant, setSelectedConsultant] =
-    useState<ConsultantProfile | null>(null);
+    useState<(ConsultantProfile & { availability?: ConsultantAvailability[] }) | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date()
   );
@@ -143,7 +143,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
   const handleConsultantSelect = async (consultant: ConsultantProfile) => {
     setIsLoadingAvailability(true);
     try {
-      const availability = await ConsultantService.getAvailability(consultant.id);
+      const availability = await ConsultantService.findConsultantAvailableSlots(consultant.id, selectedDate || new Date());
       setSelectedConsultant({ ...consultant, availability });
       setBookingStep(2);
     } catch (error) {
@@ -318,17 +318,17 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                           <div className="flex items-center space-x-4">
                             <Avatar className="h-16 w-16">
                               <AvatarImage
-                                src={consultant.avatar}
-                                alt={`${consultant.firstName} ${consultant.lastName}`}
+                                src={consultant.user.profilePicture}
+                                alt={`${consultant.user.firstName} ${consultant.user.lastName}`}
                               />
                               <AvatarFallback>
-                                {consultant.firstName[0]}
-                                {consultant.lastName[0]}
+                                {consultant.user.firstName[0]}
+                                {consultant.user.lastName[0]}
                               </AvatarFallback>
                             </Avatar>
                             <div>
                               <CardTitle className="text-lg">
-                                {`${consultant.firstName} ${consultant.lastName}`}
+                                {`${consultant.user.firstName} ${consultant.user.lastName}`}
                               </CardTitle>
                               <CardDescription>
                                 {consultant.specialties.join(", ")}
@@ -338,14 +338,14 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                                   <Star
                                     key={i}
                                     className={`h-4 w-4 ${
-                                      i < consultant.rating
+                                      i < (consultant.rating || 0)
                                         ? "text-yellow-500 fill-yellow-500"
                                         : "text-gray-300"
                                     }`}
                                   />
                                 ))}
                                 <span className="ml-1 text-sm text-muted-foreground">
-                                  {consultant.rating.toFixed(1)}
+                                  {(consultant.rating || 0).toFixed(1)}
                                 </span>
                               </div>
                             </div>
@@ -384,17 +384,17 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                         <div className="flex items-center space-x-4">
                           <Avatar className="h-16 w-16">
                             <AvatarImage
-                              src={selectedConsultant.avatar}
-                              alt={`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                              src={selectedConsultant.user.profilePicture}
+                              alt={`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                             />
                             <AvatarFallback>
-                              {selectedConsultant.firstName[0]}
-                              {selectedConsultant.lastName[0]}
+                              {selectedConsultant.user.firstName[0]}
+                              {selectedConsultant.user.lastName[0]}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <h4 className="font-medium">
-                              {`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                              {`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                             </h4>
                             <p className="text-sm text-muted-foreground">
                               {selectedConsultant.specialties.join(", ")}
@@ -446,7 +446,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                           <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
                             {selectedDate ? (
                               selectedConsultant.availability
-                                .filter(
+                                ?.filter(
                                   (slot) =>
                                     slot.dayOfWeek === selectedDate?.getDay()
                                 )
@@ -492,29 +492,29 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center">
-                      <Avatar className="h-12 w-12 mr-4">
-                        <AvatarImage
-                          src={selectedConsultant.avatar}
-                          alt={`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
-                        />
-                        <AvatarFallback>
-                          {selectedConsultant.firstName[0]}
-                          {selectedConsultant.lastName[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h4 className="font-medium">
-                          {`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
-                        </h4>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedConsultant.specialties.join(", ")}
-                        </p>
-                      </div>
-                    </div>
+                  <Avatar className="h-12 w-12 mr-4">
+                    <AvatarImage
+                      src={selectedConsultant.user.profilePicture}
+                      alt={`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
+                    />
+                    <AvatarFallback>
+                      {selectedConsultant.user.firstName[0]}
+                      {selectedConsultant.user.lastName[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h4 className="font-medium">
+                      {`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedConsultant.specialties.join(", ")}
+                    </p>
+                  </div>
+                </div>
 
-                    <div className="flex items-center">
-                      <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <span>
+                <div className="flex items-center">
+                  <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span>
                         {selectedDate?.toLocaleDateString("vi-VN", {
                           weekday: "long",
                           year: "numeric",
@@ -522,85 +522,85 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                           day: "numeric",
                         })}
                       </span>
-                    </div>
+                </div>
 
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <span>{selectedTime}</span>
-                    </div>
+                <div className="flex items-center">
+                  <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span>{selectedTime}</span>
+                </div>
 
-                    <div className="flex items-center">
-                      <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <span>Tư vấn trực tuyến</span>
-                    </div>
+                <div className="flex items-center">
+                  <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span>Tư vấn trực tuyến</span>
+                </div>
 
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setBookingStep(2)}
-                    >
-                      Đổi ngày/giờ
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setBookingStep(2)}
+                >
+                  Đổi ngày/giờ
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
 
-              <div className="md:w-2/3">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Chi tiết buổi tư vấn</CardTitle>
-                    <CardDescription>
-                      Vui lòng cung cấp thông tin chi tiết về buổi tư vấn
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Loại tư vấn</label>
-                      <Select
-                        value={consultationType}
-                        onValueChange={setConsultationType}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Chọn loại tư vấn" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="general">
-                            Sức khỏe sinh sản
-                          </SelectItem>
-                          <SelectItem value="contraception">
-                            Tư vấn tránh thai
-                          </SelectItem>
-                          <SelectItem value="sti">
-                            Bệnh lây truyền qua đường tình dục
-                          </SelectItem>
-                          <SelectItem value="reproductive">
-                            Kế hoạch hóa gia đình
-                          </SelectItem>
-                          <SelectItem value="other">Khác</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+          <div className="md:w-2/3">
+            <Card>
+              <CardHeader>
+                <CardTitle>Chi tiết buổi tư vấn</CardTitle>
+                <CardDescription>
+                  Vui lòng cung cấp thông tin chi tiết về buổi tư vấn
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Loại tư vấn</label>
+                  <Select
+                    value={consultationType}
+                    onValueChange={setConsultationType}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn loại tư vấn" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="general">
+                        Sức khỏe sinh sản
+                      </SelectItem>
+                      <SelectItem value="contraception">
+                        Tư vấn tránh thai
+                      </SelectItem>
+                      <SelectItem value="sti">
+                        Bệnh lây truyền qua đường tình dục
+                      </SelectItem>
+                      <SelectItem value="reproductive">
+                        Kế hoạch hóa gia đình
+                      </SelectItem>
+                      <SelectItem value="other">Khác</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Chi tiết</label>
-                      <Textarea
-                        placeholder="Mô tả vấn đề bạn muốn tư vấn..."
-                        value={consultationDetails}
-                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                          setConsultationDetails(e.target.value)
-                        }
-                        rows={5}
-                      />
-                    </div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button className="w-full" onClick={handleDetailsSubmit}>
-                      Xác nhận đặt lịch
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Chi tiết</label>
+                  <Textarea
+                    placeholder="Mô tả vấn đề bạn muốn tư vấn..."
+                    value={consultationDetails}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                      setConsultationDetails(e.target.value)
+                    }
+                    rows={5}
+                  />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" onClick={handleDetailsSubmit}>
+                  Xác nhận đặt lịch
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+        </div>
           )}
 
           {bookingStep === 4 && (
@@ -621,7 +621,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                   <div className="space-y-2">
                     <p>
                       <span className="font-medium">Tư vấn viên:</span>{" "}
-                      {`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                      {`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                     </p>
                     <p>
                       <span className="font-medium">Ngày:</span>{" "}
@@ -743,17 +743,17 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                 <div className="flex items-center">
                   <Avatar className="h-10 w-10 mr-4">
                     <AvatarImage
-                      src={selectedConsultant.avatar}
-                      alt={`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                      src={selectedConsultant.user.profilePicture}
+                      alt={`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                     />
                     <AvatarFallback>
-                      {selectedConsultant.firstName[0]}
-                      {selectedConsultant.lastName[0]}
+                      {selectedConsultant.user.firstName[0]}
+                      {selectedConsultant.user.lastName[0]}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <h4 className="font-medium">
-                      {`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                      {`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                     </h4>
                     <p className="text-sm text-muted-foreground">
                       {selectedConsultant.specialties.join(", ")}

@@ -123,7 +123,7 @@ export default function CustomerPaymentHistory() {
                 <TableCell>{parseFloat(payment.amount).toLocaleString()}đ</TableCell>
                 <TableCell>{payment.servicePackage?.name || payment.service?.name || 'Tư vấn trực tuyến'}</TableCell>
                 <TableCell>{payment.status}</TableCell>
-                <TableCell>{new Date(payment.paymentDate).toLocaleDateString()}</TableCell>
+                <TableCell>{payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString() : 'N/A'}</TableCell>
                 <TableCell>
                   <Button variant="outline" size="sm">
                     Chi tiết
