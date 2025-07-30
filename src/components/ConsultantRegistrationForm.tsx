@@ -32,18 +32,22 @@ const formSchema = z.object({
   qualification: z.string().min(1, "Bằng cấp không được để trống"),
   experience: z.string().min(1, "Kinh nghiệm không được để trống"),
   bio: z.string().min(1, "Giới thiệu không được để trống"),
-  cv: z.instanceof(FileList)
-    .refine((files) => files?.length === 1, "CV là bắt buộc.")
-    .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Kích thước file tối đa là 5MB.`)
-    .refine(
-      (files) => ALLOWED_CV_TYPES.includes(files?.[0]?.type),
-      "Chỉ hỗ trợ file .pdf và .docx"
-    ),
-  certificates: z.instanceof(FileList)
-    .refine((files) => files?.length > 0, "Cần ít nhất một chứng chỉ.")
-    .refine((files) => files?.length <= 5, "Tối đa 5 chứng chỉ.")
-    .refine((files) => Array.from(files).every((file: any) => file.size <= MAX_FILE_SIZE), `Kích thước file tối đa là 5MB.`)
-    .refine((files) => Array.from(files).every((file: any) => ALLOWED_CERT_TYPES.includes(file.type)), "Chỉ hỗ trợ file .jpg, .png, .pdf"),
+  cv: typeof window === 'undefined'
+    ? z.any()
+    : z.instanceof(FileList)
+      .refine((files) => files?.length === 1, "CV là bắt buộc.")
+      .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Kích thước file tối đa là 5MB.`)
+      .refine(
+        (files) => ALLOWED_CV_TYPES.includes(files?.[0]?.type),
+        "Chỉ hỗ trợ file .pdf và .docx"
+      ),
+  certificates: typeof window === 'undefined'
+    ? z.any()
+    : z.instanceof(FileList)
+      .refine((files) => files?.length > 0, "Cần ít nhất một chứng chỉ.")
+      .refine((files) => files?.length <= 5, "Tối đa 5 chứng chỉ.")
+      .refine((files) => Array.from(files).every((file: any) => file.size <= MAX_FILE_SIZE), `Kích thước file tối đa là 5MB.`)
+      .refine((files) => Array.from(files).every((file: any) => ALLOWED_CERT_TYPES.includes(file.type)), "Chỉ hỗ trợ file .jpg, .png, .pdf"),
 });
 
 export default function ConsultantRegistrationForm({ setOpen }: { setOpen: (open: boolean) => void }) {

@@ -63,8 +63,8 @@ export const CreateChatDialog: React.FC<CreateChatDialogProps> = ({
       });
 
       onClose(); // Close dialog
-      // Redirect to chat room using createdQuestion.data.id, passing title and content as query params
-      router.push(`/chat/${createdQuestion.data.id}?title=${encodeURIComponent(title.trim())}&content=${encodeURIComponent(content.trim())}`);
+      // Redirect to chat room using createdQuestion.data.id, passing title, content, and appointmentId as query params
+      router.push(`/chat/${createdQuestion.data.id}?appointmentId=${appointmentId}&title=${encodeURIComponent(title.trim())}&content=${encodeURIComponent(content.trim())}`);
     } catch (error: any) {
       console.error("[CreateChatDialog] Error creating chat question:", error);
       let errorMessage = "Có lỗi xảy ra khi tạo phòng chat. Vui lòng thử lại.";

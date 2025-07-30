@@ -272,6 +272,11 @@ export const ChatService = {
     return apiClient.post<ApiResponse<Question>>("/chat/questions", data);
   },
 
+  async getQuestions(params: { search?: string; page?: number; limit?: number } = {}): Promise<PaginatedResponse<Question>> {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return apiClient.get<PaginatedResponse<Question>>(`/chat/questions${query ? `?${query}` : ""}`);
+  },
+
   async getQuestionById(questionId: string): Promise<Question> {
     try {
       console.log(`[ChatService] Attempting to fetch question with ID: ${questionId}`);
@@ -291,14 +296,6 @@ export const ChatService = {
   async getChatRoomByAppointmentId(appointmentId: string): Promise<ChatRoom> {
     const res = await apiClient.get<ChatRoom>(`/appointments/${appointmentId}/chat-room`);
     return res;
-  },
-
-  // This is a new method to get a Question by appointmentId, which might be what getChatRoomByAppointmentId does.
-  // We add this for clarity and to handle cases where a Question object is expected.
-  async getQuestionByAppointmentId(appointmentId: string): Promise<Question> {
-    // Assuming the /chat-room endpoint returns a Question object or something compatible.
-    // If the backend returns a different structure, this will need adjustment.
-    return apiClient.get<Question>(`/appointments/${appointmentId}/chat-room`);
   },
 
   onNewMessage(

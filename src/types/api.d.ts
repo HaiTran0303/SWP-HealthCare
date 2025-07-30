@@ -139,6 +139,7 @@ export interface Question {
   appointmentId?: string;
   status: "pending" | "answered" | "closed"; // Thêm trạng thái cho câu hỏi chat
   isAnonymous?: boolean; // Thêm thuộc tính ẩn danh
+  unreadCount?: number; // Add unreadCount property
   createdAt: string;
   updatedAt: string;
 }

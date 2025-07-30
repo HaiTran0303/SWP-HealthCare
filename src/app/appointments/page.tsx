@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -14,18 +14,22 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
-import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AppointmentService } from "@/services/appointment.service";
-import { STITestingService } from "@/services/sti-testing.service"; // Import STITestingService
-import { APIService, Service } from "@/services/service.service"; // Import APIService and Service interface
+import { STITestingService } from "@/services/sti-testing.service";
+import { APIService, Service } from "@/services/service.service";
 import { useSearchParams, useRouter } from "next/navigation";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
-// import { AuthContext } from "@/contexts/AuthContext"; // Uncomment if you have AuthContext
-
-// Using Service type directly from service.service.ts
-// The previous PackageService type and related imports are no longer needed.
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, CheckCircle } from "lucide-react";
 
 // API: Get available slots (for consultant-required services)
 async function getAvailableSlots({
@@ -65,13 +69,9 @@ async function getAvailableSlots({
   return res.json();
 }
 
-// API: Book appointment (using AppointmentService for consistency)
-// Removed the direct fetch function and will use AppointmentService.createAppointment directly within handleBookAppointment
-
 export default function AppointmentsPage() {
-  // const { user } = useContext(AuthContext); // Uncomment if you have AuthContext
   const [step, setStep] = useState(1);
-  const [services, setServices] = useState<Service[]>([]); // Changed from PackageService[] to Service[]
+  const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [loadingServices, setLoadingServices] = useState<boolean>(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -82,11 +82,14 @@ export default function AppointmentsPage() {
   const [notes, setNotes] = useState("");
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const [booking, setBooking] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
   const router = useRouter();
+
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [isBookingLoading, setIsBookingLoading] = useState(false);
+  const [bookedAppointmentId, setBookedAppointmentId] = useState<string | null>(null);
+  const [bookedChatId, setBookedChatId] = useState<string | null>(null);
+
 
   useEffect(() => {
     setLoadingServices(true);
@@ -110,19 +113,17 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     if (!loadingServices && services.length > 0) {
-      const serviceIdFromUrl = searchParams.get("serviceId"); // Use "serviceId" as parameter name
+      const serviceIdFromUrl = searchParams.get("serviceId");
       if (serviceIdFromUrl) {
-        // Find Service directly by its ID
         const foundService = services.find((s) => s.id === serviceIdFromUrl);
         if (foundService) {
-          // Add service ID to selectedServiceIds
           setSelectedServiceIds((prev) => {
             if (!prev.includes(foundService.id)) {
               return [...prev, foundService.id];
             }
             return prev;
           });
-          setStep(2); // Automatically advance to step 2
+          setStep(2);
         } else {
           toast({
             title: "Dịch vụ không khả dụng",
@@ -135,11 +136,10 @@ export default function AppointmentsPage() {
   }, [loadingServices, services, searchParams, toast]);
 
   const selectedServices = services
-    .filter((s) => selectedServiceIds.includes(s.id)); // No longer need to map s.service
+    .filter((s) => selectedServiceIds.includes(s.id));
 
   const needsConsultant = selectedServices.some((s) => s.requiresConsultant);
 
-  // Lấy slot nếu cần tư vấn viên
   useEffect(() => {
     if (needsConsultant && selectedServiceIds.length && selectedDate) {
       setLoadingSlots(true);
@@ -157,7 +157,6 @@ export default function AppointmentsPage() {
         });
         return;
       }
-      // mappedServiceIds directly uses selectedServiceIds since they are already service IDs
       const mappedServiceIds = selectedServiceIds;
 
       getAvailableSlots({
@@ -185,17 +184,15 @@ export default function AppointmentsPage() {
     }
   }, [needsConsultant, selectedServiceIds, selectedDate, services.length]);
 
-  // Reset selectedSlot khi đổi ngày hoặc dịch vụ
   useEffect(() => {
     setSelectedSlot(null);
   }, [selectedDate, selectedServiceIds]);
 
-  // Reset selectedTime khi đổi ngày hoặc dịch vụ
   useEffect(() => {
     setSelectedTime("");
   }, [selectedDate, selectedServiceIds]);
 
-  const handleBookAppointment = async () => {
+  const handleBookingSubmit = () => {
     if (!selectedDate || selectedServiceIds.length === 0) {
       toast({
         title: "Lỗi",
@@ -220,6 +217,11 @@ export default function AppointmentsPage() {
       });
       return;
     }
+    setIsConfirmDialogOpen(true);
+  };
+
+  const handleConfirmBooking = async () => {
+    setIsBookingLoading(true);
     const token =
       typeof window !== "undefined"
         ? localStorage.getItem("accessToken")
@@ -230,21 +232,23 @@ export default function AppointmentsPage() {
         description: "Bạn cần đăng nhập để đặt lịch.",
         variant: "destructive",
       });
+      setIsBookingLoading(false);
       return;
     }
 
     try {
       const firstSelectedService = services.find((s) => selectedServiceIds.includes(s.id));
-      const isStiService = firstSelectedService?.type === 'STI_TEST'; // Giả định có trường `type` để phân biệt dịch vụ STI
+      const isStiService = firstSelectedService?.type === 'STI_TEST';
 
+      let response;
       if (isStiService) {
-        // Handle STI Appointment
         if (!selectedDate || !selectedTime) {
           toast({
             title: "Lỗi",
             description: "Vui lòng chọn ngày và giờ lấy mẫu.",
             variant: "destructive",
           });
+          setIsBookingLoading(false);
           return;
         }
 
@@ -255,13 +259,11 @@ export default function AppointmentsPage() {
         ];
         const [hour, minute] = selectedTime.split(":").map(Number);
         
-        // Construct date in local timezone and format it to ISO 8601 string without timezone offset
-        // This ensures the backend receives the exact local time components
         const localDate = new Date(year, month, day, hour, minute, 0, 0);
         const pad = (num: number) => num < 10 ? '0' + num : num;
         const sampleCollectionDate = `${localDate.getFullYear()}-${pad(localDate.getMonth() + 1)}-${pad(localDate.getDate())}T${pad(localDate.getHours())}:${pad(localDate.getMinutes())}:00`;
         
-        const sampleCollectionLocation: "office" = "office"; // STI tests are typically at an office
+        const sampleCollectionLocation: "office" = "office";
 
         const stiAppointmentData = {
           stiServiceId: firstSelectedService.id,
@@ -271,13 +273,15 @@ export default function AppointmentsPage() {
           notes,
         };
 
-        await STITestingService.createStiAppointment(stiAppointmentData);
+        response = (await STITestingService.createStiAppointment(stiAppointmentData)) as any;
+        console.log("STI Appointment Response:", response);
+        setBookedAppointmentId(response.id);
+        setBookedChatId(response.chatRoomId ?? null);
 
       } else {
-        // Handle General Appointment
         let appointmentDate = "";
         let consultantId: string | undefined = undefined;
-        const appointmentLocation: "online" = "online"; // Default to online as per user feedback
+        const appointmentLocation: "online" = "online";
 
         if (needsConsultant) {
           appointmentDate = selectedSlot.dateTime;
@@ -289,6 +293,7 @@ export default function AppointmentsPage() {
               description: "Vui lòng chọn ngày và giờ.",
               variant: "destructive",
             });
+            setIsBookingLoading(false);
             return;
           }
           const [year, month, day] = [
@@ -298,7 +303,6 @@ export default function AppointmentsPage() {
           ];
           const [hour, minute] = selectedTime.split(":").map(Number);
 
-          // Construct date in local timezone and format it to ISO 8601 string without timezone offset
           const localDate = new Date(year, month, day, hour, minute, 0, 0);
           const pad = (num: number) => num < 10 ? '0' + num : num;
           appointmentDate = `${localDate.getFullYear()}-${pad(localDate.getMonth() + 1)}-${pad(localDate.getDate())}T${pad(localDate.getHours())}:${pad(localDate.getMinutes())}:00`;
@@ -312,40 +316,75 @@ export default function AppointmentsPage() {
           notes,
         };
 
-        await AppointmentService.createAppointment(generalAppointmentData);
+        response = (await AppointmentService.createAppointment(generalAppointmentData)) as any;
+        console.log("General Appointment Response:", response);
+        setBookedAppointmentId(response.id);
+        setBookedChatId(response.chatRoomId ?? null);
       }
 
-      setBooking({ success: true, message: "Đặt lịch thành công!" });
+      setIsConfirmDialogOpen(false);
+      setIsSuccessDialogOpen(true);
       toast({
         title: "Thành công",
         description: "Lịch hẹn của bạn đã được đặt thành công.",
       });
-      setStep(5); // Changed to step 5 for success message
+      setStep(5);
       setSelectedServiceIds([]);
       setSelectedDate(undefined);
       setSelectedTime("");
       setSelectedSlot(null);
       setNotes("");
-      setTimeout(() => {
-        router.push("/profile/appointments");
-      }, 1500);
     } catch (error: any) {
       console.error("Error booking appointment:", error);
       const errorMessage = error?.response?.data?.message || error?.message || "Không thể đặt lịch. Vui lòng thử lại.";
-      setBooking({ success: false, message: errorMessage });
       toast({
         title: "Lỗi",
         description: errorMessage,
         variant: "destructive",
       });
+      setIsBookingLoading(false);
     }
   };
 
-  // Phân quyền: chỉ Customer mới đặt được lịch (giả sử user?.role === 'customer')
-  // const canBook = user?.role === 'customer';
-  const canBook = true; // TODO: thay bằng kiểm tra role thực tế
+  const resetBooking = () => {
+    setStep(1);
+    setSelectedServiceIds([]);
+    setSelectedDate(undefined);
+    setSelectedTime("");
+    setSelectedSlot(null);
+    setNotes("");
+    setIsSuccessDialogOpen(false);
+    setBookedAppointmentId(null);
+    setBookedChatId(null);
+  };
 
-  // Tóm tắt thông tin đã chọn
+  const handleGoToPayment = () => {
+    console.log("Attempting to go to payment. bookedAppointmentId:", bookedAppointmentId);
+    if (bookedAppointmentId) {
+      router.push(`/appointments/payment?appointmentId=${bookedAppointmentId}`);
+    } else {
+      toast({
+        title: "Lỗi",
+        description: "Không tìm thấy ID cuộc hẹn để thanh toán.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleGoToChat = () => {
+    if (bookedChatId) {
+      router.push(`/chat/${bookedChatId}`);
+    } else {
+      toast({
+        title: "Lỗi",
+        description: "Không tìm thấy ID cuộc trò chuyện.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const canBook = true;
+
   const summary = (
     <div className="sticky top-8 bg-white rounded-xl shadow-lg p-6 border w-full max-w-md mx-auto mb-8">
       <h3 className="text-xl font-bold mb-4 text-primary">Tóm tắt đặt lịch</h3>
@@ -483,7 +522,7 @@ export default function AppointmentsPage() {
                           <div className="flex items-center gap-2">
                             <Checkbox
                               checked={selectedServiceIds.includes(item.id)}
-                              aria-hidden="true" // Checkbox is visually present, but its state is controlled by the parent div's click/keydown
+                              aria-hidden="true"
                             />
                             <span className="font-semibold text-lg text-primary">
                               {item.name}
@@ -693,7 +732,7 @@ export default function AppointmentsPage() {
                                   )}
                                   onChange={() => setSelectedSlot(group.originalSlots[0])}
                                   className="accent-primary w-5 h-5"
-                                  aria-hidden="true" // Radio button is visually present, but its state is controlled by the parent label's click/keydown
+                                  aria-hidden="true"
                                 />
                                 <div className="flex-1">
                                   <div className="font-semibold text-lg text-primary">
@@ -798,7 +837,7 @@ export default function AppointmentsPage() {
                     </Button>
                     <Button
                       size="lg"
-                      onClick={handleBookAppointment}
+                      onClick={handleBookingSubmit}
                       aria-label="Xác nhận đặt lịch hẹn"
                     >
                       Xác nhận đặt lịch
@@ -807,20 +846,15 @@ export default function AppointmentsPage() {
                 </div>
               )}
               {/* Bước 5: Thông báo kết quả */}
-              {step === 5 && booking && (
+              {step === 5 && (
                 <div className="space-y-4 text-center" role="status" aria-live="polite">
-                  <h2 className="text-2xl font-bold text-green-600" aria-label={booking.success ? "Đặt lịch thành công!" : "Đặt lịch thất bại"}>
-                    {booking.success
-                      ? "Đặt lịch thành công!"
-                      : "Đặt lịch thất bại"}
+                  <h2 className="text-2xl font-bold text-green-600" aria-label="Đặt lịch thành công!">
+                    Đặt lịch thành công!
                   </h2>
-                  <p>{booking.message}</p>
+                  <p>Lịch hẹn của bạn đã được đặt thành công.</p>
                   <Button
                     size="lg"
-                    onClick={() => {
-                      setStep(1);
-                      setBooking(null);
-                    }}
+                    onClick={resetBooking}
                     aria-label="Đặt lịch mới"
                   >
                     Đặt lịch mới
@@ -834,6 +868,73 @@ export default function AppointmentsPage() {
           {step !== 5 && summary}
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận đặt lịch hẹn</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn đặt lịch hẹn cho dịch vụ đã chọn vào ngày{" "}
+              {selectedDate?.toLocaleDateString("vi-VN")} lúc{" "}
+              {needsConsultant
+                ? selectedSlot?.dateTime
+                  ? new Date(selectedSlot.dateTime).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })
+                  : ""
+                : selectedTime}
+              {needsConsultant && selectedSlot?.consultant && (
+                <> với tư vấn viên {selectedSlot.consultant.lastName} {selectedSlot.consultant.firstName}</>
+              )}
+              ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+              Hủy
+            </Button>
+            <Button onClick={handleConfirmBooking} disabled={isBookingLoading}>
+              {isBookingLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                "Xác nhận đặt lịch"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-center">
+              <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+              Đặt lịch thành công!
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              Lịch hẹn của bạn đã được ghi nhận.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row justify-center gap-2">
+            {bookedAppointmentId && (
+              <Button onClick={handleGoToPayment} className="w-full sm:w-auto">
+                Đi đến trang thanh toán
+              </Button>
+            )}
+            {bookedChatId && (
+              <Button onClick={handleGoToChat} className="w-full sm:w-auto" variant="outline">
+                Vào chat ngay
+              </Button>
+            )}
+            <Button onClick={resetBooking} className="w-full sm:w-auto" variant="secondary">
+              Đặt lịch mới
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

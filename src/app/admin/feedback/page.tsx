@@ -68,7 +68,7 @@ const FeedbackManagementTable: React.FC = () => {
     try {
       const response = await FeedbackService.getAllFeedbacks(queryParams);
       setFeedbacks(response.data);
-      setTotalFeedbacks(response.total);
+      setTotalFeedbacks(response.meta.totalItems);
     } catch (error: any) {
       console.error("Error fetching feedbacks:", error);
       toast({

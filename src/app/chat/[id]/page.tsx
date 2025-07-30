@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"; // Import useSearc
 import ChatRoom from "../../../components/ChatRoom";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatService } from "@/services/chat.service"; // Import ChatService
+import { AppointmentService } from "@/services/appointment.service"; // Import AppointmentService
 import { Question } from "@/types/api.d"; // Import Question type
 import { Loader2 } from "lucide-react";
 
@@ -41,9 +42,11 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
   const questionId = params.id;
   const initialTitle = searchParams.get("title");
   const initialContent = searchParams.get("content");
+  const appointmentId = searchParams.get("appointmentId"); // Get appointmentId from query params
   console.log("[ChatRoomPage] Received questionId from params:", questionId);
   console.log("[ChatRoomPage] Received initialTitle from query:", initialTitle);
   console.log("[ChatRoomPage] Received initialContent from query:", initialContent);
+  console.log("[ChatRoomPage] Received appointmentId from query:", appointmentId);
 
   useEffect(() => {
     const fetchChatDataAndAuthorize = async () => {
@@ -74,6 +77,7 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
             status: "pending", // Default status for newly created chat
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
+            appointmentId: appointmentId || undefined, // Include appointmentId if present
           };
           setChatQuestion(fetchedQuestion);
           console.log("[ChatRoomPage] Constructed Question from query params:", fetchedQuestion);
@@ -87,11 +91,21 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
 
         // Authorization logic
         const currentUserIsCreator = fetchedQuestion.userId === user.id;
-        // For now, only the creator (userId) is authorized.
-        // If consultants need access, the backend Question DTO must include consultantId.
-        // const currentUserIsConsultant = fetchedQuestion.consultantId === user.id; // This line will cause TS error if consultantId is not in Question
+        let currentUserIsConsultant = false;
 
-        if (currentUserIsCreator /* || currentUserIsConsultant */) {
+        // Check if the user is a consultant and is linked to this question's appointment
+        if (user.role?.name === "consultant" && fetchedQuestion.appointmentId) {
+          try {
+            const appointment = await AppointmentService.getAppointmentById(fetchedQuestion.appointmentId);
+            if (appointment && appointment.consultantId === user.id) {
+              currentUserIsConsultant = true;
+            }
+          } catch (aptError) {
+            console.error("[ChatRoomPage] Error fetching appointment for consultant authorization:", aptError);
+          }
+        }
+
+        if (currentUserIsCreator || currentUserIsConsultant) {
           setIsAuthorized(true);
         } else {
           router.push("/403");
@@ -103,16 +117,7 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
     if (!isAuthLoading) {
       fetchChatDataAndAuthorize();
     }
-  }, [questionId, initialTitle, initialContent, user, isAuthenticated, isAuthLoading, router]);
-
-  if (isAuthLoading || isLoadingChatRoom) { // Use new loading state
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2">Đang tải phòng chat...</p>
-      </div>
-    );
-  }
+  }, [questionId, initialTitle, initialContent, appointmentId, user, isAuthenticated, isAuthLoading, router]);
 
   if (isAuthLoading || isLoadingChatRoom) {
     return (
@@ -123,8 +128,19 @@ export default function ChatRoomPage({ params }: { params: { id: string } }) {
     );
   }
 
-  if (!isAuthorized || !chatQuestion) { // Use chatQuestion
+  if (!isAuthorized || !chatQuestion) {
     // This case should be handled by redirects in useEffect, but as a fallback
+    // Also handle the "Khách hàng chưa có câu hỏi" message for consultants
+    if (user?.role?.name === "consultant" && !chatQuestion) {
+      return (
+        <div className="container mx-auto p-8 text-center">
+          <h1 className="text-2xl font-bold mb-4">Khách hàng chưa có câu hỏi</h1>
+          <p className="text-muted-foreground">
+            Phòng chat này chưa được khách hàng khởi tạo hoặc đã bị đóng.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="container mx-auto p-8 text-center">
         <h1 className="text-2xl font-bold mb-4">Truy cập bị từ chối</h1>
