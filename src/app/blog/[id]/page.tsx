@@ -72,12 +72,12 @@ export default function BlogDetailPage() {
   if (loading) return <div className="p-8">Đang tải...</div>;
   if (error) return <div className="p-8 text-red-500">{error}</div>;
   if (!blog) return null;
-
+  
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="container flex flex-col mx-auto px-4 py-8 max-w-6xl">
       <div className="flex flex-col md:flex-row gap-8">
         {/* Image section (takes full width on small screens, 1/2 on medium and up) */}
-        <div className="w-full md:w-1/2">
+        <div className="w-full md:h-1/2">
           {blog.imageUrl ? (
             <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden shadow-lg">
               <Image
@@ -96,8 +96,10 @@ export default function BlogDetailPage() {
             </div>
           )}
         </div>
+      </div>
+      <div className="flex flex-col md:flex-row gap-8 mt-8">
         {/* Content section (takes full width on small screens, 1/2 on medium and up) */}
-        <div className="w-full md:w-1/2 flex flex-col">
+        <div className="w-full flex flex-col">
           <div className="p-6 flex-1">
             <h1 className="text-3xl font-bold mb-4 text-primary leading-tight">
               {blog.title}
@@ -110,7 +112,7 @@ export default function BlogDetailPage() {
                 </div>
             <div className="prose prose-lg max-w-none text-gray-800 dark:text-gray-200 leading-relaxed">
               {/* Render HTML content directly if blog.content is HTML */}
-              <div dangerouslySetInnerHTML={{ __html: blog.content }} />
+              <div dangerouslySetInnerHTML={{ __html: blog.content.replace(/\n/g, '<br />') }} />
             </div>
           </div>
         </div>
