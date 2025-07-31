@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { apiClient } from "@/services/api";
@@ -38,19 +39,10 @@ export function UpdateAppointmentStatusDialog({
   const { toast } = useToast();
 
   const handleStatusChange = async () => {
-    if (!newStatus) {
-      toast({
-        title: "Lỗi",
-        description: "Vui lòng chọn một trạng thái mới.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       await apiClient.patch(
         `${API_ENDPOINTS.APPOINTMENTS.UPDATE_STATUS(appointmentId)}`,
-        { status: newStatus as Appointment["status"] } // Cast to Appointment["status"]
+        { status: newStatus as Appointment["status"] }
       );
       toast({
         title: "Thành công",
@@ -80,18 +72,21 @@ export function UpdateAppointmentStatusDialog({
           <DialogTitle>Cập nhật trạng thái cuộc hẹn</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <Select onValueChange={setNewStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="Chọn trạng thái mới" />
-            </SelectTrigger>
-            <SelectContent>
-              {appointmentStatuses.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {appointmentStatusMap[status]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div>
+            <Label htmlFor="status-select">Trạng thái</Label>
+            <Select onValueChange={setNewStatus}>
+              <SelectTrigger id="status-select">
+                <SelectValue placeholder="Chọn trạng thái mới" />
+              </SelectTrigger>
+              <SelectContent>
+                {appointmentStatuses.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {appointmentStatusMap[status]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Button onClick={handleStatusChange}>Cập nhật</Button>
         </div>
       </DialogContent>

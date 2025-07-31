@@ -29,31 +29,34 @@ import BlogPublishModal from "@/components/BlogPublishModal";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { apiClient } from "@/services/api"; // Import apiClient
-import { API_ENDPOINTS } from "@/config/api"; // Import API_ENDPOINTS
-import UserManagementTable from "@/components/UserManagementTable"; // Import UserManagementTable
-import AppointmentManagementTable from "@/components/AppointmentManagementTable"; // Import AppointmentManagementTable
-import StiTestManagementTable from "@/components/StiTestManagementTable"; // Import StiTestManagementTable
-import ConsultantManagementTable from "@/components/ConsultantManagementTable"; // Import ConsultantManagementTable
-import ServiceManagementTable from "@/components/ServiceManagementTable"; // Import ServiceManagementTable
-import StiProcessTable from "@/components/StiProcessTable"; // Import StiProcessTable
-import PaymentManagementTable from "@/components/PaymentManagementTable"; // Import PaymentManagementTable
+import { API_ENDPOINTS } from "@/config/api";
+import UserManagementTable from "@/components/UserManagementTable";
+import AppointmentManagementTable from "@/components/AppointmentManagementTable";
+import StiTestManagementTable from "@/components/StiTestManagementTable";
+import ConsultantManagementTable from "@/components/ConsultantManagementTable";
+import ServiceManagementTable from "@/components/ServiceManagementTable";
+import StiProcessTable from "@/components/StiProcessTable";
+import PaymentManagementTable from "@/components/PaymentManagementTable";
 import PendingConsultantTable from "@/components/PendingConsultantTable";
+import { AppointmentService } from "@/services/appointment.service"; // Import AppointmentService
 
 interface UserOverviewResponse {
   totalUsers: number;
-  // Add other properties if available in the API response
+}
+
+interface AppointmentStatsResponse {
+  totalAppointmentsToday: number;
+  completedAppointmentsToday: number;
 }
 
 interface StiStatsResponse {
   totalTests: number;
   pendingResults: number;
-  // Add other properties if available
 }
 
 interface RevenueStatsResponse {
   totalRevenue: number;
   percentageChangeFromPreviousMonth: number;
-  // Add other properties if available
 }
 
 export default function AdminDashboard() {
@@ -97,11 +100,12 @@ export default function AdminDashboard() {
     try {
       // Fetch Total Users
       const usersOverview = await apiClient.get<UserOverviewResponse>(API_ENDPOINTS.USER_DASHBOARD.OVERVIEW);
-      const totalUsers = usersOverview?.totalUsers || 0; // Assuming API returns totalUsers
+      const totalUsers = usersOverview?.totalUsers || 0;
 
-      // Fetch Appointments Today (placeholder for now, need specific API)
-      const appointmentsToday = 23; // Placeholder
-      const appointmentsCompletedToday = 12; // Placeholder
+      // Fetch Appointments Today
+      const appointmentStats = await AppointmentService.getAppointmentStatistics();
+      const appointmentsToday = appointmentStats?.totalAppointmentsToday || 0;
+      const appointmentsCompletedToday = appointmentStats?.completedAppointmentsToday || 0;
 
       // Fetch STI Tests
       const stiStats = await apiClient.get<StiStatsResponse>(API_ENDPOINTS.STI_TESTING.STATISTICS.DASHBOARD);
