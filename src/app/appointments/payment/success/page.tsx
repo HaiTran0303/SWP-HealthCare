@@ -109,21 +109,8 @@ export default function PaymentSuccessPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-10">
-      <h1 className="text-2xl font-bold mb-4">Trạng thái thanh toán</h1>
+      <h1 className="text-2xl font-bold mb-4">Đang xử lý thanh toán...</h1>
       <p className="text-lg mb-6 text-center">{message}</p>
-      {!loading && (
-        <div className="flex flex-col gap-4">
-          {isPaymentConfirmed && chatRoomId ? (
-            <Button onClick={handleGoToChat}>
-              Vào phòng chat
-            </Button>
-          ) : (
-            <Button onClick={handleGoToAppointments}>
-              Xem lịch hẹn của tôi
-            </Button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
