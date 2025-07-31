@@ -99,7 +99,7 @@ export default function CreateBlogPage() {
         )
     );
 
-    const blogStatus = isManagerOrAdmin ? "published" : "pending_review"; // Set status based on role
+    const blogStatus = isManagerOrAdmin ? "pending_review" : "pending_review"; // Set status based on role
 
     const payload: CreateBlogData = {
       title,
