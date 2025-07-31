@@ -274,7 +274,8 @@ const AppointmentCard: React.FC<{
 
   const canCancel = AppointmentService.canCancel(appointment.status);
   const isPastAppointment = AppointmentService.isPastAppointment(appointment.appointmentDate);
-  const isCompletedAndPast = appointment.status === "completed" && isPastAppointment;
+  // A "checked-in" appointment is eligible for feedback immediately.
+  const isEligibleForFeedback = (appointment.status === "completed" && isPastAppointment) || appointment.status === "checked_in";
   const hasFeedback = !!appointment.feedbackId;
 
   const appointmentDateObj = new Date(appointment.appointmentDate);
@@ -295,11 +296,13 @@ const AppointmentCard: React.FC<{
               <h3 className="font-semibold text-lg">
                 {appointment.consultant ? `${appointment.consultant.firstName} ${appointment.consultant.lastName}` : "N/A"}
               </h3>
-              <p className="text-sm text-muted-foreground">{appointment.consultant?.qualification || "N/A"}</p>
-              <div className="flex items-center gap-1 mt-1">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm">{appointment.consultant?.rating ? `${appointment.consultant.rating}/5` : "N/A"}</span>
-              </div>
+              <p className="text-sm text-muted-foreground">{appointment.consultant?.qualification || "Chưa có bằng cấp"}</p>
+              {appointment.consultant?.rating && appointment.consultant.rating > 0 && (
+                <div className="flex items-center gap-1 mt-1">
+                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  <span className="text-sm">{`${appointment.consultant.rating.toFixed(1)}/5`}</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -411,7 +414,7 @@ const AppointmentCard: React.FC<{
             </Button>
           )}
 
-          {isCompletedAndPast && !hasFeedback && (
+          {isEligibleForFeedback && !hasFeedback && (
             <Button
               variant="default"
               size="sm"
@@ -423,7 +426,7 @@ const AppointmentCard: React.FC<{
             </Button>
           )}
 
-          {isCompletedAndPast && hasFeedback && (
+          {isEligibleForFeedback && hasFeedback && (
             <Button
               variant="outline"
               size="sm"
@@ -481,6 +484,8 @@ const UserAppointmentManagement: React.FC = () => {
         return <Clock className="w-4 h-4" />;
       case "confirmed":
         return <CheckCircle className="w-4 h-4" />;
+      case "checked_in":
+        return <CheckCircle className="w-4 h-4" />;
       case "cancelled":
         return <XCircle className="w-4 h-4" />;
       case "completed":
@@ -501,6 +506,8 @@ const UserAppointmentManagement: React.FC = () => {
       case "cancelled":
         return "bg-red-100 text-red-800";
       case "completed":
+        return "bg-green-100 text-green-800";
+      case "checked_in":
         return "bg-green-100 text-green-800";
       case "no_show":
         return "bg-gray-100 text-gray-800";
@@ -807,6 +814,8 @@ const UserAppointmentManagement: React.FC = () => {
         isAnonymous,
       };
 
+      console.log("Submitting feedback with data:", feedbackData); // Log the data being sent
+
       const response = await FeedbackService.createFeedback(feedbackData);
       
       // Update local state with new feedback
@@ -852,10 +861,11 @@ const UserAppointmentManagement: React.FC = () => {
     ["pending", "confirmed", "scheduled"].includes(apt.status)
   );
 
-  const pastAppointments = appointments.filter(apt => 
-    AppointmentService.isPastAppointment(apt.appointmentDate) || 
-    ["completed", "cancelled", "no_show"].includes(apt.status)
-  );
+  const pastAppointments = appointments.filter(apt => {
+    const isPast = AppointmentService.isPastAppointment(apt.appointmentDate);
+    const isFinishedStatus = ["completed", "cancelled", "no_show", "checked_in"].includes(apt.status);
+    return isPast || isFinishedStatus;
+  });
 
   // Pagination handlers
   const handlePageChange = (page: number) => {
