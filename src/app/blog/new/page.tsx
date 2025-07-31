@@ -107,8 +107,8 @@ export default function CreateBlogPage() {
       authorId: user.id,
       tags: tagsArray,
       categoryId: selectedCategory,
-      status: blogStatus, // Use the determined status
-      autoPublish: isManagerOrAdmin, // autoPublish is true only for Admin/Manager
+      status: "pending_review", // Use the determined status
+      autoPublish: false, // autoPublish is true only for Admin/Manager
       seoTitle: seoTitle || title, // Fallback to title if seoTitle is empty
       seoDescription: seoDescription,
       excerpt: excerpt,
