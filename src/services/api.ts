@@ -78,6 +78,9 @@ async function fetchWithTimeout(resource: string, config: RequestConfig = {}) {
       throw new ApiError(response.status, "Invalid response format from server", { rawResponse: rawResponseText, parseError: error });
     }
 
+    console.log("[APIClient] Raw Response Text:", rawResponseText);
+    console.log("[APIClient] Parsed Data:", data);
+
     if (!response.ok) {
       const safeData = data && typeof data === "object" ? data : {};
 

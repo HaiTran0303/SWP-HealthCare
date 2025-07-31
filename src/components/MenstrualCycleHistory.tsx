@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { MenstrualService, CycleData } from "@/services/menstrual.service";
+import { CycleData } from "@/services/menstrual.service";
 import {
   Table,
   TableBody,
@@ -18,23 +17,21 @@ import { ArrowLeftIcon } from "@radix-ui/react-icons";
 import { MenstrualCycleDetail } from "@/components/MenstrualCycleDetail";
 
 interface MenstrualCycleHistoryProps {
-  // No props needed for now, as it will manage its own state for selected cycle
+  cycles: CycleData[];
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
 }
 
-export const MenstrualCycleHistory: React.FC<MenstrualCycleHistoryProps> = () => {
+export const MenstrualCycleHistory: React.FC<MenstrualCycleHistoryProps> = ({
+  cycles,
+  isLoading,
+  isError,
+  error,
+}) => {
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
 
-  const {
-    data: cyclesData,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ["menstrual-cycles"],
-    queryFn: MenstrualService.getAllCycles,
-  });
-
-  const cycles = cyclesData?.data || [];
+  console.log("MenstrualCycleHistory received cycles:", cycles);
 
   const handleBackToList = () => {
     setSelectedCycleId(null);
@@ -74,7 +71,6 @@ export const MenstrualCycleHistory: React.FC<MenstrualCycleHistoryProps> = () =>
                 <TableHead>Ngày bắt đầu</TableHead>
                 <TableHead>Ngày kết thúc</TableHead>
                 <TableHead>Ghi chú</TableHead>
-                <TableHead>Hành động</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -87,14 +83,6 @@ export const MenstrualCycleHistory: React.FC<MenstrualCycleHistoryProps> = () =>
                       : "N/A"}
                   </TableCell>
                   <TableCell>{cycle.notes || "Không có"}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      onClick={() => setSelectedCycleId(cycle.id)}
-                    >
-                      Xem chi tiết
-                    </Button>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

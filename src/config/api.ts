@@ -48,6 +48,9 @@ export const API_ENDPOINTS = {
     GET_MEETING_LINK: (id: string) => `/appointments/${id}/meeting-link`,
     REMOVE_MEETING_LINK: (id: string) => `/appointments/${id}/meeting-link`,
     CONSULTANT_MY_APPOINTMENTS: "/appointments/consultant/my-appointments", // Added for consultant dashboard
+    STATISTICS: {
+      DASHBOARD: "/appointments/statistics/dashboard",
+    },
   },
 
   // Consultants

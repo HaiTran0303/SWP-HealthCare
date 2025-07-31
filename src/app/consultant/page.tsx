@@ -24,6 +24,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay } f
 import { vi } from "date-fns/locale"; // Import Vietnamese locale
 import { UpdateAppointmentStatusDialog } from "@/components/UpdateAppointmentStatusDialog";
 import { AppointmentDetailsDialog } from "@/components/AppointmentDetailsDialog";
+import { UpdateMeetingLinkDialog } from "@/components/UpdateMeetingLinkDialog"; // Import new dialog
 import { translatedAppointmentStatus } from "@/lib/translations";
 import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
@@ -353,6 +354,15 @@ function ConsultantDashboard() {
                             <UpdateAppointmentStatusDialog
                               appointmentId={appointment.id}
                               onStatusUpdate={() => {
+                                if (user) {
+                                  fetchAppointments(user.id);
+                                }
+                              }}
+                            />
+                            <UpdateMeetingLinkDialog
+                              appointmentId={appointment.id}
+                              currentMeetingLink={appointment.meetingLink}
+                              onMeetingLinkUpdate={() => {
                                 if (user) {
                                   fetchAppointments(user.id);
                                 }

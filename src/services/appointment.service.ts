@@ -151,6 +151,21 @@ export const AppointmentService = {
     }
   },
 
+  // Cập nhật link cuộc họp
+  updateMeetingLink: async (id: string, meetingLink: string): Promise<Appointment> => {
+    try {
+      console.log("[AppointmentService] Updating meeting link:", id, meetingLink);
+      const response = await apiClient.patch<Appointment>(
+        API_ENDPOINTS.APPOINTMENTS.UPDATE_MEETING_LINK(id),
+        { meetingLink }
+      );
+      return response;
+    } catch (error) {
+      console.error("[AppointmentService] Error updating meeting link:", error);
+      throw error;
+    }
+  },
+
   // Hủy appointment
   cancelAppointment: async (id: string, data: CancelAppointmentDto): Promise<void> => {
     try {
@@ -202,5 +217,17 @@ export const AppointmentService = {
 
   isPastAppointment: (appointmentDate: string): boolean => {
     return new Date(appointmentDate) < new Date();
+  },
+
+  // Lấy thống kê cuộc hẹn cho dashboard
+  getAppointmentStatistics: async (): Promise<{ totalAppointmentsToday: number; completedAppointmentsToday: number }> => {
+    try {
+      console.log("[AppointmentService] Fetching appointment statistics...");
+      const response = await apiClient.get<{ totalAppointmentsToday: number; completedAppointmentsToday: number }>(API_ENDPOINTS.APPOINTMENTS.STATISTICS.DASHBOARD);
+      return response;
+    } catch (error) {
+      console.error("[AppointmentService] Error fetching appointment statistics:", error);
+      throw error;
+    }
   },
 };
