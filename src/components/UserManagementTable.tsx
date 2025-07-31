@@ -325,7 +325,7 @@ export default function UserManagementTable() {
         lastName: newUserData.lastName,
         email: newUserData.email,
         password: newUserData.password,
-        role: newUserData.role,
+        roleId: newUserData.role, // Changed 'role' to 'roleId'
         phone: newUserData.phone || undefined,
         gender: newUserData.gender || undefined, // Include gender if it has a value
         address: newUserData.address || undefined, // Include address if it has a value

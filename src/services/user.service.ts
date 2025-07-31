@@ -51,7 +51,7 @@ export interface CreateUserPayload {
   phone?: string;
   address?: string;
   gender?: string;
-  role: string;
+  roleId: string; // Changed 'role' to 'roleId'
 }
 
 export interface UpdateUserPayload {
